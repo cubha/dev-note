@@ -53,15 +53,22 @@ src/
 │   ├── db.ts          # Dexie v4 스키마 (folders, items, config)
 │   └── crypto.ts      # Web Crypto API 유틸 (PBKDF2, AES-GCM)
 ├── features/
-│   ├── auth/          # 마스터 패스워드 모달, 잠금/해제
-│   ├── sidebar/       # 폴더 트리, 항목 목록 (useLiveQuery)
-│   ├── editor/        # CodeMirror 6 에디터 래퍼, 탭 관리
-│   └── storage/       # 파일 내보내기/가져오기
+│   ├── auth/
+│   │   └── MasterPasswordModal.tsx  # setup/unlock 모달
+│   ├── sidebar/
+│   │   ├── treeUtils.ts    # buildTree, getRootItems, collectDescendants
+│   │   ├── TreeNode.tsx    # 재귀 폴더 트리, ItemRow, 인라인 이름 변경
+│   │   └── Sidebar.tsx     # useLiveQuery, 새 폴더/항목 버튼
+│   ├── editor/
+│   │   ├── EditorPanel.tsx # CodeMirror 6, State Swapping, Ctrl+S
+│   │   └── TabBar.tsx      # 탭 목록, dirty 표시, 닫기
+│   └── storage/       # 파일 내보내기/가져오기 (예정)
 ├── store/
-│   └── atoms.ts       # Jotai atoms (탭, CryptoKey 세션, 검색 등)
+│   └── atoms.ts       # Jotai atoms (탭, tabStates, CryptoKey, contextMenu, renamingTarget 등)
 └── shared/
-    ├── components/    # 공통 UI (Button, Modal, ContextMenu)
-    └── hooks/         # 공용 커스텀 훅
+    ├── components/
+    │   └── ContextMenu.tsx  # 이름 변경, 폴더/항목 삭제
+    └── hooks/
 ```
 
 ---
@@ -103,13 +110,51 @@ iv: string                 // Base64 IV (복호화에 필요)
 | 단계 | 내용 | 상태 |
 |------|------|------|
 | 1 | Vite + React 19, Dexie v4 스키마, Web Crypto API 유틸, Jotai atoms | ✅ 완료 |
-| 2 | 마스터 패스워드 모달 (`features/auth`) | 🔲 |
-| 3 | 사이드바 & 폴더 트리 (`useLiveQuery` 연동) | 🔲 |
-| 4 | 탭 시스템 + CodeMirror 6 에디터 바인딩 | 🔲 |
-| 5 | CRUD 완성 + Ctrl+S 단축키 (암호화 저장) | 🔲 |
+| 2 | 마스터 패스워드 모달 (`features/auth`) | ✅ 완료 |
+| 3 | 사이드바 & 폴더 트리 (`useLiveQuery` 연동) | ✅ 완료 |
+| 4 | 탭 시스템 + CodeMirror 6 에디터 바인딩 | ✅ 완료 |
+| 5 | CRUD 완성 + Ctrl+S 단축키 (암호화 저장) | ✅ 완료 |
 | 6 | Fuse.js 클라이언트 검색 패널 | 🔲 |
 | 7 | File I/O — 내보내기/가져오기 (File System Access API + 폴백) | 🔲 |
 | 8 | @dnd-kit DnD 정렬 + 환경설정 모달 + GitHub Pages 배포 | 🔲 |
+
+---
+
+## 📋 변경 이력
+
+> **추가 방법**: 새 작업 시 이 섹션 **맨 위**(아래 `### YYYY-MM-DD` 블록 바로 다음)에 날짜와 내용 추가
+
+### 2025-03-02
+
+**DB 스키마 확장 (`db.ts`)**
+- AppConfig에 `canaryBlock`, `canaryIv` 필드 추가 (패스워드 검증용 canary)
+- Dexie version(2) 마이그레이션, Item에 `order` 추가 + version(3)
+
+**마스터 패스워드 모달** (`features/auth/MasterPasswordModal.tsx`)
+- setup/unlock 모드, 네이티브 `<dialog>`, canaryBlock 검증
+
+**App Barrier 패턴** (`App.tsx`)
+- config/cryptoKey 기반 4분기 (로딩/setup/unlock/정상)
+
+**사이드바** (`features/sidebar/`)
+- treeUtils: `buildTree`, `getRootItems`, `collectDescendants`
+- TreeNode: 재귀 폴더 트리, ItemRow, 인라인 이름 변경, 우클릭 컨텍스트 메뉴
+- Sidebar: useLiveQuery, 새 폴더/항목 버튼
+
+**에디터** (`features/editor/`)
+- EditorPanel: CodeMirror 6, State Swapping, langCompartment, Ctrl+S
+- TabBar: useLiveQuery, dirty dot, 닫기
+
+**컨텍스트 메뉴** (`shared/components/ContextMenu.tsx`)
+- 이름 변경, 폴더/항목 삭제 (collectDescendants)
+
+**Atoms** (`store/atoms.ts`)
+- tabStatesAtom, contextMenuAtom, renamingTargetAtom
+
+**버그 수정**
+- TreeNode: set-state-in-effect → uncontrolled input
+- ContextMenu: 중복 useEffect 제거
+- EditorPanel: tabStatesRef로 무한 리렌더 방지
 
 ---
 
