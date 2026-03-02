@@ -4,219 +4,215 @@
 # dev-note | Claude Code + Cursor 협업 워크플로우
 #
 # 사용법:
-#   ./verify.sh              # Cursor가 바꾼 파일 감지 + 전체 검증
-#   ./verify.sh --ts-only    # TypeScript 검사만
-#   ./verify.sh --ai         # Claude AI 분석 포함 (claude 필요)
-#   ./verify.sh --staged     # staged 파일만 검사
+#   bash verify.sh              # 변경 파일 감지 + 전체 검증
+#   bash verify.sh --ts-only    # TypeScript 검사만
+#   bash verify.sh --ai         # Claude AI 분석 포함 (claude CLI 필요)
+#   bash verify.sh --staged     # staged 파일만 검사
+#   bash verify.sh --full       # 변경 감지 없이 전체 파일 검사
 # ================================================================
-
 set -euo pipefail
 
-# ── 옵션 파싱 ─────────────────────────────────────────────
+# ─── 옵션 파싱 ─────────────────────────────────────────────────
 TS_ONLY=false
 AI_MODE=false
 STAGED_ONLY=false
+FULL_SCAN=false
 
 for arg in "$@"; do
-  case "$arg" in
+  case $arg in
     --ts-only) TS_ONLY=true ;;
     --ai)      AI_MODE=true ;;
     --staged)  STAGED_ONLY=true ;;
+    --full)    FULL_SCAN=true ;;
   esac
 done
 
-# ── 색상 ──────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-
-pass() { echo -e "  ${GREEN}✔${NC}  $*"; }
-fail() { echo -e "  ${RED}✘${NC}  $*"; }
-info() { echo -e "  ${BLUE}→${NC}  $*"; }
-warn() { echo -e "  ${YELLOW}!${NC}  $*"; }
-header() { echo -e "\n${BOLD}${CYAN}▶ $*${NC}"; }
+# ─── 컬러 출력 함수 ────────────────────────────────────────────
+pass()   { echo -e "\033[0;32m  ✔ $*\033[0m"; }
+fail()   { echo -e "\033[0;31m  ✘ $*\033[0m"; }
+info()   { echo -e "\033[0;36m  ℹ $*\033[0m"; }
+warn()   { echo -e "\033[0;33m  ⚠ $*\033[0m"; }
+header() { echo -e "\n\033[1;34m▶ $*\033[0m"; }
 
 FAIL_COUNT=0
-
-# ================================================================
-# 1. 변경 파일 감지
-# ================================================================
-header "변경 파일 감지 (git diff)"
-
-if [ "$STAGED_ONLY" = true ]; then
-  CHANGED=$(git diff --cached --name-only --diff-filter=ACMRT 2>/dev/null || true)
-  info "대상: staged 파일"
-else
-  UNSTAGED=$(git diff --name-only --diff-filter=ACMRT 2>/dev/null || true)
-  STAGED=$(git diff --cached --name-only --diff-filter=ACMRT 2>/dev/null || true)
-  CHANGED=$(echo -e "$UNSTAGED\n$STAGED" | sort -u | grep -v '^$' || true)
-  info "대상: staged + unstaged 전체"
-fi
-
-if [ -z "$CHANGED" ]; then
-  warn "변경된 파일 없음 — Cursor가 아직 수정하지 않았거나 git add 전입니다."
-  exit 0
-fi
-
-FILE_COUNT=$(echo "$CHANGED" | grep -c . || true)
-info "감지된 파일: ${YELLOW}${FILE_COUNT}개${NC}"
-echo ""
-echo "$CHANGED" | while read -r f; do [ -n "$f" ] && echo "    $f"; done
-
-# TS 전용 모드가 아니면 spec 체크
-if [ "$TS_ONLY" = false ]; then
-
-# ================================================================
-# 2. Spec 패턴 검사 (CLAUDE.md 기반 — dev-note 전용)
-# ================================================================
-header "Spec 패턴 검사"
-
 SPEC_FAILS=0
 
-while IFS= read -r file; do
-  # .ts/.tsx 파일만 Spec 패턴 검사
-  [[ "$file" =~ \.(ts|tsx)$ ]] || continue
-  [ -z "$file" ] || [ ! -f "$file" ] && continue
+# ─── 변경 파일 감지 ───────────────────────────────────────────
+header "변경 파일 감지"
+CHANGED_FILES=""
 
-  # 2-1. any 타입 금지
-  if grep -n ': any' "$file" 2>/dev/null | grep -v '// eslint-disable' | grep -q .; then
-    fail "any 타입 발견: $file"
-    grep -n ': any' "$file" | head -3 | while read -r line; do echo "       $line"; done
-    ((SPEC_FAILS++)) || true
-  fi
-
-  # 2-2. Dexie 스키마에 암호화 필드 인덱스 노출 금지
-  # encryptedContent 또는 iv 가 stores() 문자열에 포함되면 안 됨
-  if grep -n "stores(" "$file" 2>/dev/null | grep -qE 'encryptedContent|[^a-z]iv[^a-z]'; then
-    fail "Dexie 스키마에 암호화 필드(encryptedContent/iv) 인덱스 노출: $file"
-    grep -n "stores(" "$file" | head -3 | while read -r line; do echo "       $line"; done
-    ((SPEC_FAILS++)) || true
-  fi
-
-  # 2-3. CryptoKey를 영구 스토리지에 저장 금지
-  # localStorage, sessionStorage, IndexedDB(db.put/add)에 cryptoKey 저장 시도 감지
-  if grep -n 'localStorage\|sessionStorage' "$file" 2>/dev/null | grep -qi 'cryptokey\|crypto_key\|cryptoKey'; then
-    fail "CryptoKey를 localStorage/sessionStorage에 저장 시도: $file"
-    ((SPEC_FAILS++)) || true
-  fi
-
-  # 2-4. File System Access API 폴백 없는 단독 사용 감지
-  # showSaveFilePicker 또는 showOpenFilePicker 사용 시 폴백 패턴(input[type=file] 또는 'in window') 필요
-  if grep -q 'showSaveFilePicker\|showOpenFilePicker' "$file" 2>/dev/null; then
-    if ! grep -qE "'showSaveFilePicker' in window|'showOpenFilePicker' in window|type=['\"]file['\"]|createObjectURL" "$file" 2>/dev/null; then
-      fail "File System Access API 폴백 패턴 없음: $file (Firefox 미지원 대응 필요)"
-      ((SPEC_FAILS++)) || true
-    fi
-  fi
-
-  # 2-5. 외부 fetch/API 호출 금지 (완전 로컬 오프라인 앱)
-  if grep -n 'fetch(' "$file" 2>/dev/null | grep -v '// ' | grep -v "import" | grep -q .; then
-    fail "외부 fetch() 호출 발견 (이 앱은 완전 로컬 전용): $file"
-    grep -n 'fetch(' "$file" | grep -v '// ' | head -3 | while read -r line; do echo "       $line"; done
-    ((SPEC_FAILS++)) || true
-  fi
-
-done <<< "$CHANGED"
-
-if [ "$SPEC_FAILS" -eq 0 ]; then
-  pass "Spec 패턴 검사 통과"
+if [ "$FULL_SCAN" = true ]; then
+  CHANGED_FILES=$(find src -type f \( -name "*.ts" -o -name "*.tsx" \) 2>/dev/null | sort || true)
+  FILE_COUNT=$(echo "$CHANGED_FILES" | grep -c . || echo 0)
+  info "전체 스캔 모드 — ${FILE_COUNT}개 파일"
+elif [ "$STAGED_ONLY" = true ]; then
+  CHANGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+  FILE_COUNT=$(echo "$CHANGED_FILES" | grep -c . || echo 0)
+  info "Staged 파일 — ${FILE_COUNT}개"
 else
-  ((FAIL_COUNT += SPEC_FAILS)) || true
+  UNSTAGED=$(git diff --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+  STAGED_F=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+  CHANGED_FILES=$(printf '%s\n%s' "$UNSTAGED" "$STAGED_F" | sort -u | grep -v '^$' || true)
+  FILE_COUNT=$(echo "$CHANGED_FILES" | grep -c . || echo 0)
+  info "변경된 TS/TSX 파일 — ${FILE_COUNT}개"
 fi
 
-fi  # end TS_ONLY check
+# ─── Spec 검사 (CLAUDE.md 기반) ──────────────────────────────
+header "📋 Spec 검사 (CLAUDE.md 규칙)"
 
-# ================================================================
-# 3. TypeScript 컴파일 검사
-# ================================================================
-header "TypeScript 컴파일 검사"
+if [ -n "$CHANGED_FILES" ]; then
+  while IFS= read -r file; do
+    [ -f "$file" ] || continue
 
+    # ── [Spec 1] any 타입 금지 (TypeScript Strict Mode) ──────
+    if grep -nE ': any([^a-zA-Z_]|$)' "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+      fail "[any 타입] ': any' 사용 금지 — unknown 또는 명시 타입으로 교체: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 2] CryptoKey 영구 스토리지 저장 금지 ───────────
+    if grep -niE '(localStorage|sessionStorage)\.' "$file" 2>/dev/null | grep -qi 'cryptoKey'; then
+      fail "[보안] CryptoKey를 localStorage/sessionStorage에 저장 시도: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 3] 마스터 패스워드 저장 금지 ───────────────────
+    if grep -niE '(localStorage|sessionStorage)\.' "$file" 2>/dev/null | grep -qi 'password\|masterPass'; then
+      fail "[보안] 마스터 패스워드를 영구 스토리지에 저장 시도: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 4] Dexie 스키마 암호화 필드 인덱스 노출 금지 ───
+    if grep -n '\.stores(' "$file" 2>/dev/null | grep -qE 'encryptedContent|\biv\b'; then
+      fail "[Dexie] 암호화 필드(encryptedContent/iv)를 Dexie 인덱스에 노출: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 5] 외부 fetch 호출 금지 (완전 로컬 오프라인 앱) ─
+    if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+      fail "[보안] 외부 fetch() 호출 발견 — 이 앱은 완전 로컬 오프라인 전용: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 6] File System Access API — 폴백 병행 필수 ─────
+    if grep -qE 'showSaveFilePicker|showOpenFilePicker' "$file" 2>/dev/null; then
+      if ! grep -qE "in window|type=['\"]file['\"]" "$file" 2>/dev/null; then
+        fail "[File I/O] File System Access API 사용 시 <input type=file> 폴백 누락: $file"
+        SPEC_FAILS=$((SPEC_FAILS + 1))
+      fi
+    fi
+
+    # ── [Spec 7] Jotai atom() 선언 위치 — atoms.ts 외 금지 ──
+    if [[ "$file" != "src/store/atoms.ts" ]]; then
+      if grep -nE "= atom\(|= atom<" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+        fail "[Jotai] 전역 atom 선언은 src/store/atoms.ts에서만 가능: $file"
+        SPEC_FAILS=$((SPEC_FAILS + 1))
+      fi
+    fi
+
+    # ── [Spec 8] TypeScript 5.7+ Uint8Array → Web Crypto 캐스팅 확인 ─
+    if grep -q 'Uint8Array' "$file" 2>/dev/null && \
+       grep -qE 'subtle\.(encrypt|decrypt|importKey|deriveKey)' "$file" 2>/dev/null; then
+      if ! grep -q 'as unknown as ArrayBuffer' "$file" 2>/dev/null; then
+        warn "[TypeScript 5.7+] Uint8Array → Web Crypto 전달 시 'as unknown as ArrayBuffer' 캐스팅 누락 의심: $file"
+      fi
+    fi
+
+    # ── [Spec 9] Tailwind v3 방식 혼용 금지 ──────────────────
+    if grep -nE "require\('tailwindcss'\)|tailwind\.config" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+      fail "[Tailwind] v3 방식(tailwind.config) 감지 — @tailwindcss/vite 플러그인 방식(v4)만 허용: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+  done <<< "$CHANGED_FILES"
+
+  if [ "$SPEC_FAILS" -eq 0 ]; then
+    pass "모든 Spec 검사 통과"
+  else
+    fail "Spec 검사 ${SPEC_FAILS}건 실패"
+    FAIL_COUNT=$((FAIL_COUNT + SPEC_FAILS))
+  fi
+else
+  info "변경된 파일 없음 — Spec 검사 건너뜀"
+fi
+
+# ─── TypeScript 타입 체크 ─────────────────────────────────────
+header "🔍 TypeScript 타입 체크"
 TS_OUTPUT=$(npx tsc --noEmit 2>&1 || true)
-
-if [ -z "$TS_OUTPUT" ]; then
-  pass "TypeScript 오류 없음"
+TS_ERRORS=$(echo "$TS_OUTPUT" | (grep -c ' error TS' 2>/dev/null || echo 0))
+if [ "${TS_ERRORS}" -gt 0 ]; then
+  fail "TypeScript 오류 ${TS_ERRORS}건"
+  echo "$TS_OUTPUT" | grep ' error TS' | head -20
+  FAIL_COUNT=$((FAIL_COUNT + TS_ERRORS))
 else
-  fail "TypeScript 오류 발견"
-  echo ""
-  echo "$TS_OUTPUT" | head -30 | while read -r line; do echo "    $line"; done
-  TS_ERR_COUNT=$(echo "$TS_OUTPUT" | grep -c 'error TS' || true)
-  warn "총 ${TS_ERR_COUNT}개 오류"
-  ((FAIL_COUNT += TS_ERR_COUNT)) || true
+  pass "TypeScript 타입 체크 통과"
 fi
 
-# ================================================================
-# 4. ESLint 검사
-# ================================================================
+# ─── ESLint (v9 flat config) ──────────────────────────────────
 if [ "$TS_ONLY" = false ]; then
-  header "ESLint 검사"
-
-  CHANGED_TS=$(echo "$CHANGED" | grep -E '\.(ts|tsx)$' || true)
-
-  if [ -z "$CHANGED_TS" ]; then
-    info "TS/TSX 파일 없음 — 생략"
+  header "🧹 ESLint 정적 분석"
+  ESLINT_EXIT=0
+  npm run lint -- --max-warnings 0 2>&1 || ESLINT_EXIT=$?
+  if [ "$ESLINT_EXIT" -ne 0 ]; then
+    fail "ESLint 경고 또는 오류 발견 (exit: $ESLINT_EXIT)"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
   else
-    LINT_FILES=$(echo "$CHANGED_TS" | tr '\n' ' ')
-    LINT_OUTPUT=$(npx eslint $LINT_FILES --max-warnings=0 2>&1 || true)
-
-    if echo "$LINT_OUTPUT" | grep -qE 'error|warning'; then
-      fail "ESLint 오류/경고 발견"
-      echo "$LINT_OUTPUT" | grep -E 'error|warning' | head -20 | while read -r line; do
-        echo "    $line"
-      done
-      LINT_ERRS=$(echo "$LINT_OUTPUT" | grep -c 'error' || true)
-      ((FAIL_COUNT += LINT_ERRS)) || true
-    else
-      pass "ESLint 통과"
-    fi
+    pass "ESLint 통과"
   fi
 fi
 
-# ================================================================
-# 5. Claude AI 분석 (--ai 옵션)
-# ================================================================
+# ─── 빌드 검증 ────────────────────────────────────────────────
+if [ "$TS_ONLY" = false ]; then
+  header "🏗️  빌드 검증"
+  BUILD_EXIT=0
+  npm run build 2>&1 || BUILD_EXIT=$?
+  if [ "$BUILD_EXIT" -ne 0 ]; then
+    fail "빌드 실패 (exit: $BUILD_EXIT)"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  else
+    pass "빌드 성공"
+  fi
+fi
+
+# ─── Claude AI 분석 (`--ai` 플래그) ──────────────────────────
 if [ "$AI_MODE" = true ]; then
-  header "Claude AI 분석 (--ai)"
-
-  if ! command -v claude &> /dev/null; then
-    warn "claude (Claude Code CLI) 를 찾을 수 없습니다."
+  header "🤖 Claude AI 코드 분석"
+  if ! command -v claude &>/dev/null; then
+    warn "claude CLI 없음 — AI 분석 건너뜀 (설치: npm install -g @anthropic-ai/claude-code)"
   else
-    DIFF=$(git diff HEAD -- $CHANGED 2>/dev/null | head -400)
-    SPEC=$(cat CLAUDE.md 2>/dev/null || echo "CLAUDE.md 없음")
+    DIFF_OUTPUT=$(git diff HEAD 2>/dev/null | head -300 || true)
+    CLAUDE_PROMPT="다음은 dev-note 프로젝트 코드 변경사항입니다. 아래 규칙 기준으로 검토해줘.
 
-    PROMPT=$(cat <<EOF
-아래는 프로젝트 규칙(CLAUDE.md)이야:
----
-$SPEC
----
+## 프로젝트 핵심 규칙 (CLAUDE.md)
+- TypeScript strict mode: any 타입 금지 (unknown 사용)
+- CryptoKey는 Jotai atom(메모리)에만 — localStorage/IndexedDB 저장 절대 금지
+- Dexie: encryptedContent, iv 필드는 스키마 인덱스 제외
+- 완전 로컬 오프라인 앱: 외부 fetch/API 호출 금지
+- File System Access API: 반드시 <input type=file> 폴백 병행
+- Jotai atom 선언: src/store/atoms.ts 에서만
+- Tailwind CSS v4(@tailwindcss/vite) 방식만 사용
 
-Cursor가 방금 수정한 파일들의 git diff야:
----
-$DIFF
----
+## 변경사항 (git diff HEAD)
+${DIFF_OUTPUT}
 
-다음을 분석해줘:
-1. 규칙 위반 여부 (any 타입, Dexie 암호화 필드 인덱스 노출, CryptoKey 스토리지 저장, File API 폴백 누락, 외부 fetch 호출 등)
-2. 설계 의도 이탈 여부 (하이브리드 암호화 전략, 완전 로컬 아키텍처)
-3. 사이드이펙트 위험 (shared/components 수정, atoms.ts 변경, core/db.ts 스키마 변경 등)
-4. 최종 판정: ✅ 통과 / ⚠️ 주의 / ❌ 재작업 필요
+## 분석 요청
+1. 규칙 위반 항목 (파일명·줄번호 포함)
+2. 설계 이탈 또는 사이드이펙트 위험
+3. 최종 판정: ✅ 안전 / ⚠️ 주의 필요 / ❌ 수정 필요"
 
-3~5줄로 요약. 문제가 있으면 파일명과 라인 번호 포함.
-EOF
-)
-
-    echo ""
-    echo "$PROMPT" | claude --print
+    echo "$CLAUDE_PROMPT" | claude --print 2>/dev/null || warn "Claude AI 분석 실패"
   fi
 fi
 
-# ================================================================
-# 최종 결과
-# ================================================================
-header "검증 결과"
-
-if [ "$FAIL_COUNT" -eq 0 ]; then
-  echo -e "\n  ${GREEN}${BOLD}✅ 모든 검사 통과 — Cursor 변경이 spec과 일치합니다.${NC}\n"
+# ─── 최종 결과 ────────────────────────────────────────────────
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if [ "${FAIL_COUNT}" -eq 0 ]; then
+  echo -e "\033[0;32m  ✅ 모든 검증 통과\033[0m"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 else
-  echo -e "\n  ${RED}${BOLD}❌ ${FAIL_COUNT}개 문제 발견 — Cursor에 수정 프롬프트가 필요합니다.${NC}\n"
+  echo -e "\033[0;31m  ❌ 총 ${FAIL_COUNT}건 문제 발견 — Cursor 수정 후 재실행\033[0m"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 1
 fi
