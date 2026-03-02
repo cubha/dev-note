@@ -1,0 +1,6 @@
+# 모든 텍스트 파일 LF로 통일 (Windows CRLF 경고 방지)
+* text=auto eol=lf
+
+# Windows 배치 파일만 예외
+*.bat text eol=crlf
+*.cmd text eol=crlf

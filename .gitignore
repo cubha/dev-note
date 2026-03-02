@@ -1,0 +1,48 @@
+# ─── Dependencies ────────────────────────────────────────────
+node_modules
+
+# ─── Build output ────────────────────────────────────────────
+dist
+dist-ssr
+
+# ─── Logs ────────────────────────────────────────────────────
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Environment variables ───────────────────────────────────
+.env
+.env.development
+.env.production
+*.local
+
+# ─── macOS ───────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ─── Windows ─────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─── Editor ──────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Cursor AI ───────────────────────────────────────────────
+# rules/ 폴더는 포함, 그 외 캐시/히스토리는 제외
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
