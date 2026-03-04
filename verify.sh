@@ -1,7 +1,7 @@
 #!/bin/bash
 # ================================================================
-# verify.sh — Cursor 변경 자동 검증 파이프라인
-# dev-note | Claude Code + Cursor 협업 워크플로우
+# verify.sh — 코드 변경 자동 검증 파이프라인
+# dev-note | Claude Code 워크플로우
 #
 # 사용법:
 #   bash verify.sh              # 변경 파일 감지 + 전체 검증
@@ -212,7 +212,7 @@ if [ "${FAIL_COUNT}" -eq 0 ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 else
-  echo -e "\033[0;31m  ❌ 총 ${FAIL_COUNT}건 문제 발견 — Cursor 수정 후 재실행\033[0m"
+  echo -e "\033[0;31m  ❌ 총 ${FAIL_COUNT}건 문제 발견 — 수정 후 재실행\033[0m"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 1
 fi

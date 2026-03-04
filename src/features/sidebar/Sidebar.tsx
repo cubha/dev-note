@@ -4,13 +4,14 @@ import { useMemo } from 'react'
 import { useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../core/db'
-import { openTabsAtom, activeTabAtom } from '../../store/atoms'
+import { openTabsAtom, activeTabAtom, searchOpenAtom } from '../../store/atoms'
 import { buildTree, getRootItems } from './treeUtils'
 import { ItemRow, TreeNode } from './TreeNode'
 
 export function Sidebar() {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
+  const setSearchOpen = useSetAtom(searchOpenAtom)
 
   const folders = useLiveQuery(() => db.folders.orderBy('order').toArray(), [])
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
@@ -60,6 +61,25 @@ export function Sidebar() {
           DevNote
         </div>
         <div className="flex gap-1">
+          {/* 검색 버튼 */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center justify-center rounded p-1.5 text-[#cccccc] hover:bg-[#2a2d2e]"
+            title="검색 (Ctrl+F)"
+            aria-label="검색"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={handleNewItem}
