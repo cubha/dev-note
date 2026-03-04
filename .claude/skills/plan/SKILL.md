@@ -8,11 +8,13 @@ argument-hint: "[기능명 또는 작업 설명]"
 
 $ARGUMENTS 에 대한 실행 계획을 수립한다.
 
-> 공통 판단 기준은 글로벌 `/plan` skill과 동일. 이 파일은 프로젝트별 포맷과 페르소나를 추가 정의한다.
-
 ---
 
-## ✂️ SubTask 분리 포맷
+## ✂️ SubTask 분리 기준
+
+- 파일/모듈 단위로 분리 (여러 레이어를 한 SubTask에 묶지 않는다)
+- 의존성 순서 준수: `core` → `store` → `features` → `shared`
+- 각 SubTask는 독립적으로 구현 및 검증 가능해야 함
 
 ```
 [Task] 기능명
@@ -25,19 +27,19 @@ $ARGUMENTS 에 대한 실행 계획을 수립한다.
 
 ---
 
-## 🎭 페르소나 정의표
+## 🎯 작업 유형별 접근법
 
-| 작업 유형 | 페르소나 |
+| 작업 유형 | 핵심 고려사항 |
 |---|---|
-| UI 컴포넌트 구현 | 시니어 React + Tailwind CSS 프론트엔드 개발자 |
-| Dexie 스키마 / 타입 정의 | 시니어 IndexedDB + Dexie.js v4 아키텍트 |
-| 암호화 로직 구현 | 시니어 Web Crypto API 보안 개발자 |
-| Jotai 상태 관리 | 시니어 React 상태관리 아키텍트 |
-| CodeMirror 에디터 | 시니어 CodeMirror 6 통합 개발자 |
-| 파일 I/O 구현 | 시니어 File System Access API 개발자 |
-| Fuse.js 검색 | 시니어 클라이언트사이드 검색 개발자 |
-| 버그 수정 | 시니어 디버거 (최소 변경 원칙) |
-| 성능 최적화 | 시니어 React 렌더링 최적화 전문가 |
+| UI 컴포넌트 구현 | Tailwind v4 방식, 공통 컴포넌트 재사용 우선 |
+| Dexie 스키마 / 타입 정의 | version() 번호 증가, 암호화 필드 스키마 제외 |
+| 암호화 로직 구현 | safeEncrypt/safeDecrypt 사용, CryptoKey 메모리에만 |
+| Jotai 상태 관리 | atoms.ts에만 정의, 로컬 상태는 useState |
+| CodeMirror 에디터 | 언어 모드 동적 설정, 탭 hidden 처리 |
+| 파일 I/O 구현 | File System Access API + 폴백 병행, 스키마 검증 |
+| Fuse.js 검색 | 클라이언트 사이드, 외부 API 호출 없음 |
+| 버그 수정 | 최소 변경 원칙, 연계 모듈 사이드이펙트 확인 |
+| 성능 최적화 | React 렌더링 분석, useLiveQuery 의존성 확인 |
 
 ---
 
@@ -50,7 +52,6 @@ $ARGUMENTS 에 대한 실행 계획을 수립한다.
   ├── SubTask 1: ...  → 파일경로
   └── SubTask N: ...  → 파일경로
 
-[Cursor 프롬프트 작성 시 사용할 페르소나]
-SubTask 1: [페르소나명]
-SubTask 2: [페르소나명]
+[구현 시 주의사항]
+- 주요 사이드이펙트 또는 특이사항
 ```
