@@ -1,6 +1,6 @@
 ---
 name: verify
-description: "Cursor가 구현한 코드를 검증할 때 사용. '검증해줘', '체크리스트 확인', '코드 리뷰' 등 언급 시 호출"
+description: "구현한 코드를 아키텍처 수준으로 검증할 때 사용. '검증해줘', '체크리스트 확인', '코드 리뷰' 등 언급 시 호출"
 argument-hint: "[검증할 파일경로 또는 기능명]"
 disable-model-invocation: false
 ---
@@ -8,6 +8,9 @@ disable-model-invocation: false
 # dev-note 코드 검증
 
 $ARGUMENTS 에 대해 아래 체크리스트를 순서대로 확인하고 결과를 보고한다.
+
+> 기본 검증(`bash verify.sh`: tsc + eslint + build)은 별도 실행한다.
+> 이 스킬은 자동화로 잡기 어려운 아키텍처·설계 수준의 문제를 검토한다.
 
 ---
 
@@ -45,7 +48,7 @@ $ARGUMENTS 에 대해 아래 체크리스트를 순서대로 확인하고 결과
 
 ### React Hooks
 - [ ] `useEffect` 내 `setState` 동기 호출 없음 (`react-hooks/set-state-in-effect` 위반)
-- [ ] `tabStates` (Map) atom이 deps에 포함되어 무한 루프 발생하지 않는지
+- [ ] `tabStatesAtom` (Map) atom이 deps에 포함되어 무한 루프 발생하지 않는지
 - [ ] `exhaustive-deps` 경고 없음
 
 ### 사이드 이펙트

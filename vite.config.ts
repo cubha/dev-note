@@ -8,6 +8,6 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    port: 3000,  // 원하는 포트
+    port: 3001,  // 원하는 포트
   },
 })

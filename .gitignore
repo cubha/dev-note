@@ -41,8 +41,5 @@ $RECYCLE.BIN/
 *.sln
 *.sw?
 
-# ─── Cursor AI ───────────────────────────────────────────────
-# rules/ 폴더는 포함, 그 외 캐시/히스토리는 제외
-.cursor/*
-!.cursor/rules/
-!.cursor/rules/**
+# ─── Backup data ────────────────────────────────────────────
+note-backup/

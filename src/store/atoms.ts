@@ -65,6 +65,10 @@ export const contextMenuAtom = atom<ContextMenuState>({
   type: null,
 })
 
+// ─── 환경설정 모달 ────────────────────────────────────────────
+
+export const settingsOpenAtom = atom<boolean>(false)
+
 // ─── 인라인 이름 변경 ─────────────────────────────────────────
 
 export interface RenamingTarget {

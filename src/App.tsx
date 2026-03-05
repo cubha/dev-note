@@ -7,6 +7,7 @@ import { MasterPasswordModal } from './features/auth/MasterPasswordModal'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { TabBar } from './features/editor/TabBar'
 import { EditorPanel } from './features/editor/EditorPanel'
+import { SettingsModal } from './features/settings/SettingsModal'
 
 export default function App() {
   const config = useAtomValue(appConfigAtom)
@@ -56,6 +57,7 @@ export default function App() {
         </div>
       </main>
       <ContextMenu />
+      <SettingsModal />
     </div>
   )
 }
