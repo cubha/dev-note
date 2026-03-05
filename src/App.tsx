@@ -1,20 +1,19 @@
 import { useEffect } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { ensureConfig } from './core/db'
-import { appConfigAtom, contextMenuAtom, cryptoKeyAtom, searchOpenAtom } from './store/atoms'
+import { appConfigAtom, contextMenuAtom, cryptoKeyAtom } from './store/atoms'
 import { ContextMenu } from './shared/components/ContextMenu'
 import { MasterPasswordModal } from './features/auth/MasterPasswordModal'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { TabBar } from './features/editor/TabBar'
 import { EditorPanel } from './features/editor/EditorPanel'
-import { SearchPanel } from './features/search/SearchPanel'
+import { SettingsModal } from './features/settings/SettingsModal'
 
 export default function App() {
   const config = useAtomValue(appConfigAtom)
   const cryptoKey = useAtomValue(cryptoKeyAtom)
   const setConfig = useSetAtom(appConfigAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
-  const setSearchOpen = useSetAtom(searchOpenAtom)
 
   useEffect(() => {
     ensureConfig().then(setConfig)
@@ -26,18 +25,6 @@ export default function App() {
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [setContextMenu])
-
-  // Ctrl+F: 검색 패널 열기
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setSearchOpen])
 
   // 로딩 중: config가 아직 로드되지 않음
   if (config === null) {
@@ -70,7 +57,7 @@ export default function App() {
         </div>
       </main>
       <ContextMenu />
-      <SearchPanel />
+      <SettingsModal />
     </div>
   )
 }

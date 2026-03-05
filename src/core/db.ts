@@ -32,6 +32,8 @@ export interface AppConfig {
   saltHex: string | null  // PBKDF2 salt (hex)
   theme: 'dark' | 'light'
   editorFontSize: number
+  wordWrap: boolean        // 자동 줄바꿈
+  tabSize: 2 | 4           // 탭 크기 (스페이스 기준)
   lastExportAt: number | null
   canaryBlock: string | null   // 패스워드 검증용 암호화된 더미 문자열 (AES-GCM)
   canaryIv: string | null     // canaryBlock 복호화에 필요한 IV
@@ -77,6 +79,20 @@ class DevNoteDB extends Dexie {
         }
       }
     })
+    this.version(4).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      const configs = await tx.table('config').toArray()
+      for (const cfg of configs as Array<Record<string, unknown>>) {
+        await tx.table('config').put({
+          ...cfg,
+          wordWrap: false,
+          tabSize: 2,
+        })
+      }
+    })
   }
 }
 
@@ -94,6 +110,8 @@ export async function ensureConfig(): Promise<AppConfig> {
     saltHex: null,
     theme: 'dark',
     editorFontSize: 14,
+    wordWrap: false,
+    tabSize: 2,
     lastExportAt: null,
     canaryBlock: null,
     canaryIv: null,
