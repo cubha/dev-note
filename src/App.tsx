@@ -8,6 +8,7 @@ import { Sidebar } from './features/sidebar/Sidebar'
 import { TabBar } from './features/editor/TabBar'
 import { EditorPanel } from './features/editor/EditorPanel'
 import { SettingsModal } from './features/settings/SettingsModal'
+import { useGlobalKeyboardShortcuts } from './shared/hooks/useGlobalKeyboardShortcuts'
 
 export default function App() {
   const config = useAtomValue(appConfigAtom)
@@ -15,9 +16,17 @@ export default function App() {
   const setConfig = useSetAtom(appConfigAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
 
+  useGlobalKeyboardShortcuts()
+
   useEffect(() => {
     ensureConfig().then(setConfig)
   }, [setConfig])
+
+  // config.theme 변경 시 <html> data-theme 속성 동기화
+  useEffect(() => {
+    if (config === null) return
+    document.documentElement.setAttribute('data-theme', config.theme)
+  }, [config])
 
   useEffect(() => {
     const close = () =>
@@ -29,8 +38,8 @@ export default function App() {
   // 로딩 중: config가 아직 로드되지 않음
   if (config === null) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#1e1e1e]">
-        <p className="text-[#858585]">DevNote 로드 중...</p>
+      <div className="flex h-screen items-center justify-center bg-[var(--bg-app)]">
+        <p className="text-[var(--text-secondary)]">DevNote 로드 중...</p>
       </div>
     )
   }
@@ -47,7 +56,7 @@ export default function App() {
 
   // 정상 진입: aside + main 레이아웃
   return (
-    <div className="flex h-screen bg-[#1e1e1e] text-[#d4d4d4] font-mono">
+    <div className="flex h-screen bg-[var(--bg-app)] text-[var(--text-editor)] font-mono">
       <Sidebar />
 
       <main className="flex flex-1 flex-col overflow-hidden">

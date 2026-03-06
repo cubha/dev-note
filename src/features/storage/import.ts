@@ -3,6 +3,7 @@
 // 가져오기 로직
 // - FSAA (Chrome/Edge) + <input type="file"> 폴백 (Firefox/Safari)
 // - Append 전략: 기존 데이터 유지 + 가져온 데이터 추가
+// - Replace 전략: 기존 데이터 전체 삭제 → 새 데이터 삽입 + AppConfig 암호화 필드 갱신
 // - 2-pass 폴더 삽입으로 parentId 리매핑 처리
 // - Dexie 트랜잭션으로 원자적 처리 (실패 시 자동 롤백)
 
@@ -68,16 +69,51 @@ export async function importFromFile(): Promise<string> {
   }
 }
 
+// ─── 미리보기 파싱 (DB 미쓰기, 모달 표시용) ───────────────────
+
+export interface ImportPreview {
+  folders: number
+  items: number
+  cryptoEnabled: boolean
+  saltHex: string | null
+}
+
+export async function parseImportPreview(rawText: string): Promise<ImportPreview> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawText)
+  } catch {
+    throw new Error('유효하지 않은 JSON 형식입니다')
+  }
+
+  if (!isValidExportSchema(parsed)) {
+    throw new Error('파일 형식이 dev-note 백업 형식과 다릅니다')
+  }
+
+  return {
+    folders: parsed.folders.length,
+    items: parsed.items.length,
+    cryptoEnabled: parsed.cryptoEnabled,
+    saltHex: parsed.saltHex ?? null,
+  }
+}
+
 // ─── 가져오기 진입점 ───────────────────────────────────────────
 
 export interface ImportResult {
+  mode: 'append' | 'replace'
   foldersAdded: number
   itemsAdded: number
   /** 현재 앱 saltHex와 가져오는 파일의 saltHex가 다를 때 true */
   cryptoMismatch: boolean
+  /** Replace 모드에서 saltHex가 변경되어 재인증이 필요할 때 true */
+  requiresReauth: boolean
 }
 
-export async function importData(rawText: string): Promise<ImportResult> {
+export async function importData(
+  rawText: string,
+  mode: 'append' | 'replace' = 'append',
+): Promise<ImportResult> {
   // 1. JSON 파싱
   let parsed: unknown
   try {
@@ -98,11 +134,11 @@ export async function importData(rawText: string): Promise<ImportResult> {
     parsed.saltHex !== null &&
     currentConfig?.saltHex !== parsed.saltHex
 
-  // 4. Append: 트랜잭션으로 폴더 + 항목 원자적 삽입
-  await db.transaction('rw', [db.folders, db.items], async () => {
-    // ── Pass 1: 모든 폴더를 parentId=null로 추가 → 새 ID 배열 획득 ──
+  // ── 폴더·항목 삽입 헬퍼 (Append / Replace 공용) ──────────────
+  const insertFoldersAndItems = async () => {
+    // Pass 1: 모든 폴더를 parentId=null로 추가 → 새 ID 배열 획득
     const foldersToInsert: Omit<Folder, 'id'>[] = parsed.folders.map(
-      (f): Omit<Folder, 'id'> => ({
+      (f: Folder): Omit<Folder, 'id'> => ({
         parentId: null, // Pass 2에서 올바른 값으로 업데이트
         name: f.name,
         order: f.order,
@@ -115,24 +151,24 @@ export async function importData(rawText: string): Promise<ImportResult> {
       { allKeys: true },
     )) as number[]
 
-    // ── 구 ID → 신 ID 매핑 테이블 구성 ──
+    // 구 ID → 신 ID 매핑 테이블 구성
     const folderIdMap = new Map<number, number>()
-    parsed.folders.forEach((f, i) => {
+    parsed.folders.forEach((f: Folder, i: number) => {
       folderIdMap.set(f.id, newFolderIds[i])
     })
 
-    // ── Pass 2: 서브폴더 parentId를 신 ID로 업데이트 ──
+    // Pass 2: 서브폴더 parentId를 신 ID로 업데이트
     for (let i = 0; i < parsed.folders.length; i++) {
-      const oldFolder = parsed.folders[i]
+      const oldFolder = parsed.folders[i] as Folder
       if (oldFolder.parentId !== null) {
         const newParentId = folderIdMap.get(oldFolder.parentId) ?? null
         await db.folders.update(newFolderIds[i], { parentId: newParentId })
       }
     }
 
-    // ── 항목 folderId 리매핑 후 일괄 추가 ──
+    // 항목 folderId 리매핑 후 일괄 추가
     const itemsToInsert: Omit<Item, 'id'>[] = parsed.items.map(
-      (item): Omit<Item, 'id'> => ({
+      (item: Omit<Item, 'id'>): Omit<Item, 'id'> => ({
         folderId: item.folderId !== null
           ? (folderIdMap.get(item.folderId) ?? null)
           : null,
@@ -148,11 +184,35 @@ export async function importData(rawText: string): Promise<ImportResult> {
     )
 
     await db.items.bulkAdd(itemsToInsert)
-  })
+  }
+
+  if (mode === 'replace') {
+    // Replace 모드: 기존 전체 삭제 → 새 데이터 삽입 + AppConfig 암호화 필드 갱신
+    await db.transaction('rw', [db.folders, db.items, db.config], async () => {
+      await db.folders.clear()
+      await db.items.clear()
+      await insertFoldersAndItems()
+
+      // AppConfig 암호화 필드만 갱신 (표시 설정 — fontSize/wordWrap/tabSize 등은 유지)
+      await db.config.update(1, {
+        cryptoEnabled: parsed.cryptoEnabled,
+        saltHex: parsed.saltHex ?? null,
+        canaryBlock: parsed.canaryBlock ?? null,
+        canaryIv: parsed.canaryIv ?? null,
+      })
+    })
+  } else {
+    // Append 모드: 기존 데이터 유지 + 추가만
+    await db.transaction('rw', [db.folders, db.items], async () => {
+      await insertFoldersAndItems()
+    })
+  }
 
   return {
+    mode,
     foldersAdded: parsed.folders.length,
     itemsAdded: parsed.items.length,
     cryptoMismatch: cryptoMismatch ?? false,
+    requiresReauth: mode === 'replace' && (cryptoMismatch ?? false),
   }
 }

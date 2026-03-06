@@ -10,8 +10,10 @@ import {
   activeTabAtom,
   dirtyItemsAtom,
   tabStatesAtom,
+  selectedItemsAtom,
 } from '../../store/atoms'
 import { collectDescendants } from '../../features/sidebar/treeUtils'
+import { exportSelectedItems } from '../../features/storage/export'
 
 export function ContextMenu() {
   const menu = useAtomValue(contextMenuAtom)
@@ -21,6 +23,8 @@ export function ContextMenu() {
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const setTabStates = useSetAtom(tabStatesAtom)
+  const selectedItems = useAtomValue(selectedItemsAtom)
+  const setSelectedItems = useSetAtom(selectedItemsAtom)
 
   const folders = useLiveQuery(() => db.folders.toArray(), [])
   const items = useLiveQuery(() => db.items.toArray(), [])
@@ -28,12 +32,38 @@ export function ContextMenu() {
   const closeMenu = () =>
     setMenu((prev) => ({ ...prev, isOpen: false }))
 
+  // 다중 선택 상태: 우클릭 대상이 선택된 항목 중 하나이고 2개 이상 선택됨
+  const isMultiItemSelect =
+    menu.type === 'item' &&
+    menu.targetId !== null &&
+    selectedItems.has(menu.targetId) &&
+    selectedItems.size > 1
+
+  // ── 탭/상태에서 항목 제거 헬퍼 ──────────────────────────────
+  const removeItemsFromState = (ids: number[]) => {
+    setOpenTabs((prev) => prev.filter((id) => !ids.includes(id)))
+    setActiveTab((prev) =>
+      prev !== null && ids.includes(prev) ? null : prev,
+    )
+    setDirtyItems((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.delete(id))
+      return next
+    })
+    setTabStates((prev) => {
+      const next = new Map(prev)
+      ids.forEach((id) => next.delete(id))
+      return next
+    })
+  }
+
   const handleRename = () => {
     if (menu.targetId === null || menu.type === null) return
     setRenamingTarget({ id: menu.targetId, type: menu.type })
     closeMenu()
   }
 
+  // ── 단일 항목/폴더 삭제 ─────────────────────────────────────
   const handleDelete = async () => {
     if (menu.targetId === null || !folders || !items) return
     closeMenu()
@@ -45,43 +75,32 @@ export function ContextMenu() {
         menu.targetId,
       )
 
-      setOpenTabs((prev) => prev.filter((id) => !itemIds.includes(id)))
-      setActiveTab((prev) =>
-        prev !== null && itemIds.includes(prev) ? null : prev,
-      )
-      setDirtyItems((prev) => {
-        const next = new Set(prev)
-        itemIds.forEach((id) => next.delete(id))
-        return next
-      })
-      setTabStates((prev) => {
-        const next = new Map(prev)
-        itemIds.forEach((id) => next.delete(id))
-        return next
-      })
-
+      removeItemsFromState(itemIds)
       await db.transaction('rw', db.folders, db.items, async () => {
         await db.folders.bulkDelete(folderIds)
         await db.items.bulkDelete(itemIds)
       })
     } else if (menu.type === 'item') {
       const id = menu.targetId
-
-      setOpenTabs((prev) => prev.filter((tabId) => tabId !== id))
-      setActiveTab((prev) => (prev === id ? null : prev))
-      setDirtyItems((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-      setTabStates((prev) => {
-        const next = new Map(prev)
-        next.delete(id)
-        return next
-      })
-
+      removeItemsFromState([id])
       await db.items.delete(id)
     }
+  }
+
+  // ── 다중 선택 항목 일괄 삭제 ────────────────────────────────
+  const handleMultiDelete = async () => {
+    const ids = Array.from(selectedItems)
+    closeMenu()
+    removeItemsFromState(ids)
+    setSelectedItems(new Set<number>())
+    await db.items.bulkDelete(ids)
+  }
+
+  // ── 다중 선택 항목 내보내기 ──────────────────────────────────
+  const handleMultiExport = async () => {
+    const ids = Array.from(selectedItems)
+    closeMenu()
+    await exportSelectedItems(ids)
   }
 
   if (!menu.isOpen) return null
@@ -90,32 +109,63 @@ export function ContextMenu() {
     <ul
       role="menu"
       onClick={(e) => e.stopPropagation()}
-      className="fixed z-50 min-w-[192px] rounded border border-[#454545] bg-[#252526] py-1 shadow-lg"
+      className="fixed z-50 min-w-[192px] rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-1 shadow-lg"
       style={{ left: menu.x, top: menu.y }}
     >
-      <li>
-        <button
-          role="menuitem"
-          type="button"
-          onClick={handleRename}
-          className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white"
-        >
-          이름 변경
-        </button>
-      </li>
-      <li aria-hidden>
-        <hr className="my-1 border-[#454545]" />
-      </li>
-      <li>
-        <button
-          role="menuitem"
-          type="button"
-          onClick={handleDelete}
-          className="w-full px-4 py-1.5 text-left text-sm text-[#f48771] hover:bg-[#5a1d1d] hover:text-white"
-        >
-          {menu.type === 'folder' ? '폴더 및 하위 항목 삭제' : '항목 삭제'}
-        </button>
-      </li>
+      {/* 다중 선택 시: 이름 변경 숨김, 다중 삭제만 표시 */}
+      {isMultiItemSelect ? (
+        <>
+          <li>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleMultiExport}
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-accent-hover)] hover:text-[var(--text-on-active)]"
+            >
+              선택 항목 내보내기 ({selectedItems.size}개)
+            </button>
+          </li>
+          <li aria-hidden>
+            <hr className="my-1 border-[var(--border-subtle)]" />
+          </li>
+          <li>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleMultiDelete}
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white"
+            >
+              선택 항목 삭제 ({selectedItems.size}개)
+            </button>
+          </li>
+        </>
+      ) : (
+        <>
+          <li>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleRename}
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-accent-hover)] hover:text-[var(--text-on-active)]"
+            >
+              이름 변경
+            </button>
+          </li>
+          <li aria-hidden>
+            <hr className="my-1 border-[var(--border-subtle)]" />
+          </li>
+          <li>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleDelete}
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white"
+            >
+              {menu.type === 'folder' ? '폴더 및 하위 항목 삭제' : '항목 삭제'}
+            </button>
+          </li>
+        </>
+      )}
     </ul>
   )
 }

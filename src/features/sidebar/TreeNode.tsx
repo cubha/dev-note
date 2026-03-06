@@ -4,45 +4,33 @@ import { useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { DraggableAttributes } from '@dnd-kit/core'
-
-// useSortable의 listeners 타입을 ReturnType에서 추출 (내부 타입 직접 import 불필요)
-type SyntheticListenerMap = ReturnType<typeof useSortable>['listeners']
 import type { Item, ItemType } from '../../core/db'
 import { db } from '../../core/db'
 import type { FolderNode } from './treeUtils'
 import {
   activeTabAtom,
   contextMenuAtom,
+  dragOverFolderAtom,
   expandedFoldersAtom,
+  flatVisibleItemIdsAtom,
+  lastSelectedItemAtom,
   openTabsAtom,
   renamingTargetAtom,
   selectedFolderAtom,
+  selectedItemsAtom,
 } from '../../store/atoms'
 
 const MENU_WIDTH = 192
 
-// ─── DragHandle ──────────────────────────────────────────────
+// ─── DragHandle (시각 전용 — 리스너 없음) ───────────────────
 
-interface DragHandleProps {
-  dragHandleRef?: (node: HTMLElement | null) => void
-  dragListeners?: SyntheticListenerMap
-  dragAttributes?: DraggableAttributes
-}
-
-function DragHandle({ dragHandleRef, dragListeners, dragAttributes }: DragHandleProps) {
-  if (!dragListeners) return null
+function DragHandle() {
   return (
     <span
-      ref={dragHandleRef}
-      {...dragAttributes}
-      {...dragListeners}
-      className="invisible flex shrink-0 cursor-grab items-center justify-center px-0.5 text-[#555] hover:text-[#888] active:cursor-grabbing group-hover/row:visible"
-      aria-label="드래그 핸들"
-      title="드래그하여 순서 변경"
-      onClick={(e) => e.stopPropagation()}
+      className="invisible flex shrink-0 cursor-grab items-center justify-center px-0.5 text-[var(--text-placeholder)] group-hover/row:visible"
+      aria-hidden
     >
-      <svg viewBox="0 0 6 14" className="size-2.5 fill-current" aria-hidden>
+      <svg viewBox="0 0 6 14" className="size-2.5 fill-current">
         <circle cx="1.5" cy="2" r="1.2" />
         <circle cx="4.5" cy="2" r="1.2" />
         <circle cx="1.5" cy="7" r="1.2" />
@@ -59,13 +47,10 @@ function DragHandle({ dragHandleRef, dragListeners, dragAttributes }: DragHandle
 interface TreeNodeProps {
   node: FolderNode
   depth: number
-  dragHandleRef?: (node: HTMLElement | null) => void
-  dragListeners?: SyntheticListenerMap
-  dragAttributes?: DraggableAttributes
   isDragging?: boolean
 }
 
-export function TreeNode({ node, depth, dragHandleRef, dragListeners, dragAttributes, isDragging }: TreeNodeProps) {
+export function TreeNode({ node, depth, isDragging }: TreeNodeProps) {
   const expanded = useAtomValue(expandedFoldersAtom)
   const setExpanded = useSetAtom(expandedFoldersAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
@@ -73,6 +58,7 @@ export function TreeNode({ node, depth, dragHandleRef, dragListeners, dragAttrib
   const renamingTarget = useAtomValue(renamingTargetAtom)
   const setRenamingTarget = useSetAtom(renamingTargetAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
+  const dragOverFolderId = useAtomValue(dragOverFolderAtom)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const skipSave = useRef(false)
@@ -94,6 +80,7 @@ export function TreeNode({ node, depth, dragHandleRef, dragListeners, dragAttrib
   }
 
   const isSelected = selectedFolder === folder.id
+  const isDropTarget = dragOverFolderId === folder.id
 
   // 폴더 아이템 SortableContext ID 목록
   const itemSortIds = items.map((i) => `i-${i.id}`)
@@ -103,14 +90,10 @@ export function TreeNode({ node, depth, dragHandleRef, dragListeners, dragAttrib
   return (
     <>
       <div
-        className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[#cccccc] hover:bg-[#2a2d2e] ${isSelected ? 'bg-[#37373d] text-white' : ''} ${isDragging ? 'opacity-40' : ''}`}
+        className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isSelected ? 'bg-[var(--bg-folder-selected)]' : ''} ${isDropTarget ? 'bg-[var(--bg-drop-zone)] outline outline-1 outline-[var(--border-accent)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
         style={{ paddingLeft: `${depth * 12}px` }}
       >
-        <DragHandle
-          dragHandleRef={dragHandleRef}
-          dragListeners={dragListeners}
-          dragAttributes={dragAttributes}
-        />
+        <DragHandle />
         <div
           role="button"
           tabIndex={0}
@@ -210,7 +193,7 @@ export function TreeNode({ node, depth, dragHandleRef, dragListeners, dragAttrib
               }}
               onClick={(e) => e.stopPropagation()}
               autoFocus
-              className="min-w-0 flex-1 rounded bg-[#3c3c3c] px-1 text-sm text-[#d4d4d4] outline-none focus:ring-1 focus:ring-[#007acc]"
+              className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
             />
           ) : (
             <span className="min-w-0 truncate" title={folder.name}>
@@ -247,7 +230,6 @@ export function SortableFolderNode({ node, depth }: { node: FolderNode; depth: n
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -260,13 +242,12 @@ export function SortableFolderNode({ node, depth }: { node: FolderNode; depth: n
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      {...listeners}
+      {...attributes}
     >
       <TreeNode
         node={node}
         depth={depth}
-        dragHandleRef={setActivatorNodeRef}
-        dragListeners={listeners}
-        dragAttributes={attributes}
         isDragging={isDragging}
       />
     </div>
@@ -278,9 +259,6 @@ export function SortableFolderNode({ node, depth }: { node: FolderNode; depth: n
 interface ItemRowProps {
   item: Item
   depth: number
-  dragHandleRef?: (node: HTMLElement | null) => void
-  dragListeners?: SyntheticListenerMap
-  dragAttributes?: DraggableAttributes
   isDragging?: boolean
 }
 
@@ -288,14 +266,14 @@ const TYPE_BADGE: Record<
   ItemType,
   { label: string; className: string }
 > = {
-  ssh: { label: 'SSH', className: 'bg-[#264f78] text-[#9cdcfe]' },
-  db: { label: 'DB', className: 'bg-[#3a2d20] text-[#ce9178]' },
-  http: { label: 'HTTP', className: 'bg-[#1e3a1e] text-[#4ec9b0]' },
-  note: { label: 'TXT', className: 'bg-[#2d2d2d] text-[#858585]' },
-  custom: { label: 'ETC', className: 'bg-[#2d2d2d] text-[#858585]' },
+  ssh:    { label: 'SSH',  className: 'bg-[var(--badge-ssh-bg)] text-[var(--badge-ssh-text)]' },
+  db:     { label: 'DB',   className: 'bg-[var(--badge-db-bg)] text-[var(--badge-db-text)]' },
+  http:   { label: 'HTTP', className: 'bg-[var(--badge-http-bg)] text-[var(--badge-http-text)]' },
+  note:   { label: 'TXT',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
+  custom: { label: 'ETC',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
 }
 
-export function ItemRow({ item, depth, dragHandleRef, dragListeners, dragAttributes, isDragging }: ItemRowProps) {
+export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
   const openTabs = useAtomValue(openTabsAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const activeTab = useAtomValue(activeTabAtom)
@@ -303,6 +281,11 @@ export function ItemRow({ item, depth, dragHandleRef, dragListeners, dragAttribu
   const renamingTarget = useAtomValue(renamingTargetAtom)
   const setRenamingTarget = useSetAtom(renamingTargetAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
+  const selectedItems = useAtomValue(selectedItemsAtom)
+  const setSelectedItems = useSetAtom(selectedItemsAtom)
+  const lastSelectedId = useAtomValue(lastSelectedItemAtom)
+  const setLastSelected = useSetAtom(lastSelectedItemAtom)
+  const flatVisibleItemIds = useAtomValue(flatVisibleItemIdsAtom)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const skipSave = useRef(false)
@@ -310,12 +293,48 @@ export function ItemRow({ item, depth, dragHandleRef, dragListeners, dragAttribu
     renamingTarget?.type === 'item' && renamingTarget?.id === item.id
 
   const isActive = activeTab === item.id
+  const isSelected = selectedItems.has(item.id)
 
-  const handleClick = () => {
-    if (!openTabs.includes(item.id)) {
-      setOpenTabs([...openTabs, item.id])
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+Click: 다중 선택 토글 (탭 열기 없음)
+      e.preventDefault()
+      setSelectedItems((prev) => {
+        const next = new Set(prev)
+        if (next.has(item.id)) {
+          next.delete(item.id)
+        } else {
+          next.add(item.id)
+        }
+        return next
+      })
+      setLastSelected(item.id)
+    } else if (e.shiftKey) {
+      // Shift+Click: 범위 선택
+      e.preventDefault()
+      if (lastSelectedId === null) {
+        setSelectedItems(new Set([item.id]))
+      } else {
+        const fromIdx = flatVisibleItemIds.indexOf(lastSelectedId)
+        const toIdx = flatVisibleItemIds.indexOf(item.id)
+        if (fromIdx === -1 || toIdx === -1) {
+          setSelectedItems(new Set([item.id]))
+        } else {
+          const start = Math.min(fromIdx, toIdx)
+          const end = Math.max(fromIdx, toIdx)
+          setSelectedItems(new Set(flatVisibleItemIds.slice(start, end + 1)))
+        }
+      }
+      setLastSelected(item.id)
+    } else {
+      // 일반 Click: 선택 해제 + 탭 열기 (기존 동작 유지)
+      setSelectedItems(new Set<number>())
+      setLastSelected(item.id)
+      if (!openTabs.includes(item.id)) {
+        setOpenTabs([...openTabs, item.id])
+      }
+      setActiveTab(item.id)
     }
-    setActiveTab(item.id)
   }
 
   const badge = TYPE_BADGE[item.type]
@@ -347,17 +366,13 @@ export function ItemRow({ item, depth, dragHandleRef, dragListeners, dragAttribu
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          handleClick()
+          handleClick(e as unknown as React.MouseEvent)
         }
       }}
-      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[#cccccc] hover:bg-[#2a2d2e] ${isActive ? 'bg-[#094771] text-white' : ''} ${isDragging ? 'opacity-40' : ''}`}
+      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isActive ? 'bg-[var(--bg-item-active)] text-[var(--text-on-active)]' : isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
       style={{ paddingLeft: `${(depth + 1) * 12}px` }}
     >
-      <DragHandle
-        dragHandleRef={dragHandleRef}
-        dragListeners={dragListeners}
-        dragAttributes={dragAttributes}
-      />
+      <DragHandle />
       <span
         className={`shrink-0 rounded px-1 text-[10px] font-medium ${badge.className}`}
       >
@@ -393,7 +408,7 @@ export function ItemRow({ item, depth, dragHandleRef, dragListeners, dragAttribu
           }}
           onClick={(e) => e.stopPropagation()}
           autoFocus
-          className="min-w-0 flex-1 rounded bg-[#3c3c3c] px-1 text-sm text-[#d4d4d4] outline-none focus:ring-1 focus:ring-[#007acc]"
+          className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
         />
       ) : (
         <span className="min-w-0 truncate" title={item.title}>
@@ -411,7 +426,6 @@ export function SortableItemRow({ item, depth }: { item: Item; depth: number }) 
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -424,13 +438,12 @@ export function SortableItemRow({ item, depth }: { item: Item; depth: number }) 
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      {...listeners}
+      {...attributes}
     >
       <ItemRow
         item={item}
         depth={depth}
-        dragHandleRef={setActivatorNodeRef}
-        dragListeners={listeners}
-        dragAttributes={attributes}
         isDragging={isDragging}
       />
     </div>

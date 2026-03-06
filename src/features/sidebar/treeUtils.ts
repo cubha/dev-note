@@ -44,6 +44,35 @@ export function getRootItems(items: Item[]): Item[] {
 }
 
 /**
+ * 현재 사이드바 렌더 순서로 보이는 Item ID 목록을 반환
+ * (Shift+Click 범위 선택에 사용)
+ * - 루트 아이템 → 루트 폴더 (확장된 경우 재귀적으로 하위 포함)
+ */
+export function getFlatVisibleItemIds(
+  treeNodes: FolderNode[],
+  rootItems: Item[],
+  expandedFolders: Set<number>,
+): number[] {
+  const result: number[] = rootItems.map((i) => i.id)
+
+  function collectNode(node: FolderNode) {
+    if (!expandedFolders.has(node.folder.id)) return
+    for (const item of node.items) {
+      result.push(item.id)
+    }
+    for (const child of node.children) {
+      collectNode(child)
+    }
+  }
+
+  for (const node of treeNodes) {
+    collectNode(node)
+  }
+
+  return result
+}
+
+/**
  * BFS로 rootFolderId를 포함한 모든 하위 폴더/아이템 ID 수집
  */
 export function collectDescendants(

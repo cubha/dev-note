@@ -33,7 +33,7 @@ export interface AppConfig {
   theme: 'dark' | 'light'
   editorFontSize: number
   wordWrap: boolean        // 자동 줄바꿈
-  tabSize: 2 | 4           // 탭 크기 (스페이스 기준)
+  showLineNumbers: boolean // 줄 번호 표시
   lastExportAt: number | null
   canaryBlock: string | null   // 패스워드 검증용 암호화된 더미 문자열 (AES-GCM)
   canaryIv: string | null     // canaryBlock 복호화에 필요한 IV
@@ -93,6 +93,20 @@ class DevNoteDB extends Dexie {
         })
       }
     })
+    this.version(5).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      const configs = await tx.table('config').toArray()
+      for (const cfg of configs as Array<Record<string, unknown>>) {
+        await tx.table('config').put({
+          ...cfg,
+          theme: cfg['theme'] ?? 'dark',
+          showLineNumbers: false,
+        })
+      }
+    })
   }
 }
 
@@ -111,7 +125,7 @@ export async function ensureConfig(): Promise<AppConfig> {
     theme: 'dark',
     editorFontSize: 14,
     wordWrap: false,
-    tabSize: 2,
+    showLineNumbers: false,
     lastExportAt: null,
     canaryBlock: null,
     canaryIv: null,

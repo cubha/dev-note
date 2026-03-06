@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import {
   defaultKeymap,
@@ -39,12 +39,19 @@ function getLangExtension(type: ItemType) {
   return json()
 }
 
-/** wordWrap / tabSize 를 Compartment에 담을 extension 목록 생성 */
+/** wordWrap / lineNumbers 를 Compartment에 담을 extension 목록 생성 */
 function buildConfigExt(config: AppConfig | null): Extension[] {
   const exts: Extension[] = []
   if (config?.wordWrap) exts.push(EditorView.lineWrapping)
-  exts.push(indentUnit.of(' '.repeat(config?.tabSize ?? 2)))
+  if (config?.showLineNumbers) exts.push(lineNumbers())
+  exts.push(indentUnit.of('  '))
   return exts
+}
+
+/** 에디터 테마 extension — dark: oneDark, light: defaultHighlightStyle */
+function buildThemeExt(theme: 'dark' | 'light'): Extension[] {
+  if (theme === 'dark') return [oneDark]
+  return [syntaxHighlighting(defaultHighlightStyle)]
 }
 
 function buildExtensions(
@@ -52,12 +59,13 @@ function buildExtensions(
   langExt: Extension,
   configCompartment: Compartment,
   configExt: Extension[],
+  themeCompartment: Compartment,
+  themeExt: Extension[],
 ) {
   return [
     langCompartment.of(langExt),
     configCompartment.of(configExt),
-    oneDark,
-    syntaxHighlighting(defaultHighlightStyle),
+    themeCompartment.of(themeExt),
     indentOnInput(),
     history(),
     keymap.of([
@@ -75,6 +83,7 @@ export function EditorPanel() {
   const viewRef = useRef<EditorView | null>(null)
   const langCompartment = useRef(new Compartment())
   const configCompartment = useRef(new Compartment())
+  const themeCompartment = useRef(new Compartment())
   const prevTabRef = useRef<number | null>(null)
   const dirtyListenerRef = useRef<Extension | null>(null)
 
@@ -105,6 +114,7 @@ export function EditorPanel() {
 
     const compartment = langCompartment.current
     const cfgCompartment = configCompartment.current
+    const themeCmpt = themeCompartment.current
     const dirtyListener = EditorView.updateListener.of((update) => {
       if (update.docChanged && prevTabRef.current !== null) {
         setDirtyItems((prev) => {
@@ -116,6 +126,7 @@ export function EditorPanel() {
     })
     dirtyListenerRef.current = dirtyListener
 
+    const cfg = configRef.current
     const view = new EditorView({
       state: EditorState.create({
         doc: '',
@@ -124,7 +135,9 @@ export function EditorPanel() {
             compartment,
             json(),
             cfgCompartment,
-            buildConfigExt(configRef.current),
+            buildConfigExt(cfg),
+            themeCmpt,
+            buildThemeExt(cfg?.theme ?? 'dark'),
           ),
           dirtyListener,
         ],
@@ -139,15 +152,17 @@ export function EditorPanel() {
     }
   }, [setDirtyItems])
 
-  // ─── wordWrap / tabSize 동적 적용 ────────────────────────────
+  // ─── wordWrap / lineNumbers 동적 적용 ────────────────────────
   useEffect(() => {
     const view = viewRef.current
     if (!view || !config) return
     view.dispatch({
-      effects: configCompartment.current.reconfigure(buildConfigExt(config)),
+      effects: [
+        configCompartment.current.reconfigure(buildConfigExt(config)),
+        themeCompartment.current.reconfigure(buildThemeExt(config.theme)),
+      ],
     })
   // config 전체를 deps에 포함 (ESLint exhaustive-deps 준수)
-  // lastExportAt 등 다른 필드 변경 시 재실행되나 view.dispatch는 저비용
   }, [config])
 
   // ─── 탭 전환 ─────────────────────────────────────────────────
@@ -166,6 +181,7 @@ export function EditorPanel() {
 
     if (activeTab === null) {
       const ext = dirtyListenerRef.current
+      const cfg = configRef.current
       const newState = EditorState.create({
         doc: '',
         extensions: ext
@@ -174,7 +190,9 @@ export function EditorPanel() {
                 langCompartment.current,
                 json(),
                 configCompartment.current,
-                buildConfigExt(configRef.current),
+                buildConfigExt(cfg),
+                themeCompartment.current,
+                buildThemeExt(cfg?.theme ?? 'dark'),
               ),
               ext,
             ]
@@ -182,7 +200,9 @@ export function EditorPanel() {
               langCompartment.current,
               json(),
               configCompartment.current,
-              buildConfigExt(configRef.current),
+              buildConfigExt(cfg),
+              themeCompartment.current,
+              buildThemeExt(cfg?.theme ?? 'dark'),
             ),
       })
       view.setState(newState)
@@ -193,10 +213,12 @@ export function EditorPanel() {
     if (cached) {
       view.setState(cached)
       // 캐시된 상태 복원 후 현재 설정 재적용
+      const cfg = configRef.current
       view.dispatch({
-        effects: configCompartment.current.reconfigure(
-          buildConfigExt(configRef.current),
-        ),
+        effects: [
+          configCompartment.current.reconfigure(buildConfigExt(cfg)),
+          themeCompartment.current.reconfigure(buildThemeExt(cfg?.theme ?? 'dark')),
+        ],
       })
       return
     }
@@ -218,6 +240,7 @@ export function EditorPanel() {
         effects: langCompartment.current.reconfigure(langExt),
       })
       const ext = dirtyListenerRef.current
+      const cfg = configRef.current
       const newState = EditorState.create({
         doc: text,
         extensions: ext
@@ -226,7 +249,9 @@ export function EditorPanel() {
                 langCompartment.current,
                 langExt,
                 configCompartment.current,
-                buildConfigExt(configRef.current),
+                buildConfigExt(cfg),
+                themeCompartment.current,
+                buildThemeExt(cfg?.theme ?? 'dark'),
               ),
               ext,
             ]
@@ -234,7 +259,9 @@ export function EditorPanel() {
               langCompartment.current,
               langExt,
               configCompartment.current,
-              buildConfigExt(configRef.current),
+              buildConfigExt(cfg),
+              themeCompartment.current,
+              buildThemeExt(cfg?.theme ?? 'dark'),
             ),
       })
       setTabStates((prev) => {
@@ -281,7 +308,7 @@ export function EditorPanel() {
   return (
     <div className="relative flex h-full flex-col">
       {isEmpty && (
-        <div className="flex flex-1 items-center justify-center text-sm text-[#858585]">
+        <div className="flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">
           항목을 선택하거나 새 항목을 만들어 시작하세요.
         </div>
       )}
