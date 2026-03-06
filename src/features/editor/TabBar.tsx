@@ -81,7 +81,7 @@ export function TabBar() {
   if (openTabs.length === 0) return null
 
   return (
-    <div className="flex shrink-0 overflow-x-auto border-b border-[#2d2d2d] bg-[#252526]">
+    <div className="flex shrink-0 overflow-x-auto border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex">
         {orderedItems.map((item) => {
           const isActive = activeTab === item.id
@@ -101,12 +101,12 @@ export function TabBar() {
               }}
               className={`group flex items-center gap-2 border-t px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? 'border-t-[#007acc] bg-[#1e1e1e] text-[#d4d4d4]'
-                  : 'border-t-transparent bg-[#2d2d2d] text-[#858585] hover:text-[#d4d4d4]'
+                  ? 'border-t-[var(--accent)] bg-[var(--bg-app)] text-[var(--text-editor)]'
+                  : 'border-t-transparent bg-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-editor)]'
               }`}
             >
               {isDirty && (
-                <span className="shrink-0 text-[#e5c07b]" aria-hidden>
+                <span className="shrink-0 text-[var(--text-dirty)]" aria-hidden>
                   ●
                 </span>
               )}
@@ -117,7 +117,7 @@ export function TabBar() {
                 type="button"
                 onClick={(e) => handleClose(e, item.id)}
                 aria-label="탭 닫기"
-                className="opacity-0 shrink-0 rounded p-0.5 hover:bg-[#3c3c3c] hover:opacity-100 focus:opacity-100"
+                className="opacity-0 shrink-0 rounded p-0.5 hover:bg-[var(--bg-input)] hover:opacity-100 focus:opacity-100"
               >
                 ×
               </button>

@@ -6,7 +6,7 @@
 // - 완료 후 lastExportAt 갱신
 
 import { db } from '../../core/db'
-import type { Item } from '../../core/db'
+import type { Folder, Item } from '../../core/db'
 import type { ExportSchema } from './schema'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
@@ -104,4 +104,63 @@ export async function exportData(): Promise<void> {
 
   // 4. lastExportAt 갱신
   await db.config.update(1, { lastExportAt: exportedAt })
+}
+
+// ─── 선택 항목 내보내기 ────────────────────────────────────────
+// 암호화 정책: 항목을 암호화된 상태 그대로 내보냄 (복호화 없음)
+// 가져오기 시 동일한 마스터 패스워드를 가진 사용자만 복호화 가능
+
+export async function exportSelectedItems(itemIds: number[]): Promise<void> {
+  const [allFolders, config] = await Promise.all([
+    db.folders.toArray(),
+    db.config.get(1),
+  ])
+
+  // 선택된 항목만 조회
+  const selectedItemsData = await db.items.bulkGet(itemIds)
+  const validItems = selectedItemsData.filter((i): i is Item => i !== undefined)
+
+  // 항목이 참조하는 폴더 및 그 조상 폴더 ID 수집
+  const neededFolderIds = new Set<number>()
+
+  const collectAncestors = (folderId: number | null) => {
+    if (folderId === null || neededFolderIds.has(folderId)) return
+    neededFolderIds.add(folderId)
+    const folder = allFolders.find((f) => f.id === folderId)
+    if (folder?.parentId !== null && folder?.parentId !== undefined) {
+      collectAncestors(folder.parentId)
+    }
+  }
+
+  for (const item of validItems) {
+    collectAncestors(item.folderId)
+  }
+
+  const exportFolders: Folder[] = allFolders.filter((f) => neededFolderIds.has(f.id))
+
+  const exportedAt = Date.now()
+  const schema: ExportSchema = {
+    version: 1,
+    exportedAt,
+    cryptoEnabled: config?.cryptoEnabled ?? false,
+    saltHex: config?.saltHex ?? null,
+    canaryBlock: config?.canaryBlock ?? null,
+    canaryIv: config?.canaryIv ?? null,
+    folders: exportFolders,
+    items: validItems.map((item): Omit<Item, 'id'> => ({
+      folderId: item.folderId,
+      title: item.title,
+      type: item.type,
+      tags: item.tags,
+      order: item.order,
+      encryptedContent: item.encryptedContent,
+      iv: item.iv,
+      updatedAt: item.updatedAt,
+      createdAt: item.createdAt,
+    })),
+  }
+
+  const content = JSON.stringify(schema, null, 2)
+  const fileName = `devnote-selected-${formatDateForFilename(exportedAt)}.json`
+  await saveToFile(content, fileName)
 }

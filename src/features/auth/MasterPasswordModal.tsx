@@ -119,11 +119,11 @@ export function MasterPasswordModal({ mode, config }: Props) {
       className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/70"
     >
       <div
-        className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#3c3c3c] bg-[#252526] p-6 shadow-xl"
+        className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--bg-input)] bg-[var(--bg-surface)] p-6 shadow-xl"
         role="presentation"
       >
-        <h2 className="mb-2 text-lg font-semibold text-white">{title}</h2>
-        <p className="mb-4 text-sm text-[#cccccc]">{description}</p>
+        <h2 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
+        <p className="mb-4 text-sm text-[var(--text-primary)]">{description}</p>
 
         <form
           onSubmit={(e) => {
@@ -135,7 +135,7 @@ export function MasterPasswordModal({ mode, config }: Props) {
             <div>
               <label
                 htmlFor="password"
-                className="mb-1 block text-sm text-[#cccccc]"
+                className="mb-1 block text-sm text-[var(--text-primary)]"
               >
                 패스워드
               </label>
@@ -148,7 +148,7 @@ export function MasterPasswordModal({ mode, config }: Props) {
                 autoFocus
                 autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
                 disabled={loading}
-                className="w-full rounded border border-[#555] bg-[#3c3c3c] px-3 py-2 text-[#d4d4d4] outline-none transition-colors placeholder:text-[#888] focus:border-[#007acc] disabled:opacity-50"
+                className="w-full rounded border border-[var(--text-placeholder)] bg-[var(--bg-input)] px-3 py-2 text-[var(--text-editor)] outline-none transition-colors placeholder:text-[var(--text-dim)] focus:border-[var(--border-accent)] disabled:opacity-50"
                 placeholder={mode === 'setup' ? '새 패스워드 입력' : '패스워드 입력'}
               />
             </div>
@@ -157,7 +157,7 @@ export function MasterPasswordModal({ mode, config }: Props) {
               <div>
                 <label
                   htmlFor="passwordConfirm"
-                  className="mb-1 block text-sm text-[#cccccc]"
+                  className="mb-1 block text-sm text-[var(--text-primary)]"
                 >
                   패스워드 확인
                 </label>
@@ -169,14 +169,14 @@ export function MasterPasswordModal({ mode, config }: Props) {
                   onKeyDown={handleKeyDown}
                   autoComplete="new-password"
                   disabled={loading}
-                  className="w-full rounded border border-[#555] bg-[#3c3c3c] px-3 py-2 text-[#d4d4d4] outline-none transition-colors placeholder:text-[#888] focus:border-[#007acc] disabled:opacity-50"
+                  className="w-full rounded border border-[var(--text-placeholder)] bg-[var(--bg-input)] px-3 py-2 text-[var(--text-editor)] outline-none transition-colors placeholder:text-[var(--text-dim)] focus:border-[var(--border-accent)] disabled:opacity-50"
                   placeholder="패스워드 다시 입력"
                 />
               </div>
             )}
 
             {error && (
-              <p className="text-sm text-[#f48771]" role="alert">
+              <p className="text-sm text-[var(--text-error)]" role="alert">
                 {error}
               </p>
             )}
@@ -186,7 +186,7 @@ export function MasterPasswordModal({ mode, config }: Props) {
             <button
               type="submit"
               disabled={loading}
-              className="rounded bg-[#007acc] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#005fa3] disabled:opacity-50"
+              className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               {loading ? '처리 중...' : mode === 'setup' ? '설정 완료' : '잠금 해제'}
             </button>

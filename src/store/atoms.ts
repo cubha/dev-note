@@ -77,3 +77,19 @@ export interface RenamingTarget {
 }
 
 export const renamingTargetAtom = atom<RenamingTarget | null>(null)
+
+// ─── DnD 드롭 대상 ────────────────────────────────────────────
+
+/** DnD 드래그 중 hover 중인 드롭 대상 폴더 ID (hover highlight 용) */
+export const dragOverFolderAtom = atom<number | null>(null)
+
+// ─── 다중 선택 ────────────────────────────────────────────────
+
+/** 사이드바에서 다중 선택된 Item ID Set */
+export const selectedItemsAtom = atom<Set<number>>(new Set<number>())
+
+/** Shift+Click 범위 선택 앵커 — 마지막으로 선택된 Item ID */
+export const lastSelectedItemAtom = atom<number | null>(null)
+
+/** 현재 사이드바에 보이는 아이템 ID 순서 배열 (Shift+Click 범위 계산용) */
+export const flatVisibleItemIdsAtom = atom<number[]>([])

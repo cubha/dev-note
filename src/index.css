@@ -2,11 +2,90 @@
 
 @layer base {
   :root {
+    /* ── Dark theme (기본) ─────────────────────────── */
+    --bg-app: #1e1e1e;
+    --bg-surface: #252526;
+    --bg-surface-hover: #2a2d2e;
+    --bg-input: #3c3c3c;
+    --bg-input-hover: #4a4a4a;
+    --bg-item-active: #094771;
+    --bg-item-selected: #1e3a52;
+    --bg-folder-selected: #37373d;
+    --bg-drop-zone: #1a3a52;
+    --border-default: #2d2d2d;
+    --border-subtle: #454545;
+    --border-accent: #007acc;
+    --text-primary: #cccccc;
+    --text-secondary: #858585;
+    --text-editor: #d4d4d4;
+    --text-placeholder: #555555;
+    --text-dim: #888888;
+    --text-on-active: #ffffff;
+    --text-active: #9cdcfe;
+    --text-dirty: #e5c07b;
+    --accent: #007acc;
+    --accent-hover: #005fa3;
+    --text-error: #f48771;
+    --text-success: #4ec9b0;
+    --text-warning: #cca700;
+    --bg-error-hover: #5a1d1d;
+    --bg-accent-hover: #094771;
+    /* 타입 뱃지 */
+    --badge-ssh-bg: #264f78;
+    --badge-ssh-text: #9cdcfe;
+    --badge-db-bg: #3a2d20;
+    --badge-db-text: #ce9178;
+    --badge-http-bg: #1e3a1e;
+    --badge-http-text: #4ec9b0;
+    --badge-note-bg: #2d2d2d;
+    --badge-note-text: #858585;
     color-scheme: dark;
+
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  :root[data-theme="light"] {
+    /* ── Light theme ───────────────────────────────── */
+    --bg-app: #f3f3f3;
+    --bg-surface: #ffffff;
+    --bg-surface-hover: #e8e8e8;
+    --bg-input: #ebebeb;
+    --bg-input-hover: #dedede;
+    --bg-item-active: #cce5ff;
+    --bg-item-selected: #dde9f7;
+    --bg-folder-selected: #e4e6f1;
+    --bg-drop-zone: #ddeeff;
+    --border-default: #e0e0e0;
+    --border-subtle: #c8c8c8;
+    --border-accent: #007acc;
+    --text-primary: #333333;
+    --text-secondary: #6b6b6b;
+    --text-editor: #1e1e1e;
+    --text-placeholder: #aaaaaa;
+    --text-dim: #888888;
+    --text-on-active: #003b71;
+    --text-active: #0054a1;
+    --text-dirty: #9a6700;
+    --accent: #007acc;
+    --accent-hover: #005fa3;
+    --text-error: #cd3131;
+    --text-success: #2a8a6a;
+    --text-warning: #9a6700;
+    --bg-error-hover: #fce4e4;
+    --bg-accent-hover: #cce5ff;
+    /* 타입 뱃지 */
+    --badge-ssh-bg: #dbeafe;
+    --badge-ssh-text: #1d4ed8;
+    --badge-db-bg: #fef3c7;
+    --badge-db-text: #92400e;
+    --badge-http-bg: #dcfce7;
+    --badge-http-text: #166534;
+    --badge-note-bg: #f0f0f0;
+    --badge-note-text: #6b7280;
+    color-scheme: light;
   }
 
   * {
@@ -17,8 +96,8 @@
     margin: 0;
     min-height: 100vh;
     font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
-    background-color: #1e1e1e;
-    color: #d4d4d4;
+    background-color: var(--bg-app);
+    color: var(--text-editor);
   }
 
   #root {
