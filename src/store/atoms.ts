@@ -1,6 +1,5 @@
 import { atom } from 'jotai'
-import type { EditorState } from '@codemirror/state'
-import type { AppConfig } from '../core/db'
+import type { AppConfig, Item, ItemType } from '../core/db'
 
 // ─── 탭 관리 ──────────────────────────────────────────────────
 
@@ -12,14 +11,6 @@ export const activeTabAtom = atom<number | null>(null)
 
 /** 미저장 변경이 있는 Item ID Set (탭에 dot 표시용) */
 export const dirtyItemsAtom = atom<Set<number>>(new Set<number>())
-
-/**
- * 탭별 EditorState 저장 (탭 ID → EditorState)
- * - Undo/Redo 히스토리를 탭 전환 시에도 유지하기 위해
- *   단순 string이 아닌 EditorState 객체 자체를 저장
- * - 탭 닫기 시 해당 ID 제거
- */
-export const tabStatesAtom = atom<Map<number, EditorState>>(new Map<number, EditorState>())
 
 // ─── 암호화 세션 ──────────────────────────────────────────────
 
@@ -93,3 +84,24 @@ export const lastSelectedItemAtom = atom<number | null>(null)
 
 /** 현재 사이드바에 보이는 아이템 ID 순서 배열 (Shift+Click 범위 계산용) */
 export const flatVisibleItemIdsAtom = atom<number[]>([])
+
+// ─── 대시보드 ──────────────────────────────────────────────
+
+/** 카드 폼 모달 상태 */
+export interface CardFormState {
+  isOpen: boolean
+  editItem: Item | null      // null = 새 카드
+  folderId: number | null    // 새 카드의 기본 폴더
+}
+
+export const cardFormAtom = atom<CardFormState>({
+  isOpen: false,
+  editItem: null,
+  folderId: null,
+})
+
+/** 대시보드 타입 필터 (null = 전체) */
+export const typeFilterAtom = atom<ItemType | null>(null)
+
+/** 대시보드 태그 필터 */
+export const tagFilterAtom = atom<string | null>(null)

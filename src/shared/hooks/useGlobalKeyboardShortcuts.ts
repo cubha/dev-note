@@ -1,65 +1,80 @@
 // src/shared/hooks/useGlobalKeyboardShortcuts.ts
 //
-// 앱 전역 키보드 단축키 (에디터 포커스 여부에 따라 동적 활성화)
+// 앱 전역 키보드 단축키
 //
-// Ctrl+N          새 항목 생성 (루트)
+// Ctrl+N          새 카드 (카드 폼 모달 열기)
 // Ctrl+Shift+N    새 폴더 생성 (루트)
-// Escape          다중 선택 해제
-// Delete          선택 항목 삭제 (에디터 포커스 없을 때만)
+// Ctrl+K          검색 포커스
+// Ctrl+W          현재 활성 탭 닫기
+// Escape          다중 선택 해제 / 검색 초기화
+// Delete          선택 항목 삭제
 
 import { useEffect } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { db } from '../../core/db'
 import {
+  selectedItemsAtom,
+  cardFormAtom,
+  searchQueryAtom,
+  selectedFolderAtom,
   openTabsAtom,
   activeTabAtom,
-  selectedItemsAtom,
   dirtyItemsAtom,
-  tabStatesAtom,
 } from '../../store/atoms'
+import { closeTab } from '../../store/tabHelpers'
+import { toast } from 'sonner'
 
 export function useGlobalKeyboardShortcuts() {
-  const setOpenTabs    = useSetAtom(openTabsAtom)
-  const setActiveTab   = useSetAtom(activeTabAtom)
-  const selectedItems  = useAtomValue(selectedItemsAtom)
+  const selectedItems = useAtomValue(selectedItemsAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
-  const setDirtyItems  = useSetAtom(dirtyItemsAtom)
-  const setTabStates   = useSetAtom(tabStatesAtom)
+  const setCardForm = useSetAtom(cardFormAtom)
+  const setSearchQuery = useSetAtom(searchQueryAtom)
+  const selectedFolder = useAtomValue(selectedFolderAtom)
+  const openTabs = useAtomValue(openTabsAtom)
+  const activeTab = useAtomValue(activeTabAtom)
+  const setOpenTabs = useSetAtom(openTabsAtom)
+  const setActiveTab = useSetAtom(activeTabAtom)
+  const setDirtyItems = useSetAtom(dirtyItemsAtom)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // CodeMirror 에디터 또는 인라인 input 포커스 시 단축키 비활성
-      const isEditorFocused = document.activeElement?.closest('.cm-editor') !== null
       const isInputFocused =
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement
 
-      // ── Ctrl+N: 새 항목 (루트) ─────────────────────────────
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'n') {
-        if (isEditorFocused || isInputFocused) return
+      // ── Ctrl+K: 검색 포커스 ─────────────────────────────
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
-        void db.items
-          .add({
-            folderId: null,
-            title: '새 항목',
-            type: 'note',
-            tags: [],
-            order: Date.now(),
-            encryptedContent: null,
-            iv: null,
-            updatedAt: Date.now(),
-            createdAt: Date.now(),
-          })
-          .then((id) => {
-            setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id]))
-            setActiveTab(id)
-          })
+        const searchInput = document.querySelector<HTMLInputElement>(
+          'input[placeholder*="검색"]'
+        )
+        if (searchInput) {
+          searchInput.focus()
+          searchInput.select()
+        }
         return
       }
 
-      // ── Ctrl+Shift+N: 새 폴더 (루트) ──────────────────────
+      // ── Ctrl+W: 현재 활성 탭 닫기 ─────────────────────
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault()
+        if (activeTab !== null) {
+          closeTab(activeTab, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+        }
+        return
+      }
+
+      // ── Ctrl+N: 새 카드 (카드 폼 모달) ──────────────────
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'n') {
+        if (isInputFocused) return
+        e.preventDefault()
+        setCardForm({ isOpen: true, editItem: null, folderId: selectedFolder })
+        return
+      }
+
+      // ── Ctrl+Shift+N: 새 폴더 (루트) ──────────────────
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
-        if (isEditorFocused || isInputFocused) return
+        if (isInputFocused) return
         e.preventDefault()
         void db.folders.add({
           parentId: null,
@@ -70,33 +85,24 @@ export function useGlobalKeyboardShortcuts() {
         return
       }
 
-      // ── Escape: 다중 선택 해제 ─────────────────────────────
+      // ── Escape: 다중 선택 해제 + 검색 초기화 ──────────
       if (e.key === 'Escape') {
         if (selectedItems.size > 0) {
           setSelectedItems(new Set<number>())
         }
+        setSearchQuery('')
         return
       }
 
-      // ── Delete: 선택 항목 삭제 (에디터 포커스 없을 때) ────
-      if (e.key === 'Delete' && !isEditorFocused && !isInputFocused) {
+      // ── Delete: 선택 항목 삭제 ──────────────────────────
+      if (e.key === 'Delete' && !isInputFocused) {
         if (selectedItems.size === 0) return
         e.preventDefault()
         const ids = Array.from(selectedItems)
-        setOpenTabs((prev) => prev.filter((id) => !ids.includes(id)))
-        setActiveTab((prev) => (prev !== null && ids.includes(prev) ? null : prev))
-        setDirtyItems((prev) => {
-          const next = new Set(prev)
-          ids.forEach((id) => next.delete(id))
-          return next
-        })
-        setTabStates((prev) => {
-          const next = new Map(prev)
-          ids.forEach((id) => next.delete(id))
-          return next
-        })
         setSelectedItems(new Set<number>())
-        void db.items.bulkDelete(ids)
+        void db.items.bulkDelete(ids).then(() => {
+          toast.success(`${ids.length}개 항목 삭제됨`, { duration: 2000 })
+        })
       }
     }
 
@@ -104,10 +110,14 @@ export function useGlobalKeyboardShortcuts() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
     selectedItems,
+    selectedFolder,
+    openTabs,
+    activeTab,
+    setSelectedItems,
+    setCardForm,
+    setSearchQuery,
     setOpenTabs,
     setActiveTab,
-    setSelectedItems,
     setDirtyItems,
-    setTabStates,
   ])
 }

@@ -14,23 +14,23 @@ import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
 import {
-  openTabsAtom,
-  activeTabAtom,
   settingsOpenAtom,
   dragOverFolderAtom,
   expandedFoldersAtom,
   selectedItemsAtom,
   flatVisibleItemIdsAtom,
   appConfigAtom,
+  cardFormAtom,
+  selectedFolderAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
 
 export function Sidebar() {
-  const setOpenTabs = useSetAtom(openTabsAtom)
-  const setActiveTab = useSetAtom(activeTabAtom)
+  const setCardForm = useSetAtom(cardFormAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const [selectedFolder, setSelectedFolder] = useAtom(selectedFolderAtom)
   const setDragOverFolder = useSetAtom(dragOverFolderAtom)
   const [selectedItems, setSelectedItems] = useAtom(selectedItemsAtom)
   const setFlatVisibleItemIds = useSetAtom(flatVisibleItemIdsAtom)
@@ -241,28 +241,21 @@ export function Sidebar() {
     })
   }
 
-  const handleNewItem = async () => {
-    const id = await db.items.add({
-      folderId: null,
-      title: '새 항목',
-      type: 'note',
-      tags: [],
-      order: Date.now(),
-      encryptedContent: null,
-      iv: null,
-      updatedAt: Date.now(),
-      createdAt: Date.now(),
-    })
-    setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id]))
-    setActiveTab(id)
+  const handleNewItem = () => {
+    setCardForm({ isOpen: true, editItem: null, folderId: selectedFolder })
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-[var(--border-default)] bg-[var(--bg-surface)] p-3">
+    <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]">
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-[var(--border-default)] bg-[var(--bg-sidebar)] p-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs uppercase tracking-widest text-[var(--text-secondary)]">
-            DevNote
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent)]">
+              <span className="text-xs font-bold text-white">D</span>
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+              DevNote
+            </span>
           </div>
           <div className="flex items-center gap-0.5">
             {/* 테마 토글 버튼 */}
@@ -355,7 +348,7 @@ export function Sidebar() {
         </div>
       </header>
 
-      {/* 빈 영역 클릭 시 다중 선택 해제 */}
+      {/* 전체 보기 + 폴더 트리 */}
       <div
         className="flex-1 overflow-y-auto"
         onClick={(e) => {
@@ -364,11 +357,27 @@ export function Sidebar() {
           }
         }}
       >
+        {/* 전체 보기 */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedFolder(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolder(null) }}
+          className={`flex h-7 cursor-pointer items-center gap-2 px-3 text-xs font-medium uppercase tracking-wider ${
+            selectedFolder === null
+              ? 'bg-[var(--bg-item-active)] text-[var(--text-on-active)]'
+              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)]'
+          }`}
+        >
+          <span>전체 카드</span>
+          {items && <span className="ml-auto text-[10px] opacity-60">{items.length}</span>}
+        </div>
+
         {folders === undefined || items === undefined ? (
           <div className="p-3 text-xs text-[var(--text-secondary)]">로딩 중...</div>
         ) : isEmpty ? (
-          <div className="p-4 text-center text-sm text-[var(--text-secondary)]">
-            새 항목 버튼으로 시작하세요.
+          <div className="p-4 text-center text-sm text-[var(--text-tertiary)]">
+            새 카드 버튼으로 시작하세요
           </div>
         ) : (
           <DndContext
@@ -391,6 +400,21 @@ export function Sidebar() {
             </SortableContext>
           </DndContext>
         )}
+      </div>
+
+      {/* 새 카드 추가 버튼 */}
+      <div className="border-t border-[var(--border-default)] px-3 py-2">
+        <button
+          type="button"
+          onClick={handleNewItem}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none"
+        >
+          <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          새 카드 추가
+        </button>
       </div>
 
       <StorageButtons />

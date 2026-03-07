@@ -9,7 +9,6 @@ import {
   openTabsAtom,
   activeTabAtom,
   dirtyItemsAtom,
-  tabStatesAtom,
   selectedItemsAtom,
 } from '../../store/atoms'
 import { collectDescendants } from '../../features/sidebar/treeUtils'
@@ -22,7 +21,6 @@ export function ContextMenu() {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
-  const setTabStates = useSetAtom(tabStatesAtom)
   const selectedItems = useAtomValue(selectedItemsAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
 
@@ -47,11 +45,6 @@ export function ContextMenu() {
     )
     setDirtyItems((prev) => {
       const next = new Set(prev)
-      ids.forEach((id) => next.delete(id))
-      return next
-    })
-    setTabStates((prev) => {
-      const next = new Map(prev)
       ids.forEach((id) => next.delete(id))
       return next
     })

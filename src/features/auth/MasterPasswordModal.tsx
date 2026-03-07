@@ -116,82 +116,82 @@ export function MasterPasswordModal({ mode, config }: Props) {
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/70"
+      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/80"
     >
-      <div
-        className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--bg-input)] bg-[var(--bg-surface)] p-6 shadow-xl"
-        role="presentation"
-      >
-        <h2 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
-        <p className="mb-4 text-sm text-[var(--text-primary)]">{description}</p>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleSubmit()
-          }}
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div
+          className="w-full max-w-sm mx-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 shadow-2xl animate-scale-in"
+          role="presentation"
         >
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-sm text-[var(--text-primary)]"
-              >
-                패스워드
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
-                disabled={loading}
-                className="w-full rounded border border-[var(--text-placeholder)] bg-[var(--bg-input)] px-3 py-2 text-[var(--text-editor)] outline-none transition-colors placeholder:text-[var(--text-dim)] focus:border-[var(--border-accent)] disabled:opacity-50"
-                placeholder={mode === 'setup' ? '새 패스워드 입력' : '패스워드 입력'}
-              />
+          {/* 로고 */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent)] mb-3 shadow-lg shadow-[var(--accent-glow)]">
+              <span className="text-lg font-bold text-white">D</span>
             </div>
-
-            {mode === 'setup' && (
-              <div>
-                <label
-                  htmlFor="passwordConfirm"
-                  className="mb-1 block text-sm text-[var(--text-primary)]"
-                >
-                  패스워드 확인
-                </label>
-                <input
-                  id="passwordConfirm"
-                  type="password"
-                  value={passwordConfirm}
-                  onChange={(e) => setPasswordConfirm(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  autoComplete="new-password"
-                  disabled={loading}
-                  className="w-full rounded border border-[var(--text-placeholder)] bg-[var(--bg-input)] px-3 py-2 text-[var(--text-editor)] outline-none transition-colors placeholder:text-[var(--text-dim)] focus:border-[var(--border-accent)] disabled:opacity-50"
-                  placeholder="패스워드 다시 입력"
-                />
-              </div>
-            )}
-
-            {error && (
-              <p className="text-sm text-[var(--text-error)]" role="alert">
-                {error}
-              </p>
-            )}
+            <h2 className="text-base font-semibold text-[var(--text-primary)] m-0">{title}</h2>
+            <p className="mt-1.5 text-xs text-[var(--text-tertiary)] text-center leading-relaxed">{description}</p>
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSubmit()
+            }}
+          >
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="password" className="block text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
+                  패스워드
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  autoFocus
+                  autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
+                  disabled={loading}
+                  className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] disabled:opacity-50"
+                  placeholder={mode === 'setup' ? '새 패스워드 입력' : '패스워드 입력'}
+                />
+              </div>
+
+              {mode === 'setup' && (
+                <div>
+                  <label htmlFor="passwordConfirm" className="block text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
+                    패스워드 확인
+                  </label>
+                  <input
+                    id="passwordConfirm"
+                    type="password"
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoComplete="new-password"
+                    disabled={loading}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] disabled:opacity-50"
+                    placeholder="패스워드 다시 입력"
+                  />
+                </div>
+              )}
+
+              {error && (
+                <p className="text-xs text-[var(--text-error)] bg-[var(--bg-error-hover)] rounded-lg px-3 py-2" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              className="mt-5 w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50 cursor-pointer border-none shadow-md shadow-[var(--accent-glow)]"
             >
               {loading ? '처리 중...' : mode === 'setup' ? '설정 완료' : '잠금 해제'}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </dialog>
   )

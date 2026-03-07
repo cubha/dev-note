@@ -17,9 +17,9 @@ import {
 // ─── 타입 뱃지 (TreeNode.tsx와 동일 색상 시스템) ──────────────
 
 const TYPE_BADGE: Record<ItemType, { label: string; className: string }> = {
-  ssh:    { label: 'SSH',  className: 'bg-[#264f78] text-[#9cdcfe]' },
+  server: { label: 'SVR',  className: 'bg-[#264f78] text-[#9cdcfe]' },
   db:     { label: 'DB',   className: 'bg-[#3a2d20] text-[#ce9178]' },
-  http:   { label: 'HTTP', className: 'bg-[#1e3a1e] text-[#4ec9b0]' },
+  api:    { label: 'API',  className: 'bg-[#1e3a1e] text-[#4ec9b0]' },
   note:   { label: 'TXT',  className: 'bg-[#2d2d2d] text-[#858585]' },
   custom: { label: 'ETC',  className: 'bg-[#2d2d2d] text-[#858585]' },
 }
