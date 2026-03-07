@@ -47,10 +47,12 @@ function isNullOrNumber(value: unknown): value is number | null {
 
 // ─── 도메인 타입가드 ───────────────────────────────────────────
 
-const VALID_ITEM_TYPES: ItemType[] = ['ssh', 'db', 'http', 'note', 'custom']
+const VALID_ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'custom']
+export const LEGACY_TYPE_MAP: Record<string, ItemType> = { ssh: 'server', http: 'api' }
 
 function isValidItemType(value: unknown): value is ItemType {
-  return VALID_ITEM_TYPES.includes(value as ItemType)
+  if (typeof value !== 'string') return false
+  return VALID_ITEM_TYPES.includes(value as ItemType) || value in LEGACY_TYPE_MAP
 }
 
 function isFolder(value: unknown): value is Folder {

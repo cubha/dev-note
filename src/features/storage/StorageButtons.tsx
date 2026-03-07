@@ -17,7 +17,6 @@ import {
   selectedFolderAtom,
   expandedFoldersAtom,
   dirtyItemsAtom,
-  tabStatesAtom,
   cryptoKeyAtom,
   appConfigAtom,
 } from '../../store/atoms'
@@ -51,7 +50,6 @@ export function StorageButtons() {
   const setSelectedFolder  = useSetAtom(selectedFolderAtom)
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
   const setDirtyItems      = useSetAtom(dirtyItemsAtom)
-  const setTabStates       = useSetAtom(tabStatesAtom)
   const setCryptoKey       = useSetAtom(cryptoKeyAtom)
   const setAppConfig       = useSetAtom(appConfigAtom)
 
@@ -67,7 +65,6 @@ export function StorageButtons() {
     setSelectedFolder(null)
     setExpandedFolders(new Set<number>())
     setDirtyItems(new Set<number>())
-    setTabStates(new Map())
   }
 
   // ── 내보내기 ────────────────────────────────────────────────

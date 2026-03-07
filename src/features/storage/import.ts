@@ -8,8 +8,8 @@
 // - Dexie 트랜잭션으로 원자적 처리 (실패 시 자동 롤백)
 
 import { db } from '../../core/db'
-import type { Folder, Item } from '../../core/db'
-import { isValidExportSchema } from './schema'
+import type { Folder, Item, ItemType } from '../../core/db'
+import { isValidExportSchema, LEGACY_TYPE_MAP } from './schema'
 
 // ─── 파일 읽기 (FSAA + input 폴백) ────────────────────────────
 
@@ -173,9 +173,10 @@ export async function importData(
           ? (folderIdMap.get(item.folderId) ?? null)
           : null,
         title: item.title,
-        type: item.type,
+        type: (LEGACY_TYPE_MAP[item.type as string] ?? item.type) as ItemType,
         tags: item.tags,
         order: item.order,
+        pinned: (item as Record<string, unknown>).pinned === true,
         encryptedContent: item.encryptedContent,
         iv: item.iv,
         updatedAt: item.updatedAt,

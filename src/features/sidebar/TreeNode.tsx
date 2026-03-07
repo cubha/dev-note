@@ -8,17 +8,18 @@ import type { Item, ItemType } from '../../core/db'
 import { db } from '../../core/db'
 import type { FolderNode } from './treeUtils'
 import {
-  activeTabAtom,
   contextMenuAtom,
   dragOverFolderAtom,
+  openTabsAtom,
+  activeTabAtom,
   expandedFoldersAtom,
   flatVisibleItemIdsAtom,
   lastSelectedItemAtom,
-  openTabsAtom,
   renamingTargetAtom,
   selectedFolderAtom,
   selectedItemsAtom,
 } from '../../store/atoms'
+import { openTab } from '../../store/tabHelpers'
 
 const MENU_WIDTH = 192
 
@@ -266,17 +267,15 @@ const TYPE_BADGE: Record<
   ItemType,
   { label: string; className: string }
 > = {
-  ssh:    { label: 'SSH',  className: 'bg-[var(--badge-ssh-bg)] text-[var(--badge-ssh-text)]' },
+  server: { label: 'SVR',  className: 'bg-[var(--badge-server-bg)] text-[var(--badge-server-text)]' },
   db:     { label: 'DB',   className: 'bg-[var(--badge-db-bg)] text-[var(--badge-db-text)]' },
-  http:   { label: 'HTTP', className: 'bg-[var(--badge-http-bg)] text-[var(--badge-http-text)]' },
+  api:    { label: 'API',  className: 'bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]' },
   note:   { label: 'TXT',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
   custom: { label: 'ETC',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
 }
 
 export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
-  const openTabs = useAtomValue(openTabsAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
-  const activeTab = useAtomValue(activeTabAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const renamingTarget = useAtomValue(renamingTargetAtom)
   const setRenamingTarget = useSetAtom(renamingTargetAtom)
@@ -292,12 +291,10 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
   const isRenaming =
     renamingTarget?.type === 'item' && renamingTarget?.id === item.id
 
-  const isActive = activeTab === item.id
   const isSelected = selectedItems.has(item.id)
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
-      // Ctrl+Click: 다중 선택 토글 (탭 열기 없음)
       e.preventDefault()
       setSelectedItems((prev) => {
         const next = new Set(prev)
@@ -310,7 +307,6 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
       })
       setLastSelected(item.id)
     } else if (e.shiftKey) {
-      // Shift+Click: 범위 선택
       e.preventDefault()
       if (lastSelectedId === null) {
         setSelectedItems(new Set([item.id]))
@@ -327,13 +323,10 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
       }
       setLastSelected(item.id)
     } else {
-      // 일반 Click: 선택 해제 + 탭 열기 (기존 동작 유지)
+      // 일반 Click: 탭으로 열기
       setSelectedItems(new Set<number>())
       setLastSelected(item.id)
-      if (!openTabs.includes(item.id)) {
-        setOpenTabs([...openTabs, item.id])
-      }
-      setActiveTab(item.id)
+      openTab(item.id, setOpenTabs, setActiveTab)
     }
   }
 
@@ -369,7 +362,7 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
           handleClick(e as unknown as React.MouseEvent)
         }
       }}
-      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isActive ? 'bg-[var(--bg-item-active)] text-[var(--text-on-active)]' : isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
+      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
       style={{ paddingLeft: `${(depth + 1) * 12}px` }}
     >
       <DragHandle />

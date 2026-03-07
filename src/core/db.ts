@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 // ─── 타입 정의 ────────────────────────────────────────────────
 
-export type ItemType = 'ssh' | 'db' | 'http' | 'note' | 'custom'
+export type ItemType = 'server' | 'db' | 'api' | 'note' | 'custom'
 
 export interface Folder {
   id: number
@@ -19,8 +19,9 @@ export interface Item {
   type: ItemType
   tags: string[]            // 평문 (검색 필터)
   order: number             // 정렬 순서 (인덱스 제외)
+  pinned: boolean           // 즐겨찾기/핀 고정
   // 암호화 필드 — Dexie 스키마 인덱스에서 의도적으로 제외 (Best Practice)
-  encryptedContent: string | null   // AES-GCM 암호화된 JSON
+  encryptedContent: string | null   // AES-GCM 암호화된 JSON (StructuredContent | 레거시 텍스트)
   iv: string | null                 // Base64 인코딩된 IV
   updatedAt: number
   createdAt: number
@@ -105,6 +106,41 @@ class DevNoteDB extends Dexie {
           theme: cfg['theme'] ?? 'dark',
           showLineNumbers: false,
         })
+      }
+    })
+    this.version(6).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      const allItems = await tx.table('items').toArray()
+      for (const item of allItems as Array<Record<string, unknown>>) {
+        await tx.table('items').put({
+          ...item,
+          pinned: false,
+        })
+      }
+    })
+    // v7: 카드 타입 재정의 — ssh→server, http→api
+    this.version(7).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      const allItems = await tx.table('items').toArray()
+      for (const item of allItems as Array<Record<string, unknown>>) {
+        let updated = false
+        const patch: Record<string, unknown> = { ...item }
+        if (item.type === 'ssh') {
+          patch.type = 'server'
+          updated = true
+        } else if (item.type === 'http') {
+          patch.type = 'api'
+          updated = true
+        }
+        if (updated) {
+          await tx.table('items').put(patch)
+        }
       }
     })
   }
