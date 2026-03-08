@@ -1,10 +1,31 @@
 // src/store/tabHelpers.ts
 //
-// 탭 열기/닫기 헬퍼 — Jotai atom setter를 받아 상태를 갱신
+// 탭 열기/닫기/삭제 헬퍼 — Jotai atom setter를 받아 상태를 갱신
 
 import type { SetStateAction } from 'jotai'
 
 type Setter<T> = (update: SetStateAction<T>) => void
+
+/**
+ * 항목 삭제 시 탭/dirty 상태 일괄 정리
+ * — 모든 삭제 경로(ContextMenu, CardGrid, Delete키)에서 공용 사용
+ */
+export function removeItemsFromState(
+  ids: number[],
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+  setDirtyItems: Setter<Set<number>>,
+) {
+  setOpenTabs((prev) => prev.filter((id) => !ids.includes(id)))
+  setActiveTab((prev) =>
+    prev !== null && ids.includes(prev) ? null : prev,
+  )
+  setDirtyItems((prev) => {
+    const next = new Set(prev)
+    ids.forEach((id) => next.delete(id))
+    return next
+  })
+}
 
 /**
  * 탭 열기: 이미 열려있으면 활성화만, 없으면 추가 후 활성화

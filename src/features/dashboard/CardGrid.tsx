@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Fuse from 'fuse.js'
@@ -6,9 +6,7 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { CardContent as CardContentType } from '../../core/types'
 import { parseContent } from '../../core/content'
-import { safeDecrypt } from '../../core/crypto'
 import {
-  cryptoKeyAtom,
   searchQueryAtom,
   typeFilterAtom,
   tagFilterAtom,
@@ -16,19 +14,21 @@ import {
   cardFormAtom,
   openTabsAtom,
   activeTabAtom,
+  dirtyItemsAtom,
+  searchModeAtom,
+  semanticResultsAtom,
 } from '../../store/atoms'
-import { openTab } from '../../store/tabHelpers'
+import { openTab, removeItemsFromState } from '../../store/tabHelpers'
 import { InfoCard } from '../cards/InfoCard'
 import { EmptyState } from '../cards/EmptyState'
 import { toast } from 'sonner'
 
-interface DecryptedItem {
+interface ParsedItem {
   item: Item
   content: CardContentType
 }
 
 export function CardGrid() {
-  const cryptoKey = useAtomValue(cryptoKeyAtom)
   const searchQuery = useAtomValue(searchQueryAtom)
   const typeFilter = useAtomValue(typeFilterAtom)
   const tagFilter = useAtomValue(tagFilterAtom)
@@ -36,45 +36,35 @@ export function CardGrid() {
   const setCardForm = useSetAtom(cardFormAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
-  const [decryptedItems, setDecryptedItems] = useState<DecryptedItem[]>([])
+  const setDirtyItems = useSetAtom(dirtyItemsAtom)
+  const searchMode = useAtomValue(searchModeAtom)
+  const semanticResults = useAtomValue(semanticResultsAtom)
 
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
 
-  // 복호화 + 파싱
-  useEffect(() => {
-    if (!items) return
-
-    void (async () => {
-      const results: DecryptedItem[] = []
-      for (const item of items) {
-        const decrypted = await safeDecrypt(cryptoKey, item.encryptedContent, item.iv)
-        const content = parseContent(decrypted)
-        results.push({ item, content })
-      }
-      setDecryptedItems(results)
-    })()
-  }, [items, cryptoKey])
+  // 파싱 (동기 — 암호화 제거로 즉시 처리)
+  const parsedItems = useMemo<ParsedItem[]>(() => {
+    if (!items) return []
+    return items.map((item) => ({
+      item,
+      content: parseContent(item.content),
+    }))
+  }, [items])
 
   // 필터링
   const filteredItems = useMemo(() => {
-    let result = decryptedItems
+    let result = parsedItems
 
-    // 폴더 필터
     if (selectedFolder !== null) {
       result = result.filter((d) => d.item.folderId === selectedFolder)
     }
-
-    // 타입 필터
     if (typeFilter) {
       result = result.filter((d) => d.item.type === typeFilter)
     }
-
-    // 태그 필터
     if (tagFilter) {
       result = result.filter((d) => d.item.tags.includes(tagFilter))
     }
 
-    // 핀 고정 항목을 상단으로
     result = [...result].sort((a, b) => {
       if (a.item.pinned && !b.item.pinned) return -1
       if (!a.item.pinned && b.item.pinned) return 1
@@ -82,29 +72,40 @@ export function CardGrid() {
     })
 
     return result
-  }, [decryptedItems, selectedFolder, typeFilter, tagFilter])
+  }, [parsedItems, selectedFolder, typeFilter, tagFilter])
+
+  // Fuse.js 인스턴스 (filteredItems 변경 시에만 재생성)
+  const fuse = useMemo(
+    () =>
+      new Fuse(filteredItems, {
+        keys: [
+          { name: 'item.title', weight: 0.6 },
+          { name: 'item.tags', weight: 0.2 },
+        ],
+        threshold: 0.4,
+        includeScore: true,
+      }),
+    [filteredItems],
+  )
 
   // 검색
   const displayItems = useMemo(() => {
+    // 시맨틱 모드: semanticResults 기준으로 필터 + 유사도 순 정렬
+    if (searchMode === 'semantic' && semanticResults.size > 0) {
+      return filteredItems
+        .filter((d) => semanticResults.has(d.item.id))
+        .sort((a, b) => (semanticResults.get(b.item.id) ?? 0) - (semanticResults.get(a.item.id) ?? 0))
+    }
     if (!searchQuery.trim()) return filteredItems
-
-    const fuse = new Fuse(filteredItems, {
-      keys: [
-        { name: 'item.title', weight: 0.6 },
-        { name: 'item.tags', weight: 0.2 },
-      ],
-      threshold: 0.4,
-      includeScore: true,
-    })
-
     return fuse.search(searchQuery).map((result) => result.item)
-  }, [filteredItems, searchQuery])
+  }, [filteredItems, searchQuery, fuse, searchMode, semanticResults])
 
   const handleEdit = (item: Item) => {
     openTab(item.id, setOpenTabs, setActiveTab)
   }
 
   const handleDelete = async (item: Item) => {
+    removeItemsFromState([item.id], setOpenTabs, setActiveTab, setDirtyItems)
     await db.items.delete(item.id)
     toast.success(`"${item.title}" 삭제됨`, { duration: 2000 })
   }
@@ -152,6 +153,7 @@ export function CardGrid() {
             onEdit={handleEdit}
             onDelete={(i) => void handleDelete(i)}
             onTogglePin={(i) => void handleTogglePin(i)}
+            similarity={searchMode === 'semantic' ? semanticResults.get(item.id) : undefined}
           />
         ))}
       </div>

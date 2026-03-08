@@ -7,7 +7,6 @@
 //   2. 미리보기 파싱 → 현재 DB 통계 조회
 //   3. ImportModeModal 표시 (Append / Replace 선택)
 //   4. 확인 → importData(rawText, mode) 실행
-//   5. Replace 시: appConfigAtom 갱신 + cryptoKeyAtom 초기화 (재인증 유도)
 
 import { useState } from 'react'
 import { useSetAtom } from 'jotai'
@@ -17,8 +16,6 @@ import {
   selectedFolderAtom,
   expandedFoldersAtom,
   dirtyItemsAtom,
-  cryptoKeyAtom,
-  appConfigAtom,
 } from '../../store/atoms'
 import { db } from '../../core/db'
 import { exportData } from './export'
@@ -50,8 +47,6 @@ export function StorageButtons() {
   const setSelectedFolder  = useSetAtom(selectedFolderAtom)
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
   const setDirtyItems      = useSetAtom(dirtyItemsAtom)
-  const setCryptoKey       = useSetAtom(cryptoKeyAtom)
-  const setAppConfig       = useSetAtom(appConfigAtom)
 
   const showFeedback = (state: FeedbackState, durationMs = 3000) => {
     setFeedback(state)
@@ -134,33 +129,11 @@ export function StorageButtons() {
       // UI 상태 전체 리셋 (탭, 선택, 확장 등)
       resetUIState()
 
-      // Replace 모드: AppConfig 갱신 + 재인증 유도
-      if (result.requiresReauth) {
-        const updatedConfig = await db.config.get(1)
-        if (updatedConfig) setAppConfig(updatedConfig)
-        setCryptoKey(null) // → App.tsx에서 MasterPasswordModal(unlock) 표시
-        showFeedback(
-          {
-            type: 'warning',
-            message: `대체 완료 (${result.foldersAdded}폴더 ${result.itemsAdded}항목). 암호화 키가 변경되어 재인증이 필요합니다.`,
-          },
-          6000,
-        )
-      } else if (result.cryptoMismatch) {
-        showFeedback(
-          {
-            type: 'warning',
-            message: `가져오기 완료 (${result.foldersAdded}폴더 ${result.itemsAdded}항목). 암호화 키가 달라 일부 항목을 열 수 없을 수 있습니다.`,
-          },
-          6000,
-        )
-      } else {
-        const modeLabel = result.mode === 'replace' ? '대체' : '추가'
-        showFeedback({
-          type: 'success',
-          message: `가져오기 완료 (${modeLabel}: ${result.foldersAdded}폴더 ${result.itemsAdded}항목)`,
-        })
-      }
+      const modeLabel = result.mode === 'replace' ? '대체' : '추가'
+      showFeedback({
+        type: 'success',
+        message: `가져오기 완료 (${modeLabel}: ${result.foldersAdded}폴더 ${result.itemsAdded}항목)`,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : '가져오기 실패'
       showFeedback({ type: 'error', message })
@@ -186,7 +159,6 @@ export function StorageButtons() {
           importPreview={{
             folders: modalData.preview.folders,
             items: modalData.preview.items,
-            cryptoEnabled: modalData.preview.cryptoEnabled,
           }}
           currentStats={{
             folders: modalData.currentFolders,

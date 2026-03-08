@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import type { AppConfig, Item, ItemType } from '../core/db'
+import type { CardContent as CardContentType } from '../core/types'
 
 // ─── 탭 관리 ──────────────────────────────────────────────────
 
@@ -11,15 +12,6 @@ export const activeTabAtom = atom<number | null>(null)
 
 /** 미저장 변경이 있는 Item ID Set (탭에 dot 표시용) */
 export const dirtyItemsAtom = atom<Set<number>>(new Set<number>())
-
-// ─── 암호화 세션 ──────────────────────────────────────────────
-
-/**
- * PBKDF2로 파생된 AES-GCM CryptoKey
- * - 메모리에만 존재, 새로고침 시 자동 소멸
- * - null = 암호화 비활성 또는 아직 잠금 해제 전
- */
-export const cryptoKeyAtom = atom<CryptoKey | null>(null)
 
 // ─── 사이드바 ─────────────────────────────────────────────────
 
@@ -33,6 +25,24 @@ export const expandedFoldersAtom = atom<Set<number>>(new Set<number>())
 
 export const searchOpenAtom  = atom<boolean>(false)
 export const searchQueryAtom = atom<string>('')
+
+/** 검색 모드: keyword(일반) / ai(자연어) / semantic(임베딩) */
+export type SearchMode = 'keyword' | 'ai' | 'semantic'
+export const searchModeAtom = atom<SearchMode>('keyword')
+
+/** AI 자연어 검색 로딩 상태 */
+export const aiSearchLoadingAtom = atom<boolean>(false)
+
+/** 시맨틱 검색 결과 (itemId → 유사도) */
+export const semanticResultsAtom = atom<Map<number, number>>(new Map<number, number>())
+
+/** 임베딩 모델 상태 */
+export type EmbeddingModelStatus =
+  | { state: 'idle' }
+  | { state: 'loading'; progress: number }
+  | { state: 'ready' }
+  | { state: 'error'; message: string }
+export const embeddingStatusAtom = atom<EmbeddingModelStatus>({ state: 'idle' })
 
 // ─── 앱 설정 (DB에서 로드 후 저장) ───────────────────────────
 
@@ -105,3 +115,38 @@ export const typeFilterAtom = atom<ItemType | null>(null)
 
 /** 대시보드 태그 필터 */
 export const tagFilterAtom = atom<string | null>(null)
+
+// ─── AI (BYOK — 완전 선택적) ─────────────────────────────────
+
+const AI_KEY_STORAGE_KEY = 'dev-note-claude-key'
+
+/** Claude API 키 (메모리 상태) */
+export const aiApiKeyAtom = atom<string | null>(
+  sessionStorage.getItem(AI_KEY_STORAGE_KEY),
+)
+
+/** API 키가 설정되어 AI 기능을 사용할 수 있는지 */
+export const aiEnabledAtom = atom((get) => get(aiApiKeyAtom) !== null)
+
+/** sessionStorage 연동 write atom (브라우저 닫으면 자동 소멸) */
+export const aiApiKeyPersistAtom = atom(
+  (get) => get(aiApiKeyAtom),
+  (_get, set, key: string | null) => {
+    if (key) {
+      sessionStorage.setItem(AI_KEY_STORAGE_KEY, key)
+    } else {
+      sessionStorage.removeItem(AI_KEY_STORAGE_KEY)
+    }
+    set(aiApiKeyAtom, key)
+  },
+)
+
+// ─── 카드 플로팅 뷰 ────────────────────────────────────────────
+
+/** 조회 전용 플로팅 뷰에 표시할 카드 (null = 닫힘) */
+export interface CardViewState {
+  item: Item
+  content: CardContentType
+}
+
+export const cardViewAtom = atom<CardViewState | null>(null)

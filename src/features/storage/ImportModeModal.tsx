@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from 'react'
 export interface ImportPreviewData {
   folders: number
   items: number
-  cryptoEnabled: boolean
 }
 
 export interface CurrentStatsData {
@@ -60,9 +59,6 @@ export function ImportModeModal({ importPreview, currentStats, onConfirm, onCanc
           <span className="text-[var(--text-primary)]">
             {importPreview.folders}개 폴더, {importPreview.items}개 항목
           </span>
-          {importPreview.cryptoEnabled && (
-            <span className="ml-1 text-[var(--text-warning)]">(암호화됨)</span>
-          )}
         </p>
 
         <div className="space-y-2">

@@ -3,20 +3,35 @@ import { FieldRow } from './FieldRow'
 
 interface CardContentProps {
   content: CardContentType
+  excludeMultiline?: boolean
 }
 
-export function CardContentView({ content }: CardContentProps) {
+export function CardContentView({ content, excludeMultiline }: CardContentProps) {
   if (content.format === 'legacy') {
     return (
       <div className="px-4 pb-4">
-        <pre className="font-mono text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-all leading-relaxed m-0 max-h-48 overflow-y-auto">
+        <p className="font-mono text-sm text-[var(--text-secondary)] truncate m-0">
           {content.text || '(빈 내용)'}
-        </pre>
+        </p>
       </div>
     )
   }
 
-  const nonEmptyFields = content.fields.filter((f) => f.value)
+  // HybridContent는 별도 렌더러 사용 (여기서는 미지원 — 간략 표시)
+  if (content.format === 'hybrid') {
+    return (
+      <div className="px-4 pb-4">
+        <p className="text-sm text-[var(--text-tertiary)] italic m-0">
+          {content.sections.length}개 섹션
+        </p>
+      </div>
+    )
+  }
+
+  let nonEmptyFields = content.fields.filter((f) => f.value)
+  if (excludeMultiline) {
+    nonEmptyFields = nonEmptyFields.filter((f) => f.type !== 'multiline')
+  }
 
   if (nonEmptyFields.length === 0) {
     return (

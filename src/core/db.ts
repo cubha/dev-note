@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 // ─── 타입 정의 ────────────────────────────────────────────────
 
-export type ItemType = 'server' | 'db' | 'api' | 'note' | 'custom'
+export type ItemType = 'server' | 'db' | 'api' | 'note' | 'custom' | 'document'
 
 export interface Folder {
   id: number
@@ -15,29 +15,31 @@ export interface Folder {
 export interface Item {
   id: number
   folderId: number | null
-  title: string             // 평문 (사이드바 렌더링, 검색 인덱스)
+  title: string             // 사이드바 렌더링, 검색 인덱스
   type: ItemType
-  tags: string[]            // 평문 (검색 필터)
+  tags: string[]            // 검색 필터
   order: number             // 정렬 순서 (인덱스 제외)
   pinned: boolean           // 즐겨찾기/핀 고정
-  // 암호화 필드 — Dexie 스키마 인덱스에서 의도적으로 제외 (Best Practice)
-  encryptedContent: string | null   // AES-GCM 암호화된 JSON (StructuredContent | 레거시 텍스트)
-  iv: string | null                 // Base64 인코딩된 IV
+  content: string           // JSON string (StructuredContent | LegacyContent)
   updatedAt: number
   createdAt: number
 }
 
 export interface AppConfig {
   id: 1                   // 단일 레코드
-  cryptoEnabled: boolean
-  saltHex: string | null  // PBKDF2 salt (hex)
   theme: 'dark' | 'light'
   editorFontSize: number
   wordWrap: boolean        // 자동 줄바꿈
   showLineNumbers: boolean // 줄 번호 표시
   lastExportAt: number | null
-  canaryBlock: string | null   // 패스워드 검증용 암호화된 더미 문자열 (AES-GCM)
-  canaryIv: string | null     // canaryBlock 복호화에 필요한 IV
+}
+
+export interface Embedding {
+  id: number
+  itemId: number            // FK → items.id
+  vector: number[]          // 384차원 (all-MiniLM-L6-v2)
+  textHash: string          // 콘텐츠 변경 감지 (FNV-1a)
+  updatedAt: number
 }
 
 // ─── Dexie v4 클래스 ──────────────────────────────────────────
@@ -46,11 +48,11 @@ class DevNoteDB extends Dexie {
   folders!: EntityTable<Folder, 'id'>
   items!: EntityTable<Item, 'id'>
   config!: EntityTable<AppConfig, 'id'>
+  embeddings!: EntityTable<Embedding, 'id'>
 
   constructor() {
     super('dev-note')
     this.version(1).stores({
-      // 인덱싱할 평문 필드만 선언 — encryptedContent, iv 는 제외
       folders: '++id, parentId, name, order',
       items:   '++id, folderId, title, *tags, updatedAt',
       config:  'id',
@@ -143,6 +145,48 @@ class DevNoteDB extends Dexie {
         }
       }
     })
+    // v8: 암호화 완전 제거 — encryptedContent/iv → content 평문
+    this.version(8).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      // items: encryptedContent → content 평문 변환
+      await tx.table('items').toCollection().modify((item: Record<string, unknown>) => {
+        if (!item.content) {
+          // iv가 없으면 평문으로 저장되어 있었음 → 그대로 사용
+          if (item.encryptedContent && !item.iv) {
+            item.content = item.encryptedContent
+          } else {
+            // 암호화된 데이터는 복호화 불가 → 빈 구조로 초기화
+            item.content = JSON.stringify({ format: 'structured', fields: [] })
+          }
+        }
+        delete item.encryptedContent
+        delete item.iv
+      })
+      // config: 암호화 관련 필드 제거
+      await tx.table('config').toCollection().modify((config: Record<string, unknown>) => {
+        delete config.cryptoEnabled
+        delete config.saltHex
+        delete config.canaryBlock
+        delete config.canaryIv
+      })
+    })
+    // v9: 임베딩 테이블 추가 (시맨틱 검색용)
+    this.version(9).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, order, pinned, updatedAt',
+      embeddings: '++id, &itemId, updatedAt',
+      config:  'id',
+    })
+    // v10: document 타입 추가 — items에 type 인덱스 추가
+    this.version(10).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      embeddings: '++id, &itemId, updatedAt',
+      config:  'id',
+    })
   }
 }
 
@@ -156,15 +200,11 @@ export async function ensureConfig(): Promise<AppConfig> {
 
   const defaults: AppConfig = {
     id: 1,
-    cryptoEnabled: false,
-    saltHex: null,
     theme: 'dark',
     editorFontSize: 14,
     wordWrap: false,
     showLineNumbers: false,
     lastExportAt: null,
-    canaryBlock: null,
-    canaryIv: null,
   }
   await db.config.add(defaults)
   return defaults

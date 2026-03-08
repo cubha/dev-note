@@ -43,3 +43,6 @@ $RECYCLE.BIN/
 
 # ─── Backup data ────────────────────────────────────────────
 note-backup/
+
+# ─── Playwright MCP artifacts ───────────────────────────────
+.playwright-mcp/

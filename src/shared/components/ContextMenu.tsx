@@ -13,6 +13,7 @@ import {
 } from '../../store/atoms'
 import { collectDescendants } from '../../features/sidebar/treeUtils'
 import { exportSelectedItems } from '../../features/storage/export'
+import { removeItemsFromState } from '../../store/tabHelpers'
 
 export function ContextMenu() {
   const menu = useAtomValue(contextMenuAtom)
@@ -37,18 +38,7 @@ export function ContextMenu() {
     selectedItems.has(menu.targetId) &&
     selectedItems.size > 1
 
-  // ── 탭/상태에서 항목 제거 헬퍼 ──────────────────────────────
-  const removeItemsFromState = (ids: number[]) => {
-    setOpenTabs((prev) => prev.filter((id) => !ids.includes(id)))
-    setActiveTab((prev) =>
-      prev !== null && ids.includes(prev) ? null : prev,
-    )
-    setDirtyItems((prev) => {
-      const next = new Set(prev)
-      ids.forEach((id) => next.delete(id))
-      return next
-    })
-  }
+  // removeItemsFromState는 tabHelpers.ts에서 import
 
   const handleRename = () => {
     if (menu.targetId === null || menu.type === null) return
@@ -68,14 +58,14 @@ export function ContextMenu() {
         menu.targetId,
       )
 
-      removeItemsFromState(itemIds)
+      removeItemsFromState(itemIds, setOpenTabs, setActiveTab, setDirtyItems)
       await db.transaction('rw', db.folders, db.items, async () => {
         await db.folders.bulkDelete(folderIds)
         await db.items.bulkDelete(itemIds)
       })
     } else if (menu.type === 'item') {
       const id = menu.targetId
-      removeItemsFromState([id])
+      removeItemsFromState([id], setOpenTabs, setActiveTab, setDirtyItems)
       await db.items.delete(id)
     }
   }
@@ -84,7 +74,7 @@ export function ContextMenu() {
   const handleMultiDelete = async () => {
     const ids = Array.from(selectedItems)
     closeMenu()
-    removeItemsFromState(ids)
+    removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
     setSelectedItems(new Set<number>())
     await db.items.bulkDelete(ids)
   }

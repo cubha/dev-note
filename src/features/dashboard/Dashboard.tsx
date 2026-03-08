@@ -1,36 +1,32 @@
 import { useAtomValue, useSetAtom } from 'jotai'
-import { openTabsAtom, activeTabAtom, cardFormAtom } from '../../store/atoms'
-import { TopBar } from './TopBar'
+import { activeTabAtom, cardFormAtom } from '../../store/atoms'
+import { AppHeader } from './AppHeader'
 import { CardGrid } from './CardGrid'
-import { TabBar } from './TabBar'
 import { CardFormModal } from '../cards/CardFormModal'
 import { CardDetailEditor } from '../cards/CardDetailEditor'
+import { CardFloatingView } from '../cards/CardFloatingView'
 
 export function Dashboard() {
   const cardForm = useAtomValue(cardFormAtom)
   const setCardForm = useSetAtom(cardFormAtom)
-  const openTabs = useAtomValue(openTabsAtom)
   const activeTab = useAtomValue(activeTabAtom)
 
   const handleCloseForm = () => {
     setCardForm({ isOpen: false, editItem: null, folderId: null })
   }
 
-  const hasTabs = openTabs.length > 0 && activeTab !== null
-
   return (
     <main className="flex flex-1 flex-col overflow-hidden">
-      {hasTabs ? (
-        <>
-          <TabBar />
-          <CardDetailEditor />
-        </>
+      {/* 항상 표시되는 통합 헤더 */}
+      <AppHeader />
+
+      {/* 본문: 활성 탭 있으면 에디터, 없으면 카드 그리드 */}
+      {activeTab !== null ? (
+        <CardDetailEditor />
       ) : (
-        <>
-          <TopBar />
-          <CardGrid />
-        </>
+        <CardGrid />
       )}
+
       {cardForm.isOpen && (
         <CardFormModal
           item={cardForm.editItem}
@@ -38,6 +34,7 @@ export function Dashboard() {
           onClose={handleCloseForm}
         />
       )}
+      <CardFloatingView />
     </main>
   )
 }
