@@ -27,10 +27,9 @@ interface InfoCardProps {
   onEdit: (item: Item) => void
   onDelete: (item: Item) => void
   onTogglePin: (item: Item) => void
-  similarity?: number   // 시맨틱 검색 유사도 (0-100)
 }
 
-export function InfoCard({ item, content, onEdit, onDelete, onTogglePin, similarity }: InfoCardProps) {
+export function InfoCard({ item, content, onEdit, onDelete, onTogglePin }: InfoCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -108,11 +107,6 @@ export function InfoCard({ item, content, onEdit, onDelete, onTogglePin, similar
               >
                 {meta.label}
               </span>
-              {similarity !== undefined && (
-                <span className="rounded-full bg-[var(--badge-db-bg)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--badge-db-text)]">
-                  {similarity}%
-                </span>
-              )}
             </div>
           </div>
         </div>

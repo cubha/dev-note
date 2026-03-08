@@ -15,8 +15,6 @@ import {
   openTabsAtom,
   activeTabAtom,
   dirtyItemsAtom,
-  searchModeAtom,
-  semanticResultsAtom,
 } from '../../store/atoms'
 import { openTab, removeItemsFromState } from '../../store/tabHelpers'
 import { InfoCard } from '../cards/InfoCard'
@@ -37,8 +35,6 @@ export function CardGrid() {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
-  const searchMode = useAtomValue(searchModeAtom)
-  const semanticResults = useAtomValue(semanticResultsAtom)
 
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
 
@@ -90,15 +86,9 @@ export function CardGrid() {
 
   // 검색
   const displayItems = useMemo(() => {
-    // 시맨틱 모드: semanticResults 기준으로 필터 + 유사도 순 정렬
-    if (searchMode === 'semantic' && semanticResults.size > 0) {
-      return filteredItems
-        .filter((d) => semanticResults.has(d.item.id))
-        .sort((a, b) => (semanticResults.get(b.item.id) ?? 0) - (semanticResults.get(a.item.id) ?? 0))
-    }
     if (!searchQuery.trim()) return filteredItems
     return fuse.search(searchQuery).map((result) => result.item)
-  }, [filteredItems, searchQuery, fuse, searchMode, semanticResults])
+  }, [filteredItems, searchQuery, fuse])
 
   const handleEdit = (item: Item) => {
     openTab(item.id, setOpenTabs, setActiveTab)
@@ -153,7 +143,6 @@ export function CardGrid() {
             onEdit={handleEdit}
             onDelete={(i) => void handleDelete(i)}
             onTogglePin={(i) => void handleTogglePin(i)}
-            similarity={searchMode === 'semantic' ? semanticResults.get(item.id) : undefined}
           />
         ))}
       </div>
