@@ -28,25 +28,39 @@ export function FieldRow({ label, value, type }: FieldRowProps) {
         {label}
       </span>
 
-      {/* 값 */}
+      {/* 값 — 클릭 시 복사 */}
       <div className="flex min-w-0 flex-1 items-start gap-1.5">
         {isMultiline ? (
-          <span className="font-mono text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-all leading-relaxed">
-            {value}
-          </span>
-        ) : isUrl ? (
           <button
             type="button"
-            onClick={() => openUrl(value)}
-            className="flex items-center gap-1 text-sm text-[var(--text-active)] hover:underline truncate cursor-pointer bg-transparent border-none p-0"
+            onClick={() => void copyToClipboard(value, label)}
+            className="font-mono text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-all leading-relaxed text-left bg-transparent border-none p-0 cursor-pointer hover:text-[var(--text-primary)] transition-colors"
           >
-            <span className="font-mono truncate">{value}</span>
-            <ExternalLink size={12} className="shrink-0 opacity-60" />
+            {value}
           </button>
+        ) : isUrl ? (
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => openUrl(value)}
+              className="flex items-center gap-1 text-sm text-[var(--text-active)] hover:underline truncate cursor-pointer bg-transparent border-none p-0"
+            >
+              <span className="font-mono truncate">{value}</span>
+              <ExternalLink size={12} className="shrink-0 opacity-60" />
+            </button>
+          </div>
         ) : (
-          <span className={`font-mono text-sm truncate ${isPassword ? 'tracking-wider text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard(value, label)}
+            className={`font-mono text-sm truncate text-left bg-transparent border-none p-0 cursor-pointer transition-colors ${
+              isPassword
+                ? 'tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'text-[var(--text-primary)] hover:text-[var(--text-active)]'
+            }`}
+          >
             {displayValue}
-          </span>
+          </button>
         )}
 
         {/* 액션 버튼들 */}
@@ -61,14 +75,16 @@ export function FieldRow({ label, value, type }: FieldRowProps) {
               {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => void copyToClipboard(value, label)}
-            className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
-            aria-label={`${label} 복사`}
-          >
-            <Copy size={13} />
-          </button>
+          {isUrl && (
+            <button
+              type="button"
+              onClick={() => void copyToClipboard(value, label)}
+              className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
+              aria-label={`${label} 복사`}
+            >
+              <Copy size={13} />
+            </button>
+          )}
         </div>
       </div>
     </div>

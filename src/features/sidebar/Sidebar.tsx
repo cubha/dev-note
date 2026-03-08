@@ -22,6 +22,7 @@ import {
   appConfigAtom,
   cardFormAtom,
   selectedFolderAtom,
+  activeTabAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
@@ -31,6 +32,7 @@ export function Sidebar() {
   const setCardForm = useSetAtom(cardFormAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const [selectedFolder, setSelectedFolder] = useAtom(selectedFolderAtom)
+  const setActiveTab = useSetAtom(activeTabAtom)
   const setDragOverFolder = useSetAtom(dragOverFolderAtom)
   const [selectedItems, setSelectedItems] = useAtom(selectedItemsAtom)
   const setFlatVisibleItemIds = useSetAtom(flatVisibleItemIdsAtom)
@@ -249,14 +251,19 @@ export function Sidebar() {
     <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-[var(--border-default)] bg-[var(--bg-sidebar)] p-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab(null)}
+            className="flex items-center gap-2 cursor-pointer bg-transparent border-none p-0 hover:opacity-70 transition-opacity"
+            title="메인 화면으로 이동"
+          >
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent)]">
               <span className="text-xs font-bold text-white">D</span>
             </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
               DevNote
             </span>
-          </div>
+          </button>
           <div className="flex items-center gap-0.5">
             {/* 테마 토글 버튼 */}
             <button

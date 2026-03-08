@@ -267,11 +267,12 @@ const TYPE_BADGE: Record<
   ItemType,
   { label: string; className: string }
 > = {
-  server: { label: 'SVR',  className: 'bg-[var(--badge-server-bg)] text-[var(--badge-server-text)]' },
-  db:     { label: 'DB',   className: 'bg-[var(--badge-db-bg)] text-[var(--badge-db-text)]' },
-  api:    { label: 'API',  className: 'bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]' },
-  note:   { label: 'TXT',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
-  custom: { label: 'ETC',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
+  server:   { label: 'SVR',  className: 'bg-[var(--badge-server-bg)] text-[var(--badge-server-text)]' },
+  db:       { label: 'DB',   className: 'bg-[var(--badge-db-bg)] text-[var(--badge-db-text)]' },
+  api:      { label: 'API',  className: 'bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]' },
+  note:     { label: 'TXT',  className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
+  custom:   { label: 'MD',   className: 'bg-[var(--badge-custom-bg)] text-[var(--badge-custom-text)]' },
+  document: { label: 'DOC',  className: 'bg-[var(--badge-document-bg)] text-[var(--badge-document-text)]' },
 }
 
 export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
@@ -404,8 +405,8 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
           className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
         />
       ) : (
-        <span className="min-w-0 truncate" title={item.title}>
-          {item.title}
+        <span className="min-w-0 truncate" title={item.title || '제목없음'}>
+          {item.title || '제목없음'}
         </span>
       )}
     </div>

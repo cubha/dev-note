@@ -1,16 +1,35 @@
 // src/features/settings/SettingsModal.tsx
 //
 // 환경설정 모달
-// 설정 항목: 에디터 글꼴 크기 / 자동 줄바꿈 / 줄 번호 표시 / 테마
+// 설정 항목: 에디터 글꼴 크기 / 자동 줄바꿈 / 줄 번호 표시 / 테마 / AI 설정
 
 import { useAtom } from 'jotai'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { db } from '../../core/db'
-import { appConfigAtom, settingsOpenAtom } from '../../store/atoms'
+import { appConfigAtom, settingsOpenAtom, aiApiKeyPersistAtom } from '../../store/atoms'
+import { AIService } from '../../core/ai'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(settingsOpenAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
+  const [apiKey, setApiKey] = useAtom(aiApiKeyPersistAtom)
+
+  // AI 설정 로컬 상태
+  const [keyInput, setKeyInput] = useState('')
+  const [keyVisible, setKeyVisible] = useState(false)
+  const [validating, setValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<'idle' | 'valid' | 'invalid'>('idle')
+
+  // 모달 열릴 때 키 표시용 마스킹 초기화
+  useEffect(() => {
+    if (isOpen && apiKey) {
+      setKeyInput(apiKey)
+    } else if (isOpen) {
+      setKeyInput('')
+    }
+    setValidationResult('idle')
+    setKeyVisible(false)
+  }, [isOpen, apiKey])
 
   // ESC 키로 닫기
   const handleClose = useCallback(() => setIsOpen(false), [setIsOpen])
@@ -50,6 +69,44 @@ export function SettingsModal() {
   const handleThemeChange = (theme: 'dark' | 'light') => {
     void update({ theme })
   }
+
+  // ─── AI 키 핸들러 ──────────────────────────────────────────
+
+  const handleSaveApiKey = async () => {
+    const trimmed = keyInput.trim()
+    if (!trimmed) {
+      setApiKey(null)
+      setValidationResult('idle')
+      return
+    }
+
+    setValidating(true)
+    setValidationResult('idle')
+    try {
+      const service = new AIService(trimmed)
+      const valid = await service.validateApiKey()
+      if (valid) {
+        setApiKey(trimmed)
+        setValidationResult('valid')
+      } else {
+        setValidationResult('invalid')
+      }
+    } catch {
+      setValidationResult('invalid')
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  const handleRemoveApiKey = () => {
+    setApiKey(null)
+    setKeyInput('')
+    setValidationResult('idle')
+  }
+
+  const maskedKey = apiKey
+    ? `${apiKey.slice(0, 7)}${'•'.repeat(20)}${apiKey.slice(-4)}`
+    : ''
 
   return (
     <>
@@ -221,6 +278,109 @@ export function SettingsModal() {
                   {config.showLineNumbers ? '켜짐' : '꺼짐'}
                 </span>
               </div>
+
+            </div>
+          </section>
+
+          {/* ── AI 섹션 ── */}
+          <section>
+            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+              AI (선택적)
+            </h3>
+            <div className="space-y-3">
+
+              <p className="text-xs text-[var(--text-secondary)]">
+                Claude API 키를 입력하면 Smart Paste AI 기능을 사용할 수 있습니다.
+                키는 브라우저 세션에만 저장되며, 탭을 닫으면 자동 삭제됩니다.
+              </p>
+
+              {apiKey ? (
+                // 키가 설정된 상태
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-md bg-[var(--bg-input)] px-3 py-2">
+                    <svg viewBox="0 0 24 24" className="size-3.5 shrink-0 text-[var(--text-success)]" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span className="flex-1 truncate font-mono text-xs text-[var(--text-secondary)]">
+                      {maskedKey}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveApiKey}
+                      className="shrink-0 rounded px-2 py-0.5 text-[10px] text-[var(--text-error)] hover:bg-[var(--bg-error-hover)]"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // 키 입력 폼
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={keyVisible ? 'text' : 'password'}
+                        value={keyInput}
+                        onChange={(e) => { setKeyInput(e.target.value); setValidationResult('idle') }}
+                        placeholder="sk-ant-..."
+                        className="w-full rounded-md border border-[var(--bg-input)] bg-[var(--bg-input)] px-3 py-1.5 pr-8 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setKeyVisible(!keyVisible)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        aria-label={keyVisible ? '숨기기' : '보기'}
+                      >
+                        <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                          {keyVisible ? (
+                            <>
+                              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                              <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                              <line x1="1" y1="1" x2="23" y2="23" />
+                            </>
+                          ) : (
+                            <>
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </>
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveApiKey()}
+                      disabled={validating || !keyInput.trim()}
+                      className="shrink-0 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {validating ? '확인 중...' : '저장'}
+                    </button>
+                  </div>
+
+                  {validationResult === 'invalid' && (
+                    <p className="text-[10px] text-[var(--text-error)]">
+                      API 키가 유효하지 않습니다. 키를 확인해주세요.
+                    </p>
+                  )}
+                  {validationResult === 'valid' && (
+                    <p className="text-[10px] text-[var(--text-success)]">
+                      API 키가 확인되었습니다.
+                    </p>
+                  )}
+
+                  <p className="text-[10px] text-[var(--text-placeholder)]">
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-[var(--text-secondary)]"
+                    >
+                      Anthropic Console
+                    </a>
+                    에서 API 키를 발급받을 수 있습니다. Haiku 모델 기준 건당 약 $0.0015입니다.
+                  </p>
+                </div>
+              )}
 
             </div>
           </section>

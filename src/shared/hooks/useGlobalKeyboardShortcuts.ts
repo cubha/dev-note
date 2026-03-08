@@ -21,7 +21,7 @@ import {
   activeTabAtom,
   dirtyItemsAtom,
 } from '../../store/atoms'
-import { closeTab } from '../../store/tabHelpers'
+import { closeTab, removeItemsFromState } from '../../store/tabHelpers'
 import { toast } from 'sonner'
 
 export function useGlobalKeyboardShortcuts() {
@@ -100,6 +100,7 @@ export function useGlobalKeyboardShortcuts() {
         e.preventDefault()
         const ids = Array.from(selectedItems)
         setSelectedItems(new Set<number>())
+        removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
         void db.items.bulkDelete(ids).then(() => {
           toast.success(`${ids.length}개 항목 삭제됨`, { duration: 2000 })
         })

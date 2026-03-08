@@ -13,7 +13,7 @@ export interface CardField {
   type: FieldType    // 렌더링/동작 결정 (password → 마스킹, url → 링크 등)
 }
 
-/** 구조화된 카드 콘텐츠 (encryptedContent 복호화 후 JSON) */
+/** 구조화된 카드 콘텐츠 (content 필드의 JSON) */
 export interface StructuredContent {
   format: 'structured'
   fields: CardField[]
@@ -25,8 +25,91 @@ export interface LegacyContent {
   text: string
 }
 
+// ─── 하이브리드 콘텐츠 (document 타입 전용) ─────────────
+
+/** 섹션 타입 */
+export type SectionType = 'markdown' | 'credentials' | 'urls' | 'env' | 'code'
+
+/** 섹션 기본 인터페이스 */
+interface SectionBase {
+  id: string              // nanoid(12)
+  type: SectionType
+  title: string           // 섹션 제목 (빈 문자열 허용)
+  collapsed: boolean      // 접힘/펼침 상태
+}
+
+/** 마크다운 텍스트 섹션 */
+export interface MarkdownSection extends SectionBase {
+  type: 'markdown'
+  text: string
+}
+
+/** 접속 정보 항목 */
+export interface CredentialEntry {
+  id: string              // nanoid(8)
+  label: string           // "운영서버", "개발 DB" 등
+  category: 'server' | 'database' | 'other'
+  host: string
+  port: string
+  username: string
+  password: string
+  database?: string       // DB 전용
+  extra: string           // 비고/메모
+}
+
+/** 접속 정보 섹션 */
+export interface CredentialSection extends SectionBase {
+  type: 'credentials'
+  items: CredentialEntry[]
+}
+
+/** URL 항목 */
+export interface UrlEntry {
+  id: string
+  label: string           // "관리자 페이지", "API 문서" 등
+  url: string
+  method?: string         // API 전용 (GET/POST 등)
+  auth?: string           // 인증 정보 메모
+  note: string
+}
+
+/** URL 모음 섹션 */
+export interface UrlSection extends SectionBase {
+  type: 'urls'
+  items: UrlEntry[]
+}
+
+/** 환경변수 항목 */
+export interface EnvEntry {
+  key: string
+  value: string
+  secret: boolean         // true → 마스킹 렌더링
+}
+
+/** 환경변수 / Key-Value 섹션 */
+export interface EnvSection extends SectionBase {
+  type: 'env'
+  pairs: EnvEntry[]
+}
+
+/** 코드 스니펫 섹션 */
+export interface CodeSection extends SectionBase {
+  type: 'code'
+  language: string        // 'bash', 'sql', 'json' 등
+  code: string
+}
+
+/** 모든 섹션 유니온 */
+export type AnySection = MarkdownSection | CredentialSection | UrlSection | EnvSection | CodeSection
+
+/** 하이브리드 콘텐츠 — document 타입 전용 */
+export interface HybridContent {
+  format: 'hybrid'
+  sections: AnySection[]
+}
+
 /** 통합 콘텐츠 타입 */
-export type CardContent = StructuredContent | LegacyContent
+export type CardContent = StructuredContent | LegacyContent | HybridContent
 
 // ─── 타입별 기본 필드 스키마 ─────────────────────────────
 
@@ -35,9 +118,10 @@ export interface FieldSchema {
   label: string
   type: FieldType
   placeholder?: string
+  options?: string[]    // 드롭다운 선택지 (예: API method)
 }
 
-/** 아이템 타입별 기본 필드 구성 */
+/** 아이템 타입별 기본 필드 구성 (document 타입은 HybridContent 사용으로 빈 배열) */
 export const FIELD_SCHEMAS: Record<ItemType, FieldSchema[]> = {
   server: [
     { key: 'host', label: 'Host / IP', type: 'text', placeholder: '10.0.0.1 또는 example.com' },
@@ -57,7 +141,7 @@ export const FIELD_SCHEMAS: Record<ItemType, FieldSchema[]> = {
   ],
   api: [
     { key: 'url', label: 'URL', type: 'url', placeholder: 'https://api.example.com' },
-    { key: 'method', label: 'Method', type: 'text', placeholder: 'GET / POST / PUT' },
+    { key: 'method', label: 'Method', type: 'text', placeholder: 'GET', options: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
     { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'sk-...' },
     { key: 'token', label: 'Token', type: 'password', placeholder: 'Bearer eyJ...' },
     { key: 'headers', label: 'Headers', type: 'multiline', placeholder: 'Content-Type: application/json' },
@@ -69,6 +153,7 @@ export const FIELD_SCHEMAS: Record<ItemType, FieldSchema[]> = {
   custom: [
     { key: 'content', label: '내용', type: 'multiline', placeholder: '자유 형식으로 입력' },
   ],
+  document: [],
 }
 
 // ─── 타입별 메타 정보 ───────────────────────────────────
@@ -80,9 +165,10 @@ export interface TypeMeta {
 }
 
 export const TYPE_META: Record<ItemType, TypeMeta> = {
-  server: { label: 'Server', icon: 'Terminal',  colorKey: 'server' },
-  db:     { label: 'DB',     icon: 'Database',  colorKey: 'db' },
-  api:    { label: 'API',    icon: 'Globe',     colorKey: 'api' },
-  note:   { label: 'Note',   icon: 'FileText',  colorKey: 'note' },
-  custom: { label: 'Custom', icon: 'Puzzle',    colorKey: 'custom' },
+  server:   { label: 'Server',   icon: 'Terminal',   colorKey: 'server' },
+  db:       { label: 'DB',       icon: 'Database',   colorKey: 'db' },
+  api:      { label: 'API',      icon: 'Globe',      colorKey: 'api' },
+  note:     { label: 'Note',     icon: 'FileText',   colorKey: 'note' },
+  custom:   { label: 'Markdown', icon: 'Puzzle',     colorKey: 'custom' },
+  document: { label: 'Document', icon: 'FileStack',  colorKey: 'document' },
 }

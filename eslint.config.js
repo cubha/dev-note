@@ -19,5 +19,9 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // 데이터 로드 후 state 초기화(useLiveQuery 연동)는 일반적인 React 패턴 — 비활성화
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])
