@@ -26,24 +26,6 @@ export const expandedFoldersAtom = atom<Set<number>>(new Set<number>())
 export const searchOpenAtom  = atom<boolean>(false)
 export const searchQueryAtom = atom<string>('')
 
-/** 검색 모드: keyword(일반) / ai(자연어) / semantic(임베딩) */
-export type SearchMode = 'keyword' | 'ai' | 'semantic'
-export const searchModeAtom = atom<SearchMode>('keyword')
-
-/** AI 자연어 검색 로딩 상태 */
-export const aiSearchLoadingAtom = atom<boolean>(false)
-
-/** 시맨틱 검색 결과 (itemId → 유사도) */
-export const semanticResultsAtom = atom<Map<number, number>>(new Map<number, number>())
-
-/** 임베딩 모델 상태 */
-export type EmbeddingModelStatus =
-  | { state: 'idle' }
-  | { state: 'loading'; progress: number }
-  | { state: 'ready' }
-  | { state: 'error'; message: string }
-export const embeddingStatusAtom = atom<EmbeddingModelStatus>({ state: 'idle' })
-
 // ─── 앱 설정 (DB에서 로드 후 저장) ───────────────────────────
 
 export const appConfigAtom = atom<AppConfig | null>(null)
