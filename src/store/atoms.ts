@@ -48,6 +48,22 @@ export const contextMenuAtom = atom<ContextMenuState>({
   type: null,
 })
 
+// ─── 탭 컨텍스트 메뉴 ─────────────────────────────────────────
+
+export interface TabContextMenuState {
+  isOpen: boolean
+  x: number
+  y: number
+  tabId: number | null
+}
+
+export const tabContextMenuAtom = atom<TabContextMenuState>({
+  isOpen: false,
+  x: 0,
+  y: 0,
+  tabId: null,
+})
+
 // ─── 환경설정 모달 ────────────────────────────────────────────
 
 export const settingsOpenAtom = atom<boolean>(false)

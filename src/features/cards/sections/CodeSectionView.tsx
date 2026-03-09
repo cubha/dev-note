@@ -9,10 +9,12 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import type { CodeSection } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
+import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 
 const LANGUAGES = [
   'text', 'bash', 'sql', 'json',
 ]
+
 
 interface CodeSectionViewProps {
   section: CodeSection
@@ -42,8 +44,8 @@ export function CodeSectionView({ section, onChange }: CodeSectionViewProps) {
         </button>
       </div>
 
-      {/* CodeMirror 에디터 */}
-      <MiniCodeEditor
+      {/* CodeMirror 에디터 (드래그 리사이즈) */}
+      <ResizableMiniCodeEditor
         value={section.code}
         language={section.language}
         onChange={(code) => onChange({ ...section, code })}
@@ -52,12 +54,43 @@ export function CodeSectionView({ section, onChange }: CodeSectionViewProps) {
   )
 }
 
-// ── 경량 CodeMirror 에디터 ────────────────────
+// ── 리사이즈 가능한 CodeMirror 래퍼 ──────────────────────────
 
-function MiniCodeEditor({ value, language, onChange }: {
+function ResizableMiniCodeEditor({ value, language, onChange }: {
   value: string
   language: string
   onChange: (val: string) => void
+}) {
+  const { height, handleDragStart } = useResizableHeight(60, 160)
+
+  return (
+    <div className="flex flex-col">
+      <MiniCodeEditor
+        value={value}
+        language={language}
+        onChange={onChange}
+        height={height}
+      />
+      {/* 드래그 리사이즈 핸들 */}
+      <div
+        role="separator"
+        aria-label="높이 조절"
+        onMouseDown={handleDragStart}
+        className="group flex items-center justify-center h-2 mt-0.5 rounded-b cursor-row-resize select-none"
+      >
+        <div className="w-8 h-0.5 rounded-full bg-[var(--border-subtle)] group-hover:bg-[var(--text-tertiary)] transition-colors" />
+      </div>
+    </div>
+  )
+}
+
+// ── 경량 CodeMirror 에디터 ────────────────────
+
+function MiniCodeEditor({ value, language, onChange, height }: {
+  value: string
+  language: string
+  onChange: (val: string) => void
+  height: number
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -98,7 +131,6 @@ function MiniCodeEditor({ value, language, onChange }: {
               lineHeight: '1.6',
               padding: '8px 4px',
               overflow: 'auto',
-              maxHeight: '300px',
             },
             '.cm-content': { caretColor: 'var(--accent)', minHeight: '60px' },
             '.cm-cursor': { borderLeftColor: 'var(--accent)' },
@@ -137,7 +169,7 @@ function MiniCodeEditor({ value, language, onChange }: {
     }
   }, [value])
 
-  // language 변경 시 동적 로드 (성능: 필요할 때만)
+  // language 변경 시 동적 로드
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
@@ -164,6 +196,16 @@ function MiniCodeEditor({ value, language, onChange }: {
       }
     })()
   }, [language])
+
+  // height 변경 시 스크롤러 높이 업데이트
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const scroller = view.scrollDOM
+    if (scroller) {
+      scroller.style.height = `${height}px`
+    }
+  }, [height])
 
   return (
     <div ref={containerRef} />

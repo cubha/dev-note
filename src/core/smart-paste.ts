@@ -66,11 +66,16 @@ export function localSmartParse(text: string, type: ItemType): LocalParseResult 
     case 'server': hasStructuredMatch = parseServer(text, fields); break
     case 'db':     hasStructuredMatch = parseDB(text, fields); break
     case 'api':    hasStructuredMatch = parseAPI(text, fields); break
-    case 'note':
-    case 'custom':
+    case 'markdown':
       fields.push({ key: 'content', value: text.trim(), confidence: 'high' })
       hasStructuredMatch = true
       break
+    case 'document':
+      break
+    default: {
+      const _exhaustive: never = type
+      throw new Error(`Unhandled type: ${_exhaustive}`)
+    }
   }
 
   return { detectedType: type, fields, hasStructuredMatch }
@@ -114,15 +119,13 @@ export function generateTitle(type: ItemType, fields: ParsedField[]): string {
       }
       return 'New API'
     }
-    case 'note':
-    case 'custom': {
+    case 'markdown': {
       const content = get('content')
       if (content) {
-        // 첫 줄에서 제목 추출 (마크다운 헤더 제거)
         const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').trim()
         return firstLine.length > 50 ? firstLine.slice(0, 47) + '...' : firstLine
       }
-      return type === 'note' ? 'New Note' : 'New Markdown'
+      return 'New Markdown'
     }
     case 'document':
       return 'New Document'

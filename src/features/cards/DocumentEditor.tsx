@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useImperativeHandle, forwardRef } from 'react'
 import { nanoid } from 'nanoid'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -23,6 +23,7 @@ import { UrlSectionView } from './sections/UrlSectionView'
 import { EnvSectionView } from './sections/EnvSectionView'
 import { CodeSectionView } from './sections/CodeSectionView'
 import { MarkdownSectionView } from './sections/MarkdownSectionView'
+import { useClickOutside } from '../../shared/hooks/useClickOutside'
 
 // ── 섹션 추가 메뉴 설정 ──────────────────
 
@@ -49,17 +50,25 @@ function createSection(type: SectionType): AnySection {
       return { ...base, type: 'env', pairs: [] } satisfies EnvSection
     case 'code':
       return { ...base, type: 'code', language: 'text', code: '' } satisfies CodeSection
+    default: {
+      const _exhaustive: never = type
+      throw new Error(`Unhandled section type: ${_exhaustive}`)
+    }
   }
 }
 
 // ── 메인 컴포넌트 ──────────────────────────
+
+export interface DocumentEditorHandle {
+  save: () => Promise<void>
+}
 
 interface DocumentEditorProps {
   item: Item
   onDirtyChange: (dirty: boolean) => void
 }
 
-export function DocumentEditor({ item, onDirtyChange }: DocumentEditorProps) {
+export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(function DocumentEditor({ item, onDirtyChange }, ref) {
   const [sections, setSections] = useState<AnySection[]>([])
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef<HTMLDivElement>(null)
@@ -103,29 +112,12 @@ export function DocumentEditor({ item, onDirtyChange }: DocumentEditorProps) {
     }
   }, [item.id, sections, onDirtyChange])
 
-  // Ctrl+S
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault()
-        void handleSave()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [handleSave])
+  // ref를 통해 외부에서 save 호출 가능
+  useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave])
 
   // 외부 클릭으로 추가 메뉴 닫기
-  useEffect(() => {
-    if (!addMenuOpen) return
-    const close = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setAddMenuOpen(false)
-      }
-    }
-    document.addEventListener('click', close, { capture: true })
-    return () => document.removeEventListener('click', close, { capture: true })
-  }, [addMenuOpen])
+  const closeAddMenu = useCallback(() => setAddMenuOpen(false), [])
+  useClickOutside(addMenuRef, addMenuOpen, closeAddMenu)
 
   // 섹션 데이터 변경
   const handleSectionChange = useCallback((idx: number, updated: AnySection) => {
@@ -231,7 +223,7 @@ export function DocumentEditor({ item, onDirtyChange }: DocumentEditorProps) {
       </div>
     </div>
   )
-}
+})
 
 // ── Sortable 래퍼 ────────────────────────────
 
@@ -315,5 +307,9 @@ function SectionContent({ section, onChange }: {
           onChange={(updated) => onChange(updated)}
         />
       )
+    default: {
+      const _exhaustive: never = section
+      throw new Error(`Unhandled section type: ${(_exhaustive as AnySection).type}`)
+    }
   }
 }

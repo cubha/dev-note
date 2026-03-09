@@ -3,14 +3,16 @@ import { Eye, EyeOff, Copy, ExternalLink } from 'lucide-react'
 import type { FieldType } from '../../core/types'
 import { copyToClipboard } from '../../shared/utils/clipboard'
 import { openUrl } from '../../shared/utils/url'
+import { highlightByQuery } from '../../shared/utils/highlight'
 
 interface FieldRowProps {
   label: string
   value: string
   type: FieldType
+  searchQuery?: string
 }
 
-export function FieldRow({ label, value, type }: FieldRowProps) {
+export function FieldRow({ label, value, type, searchQuery = '' }: FieldRowProps) {
   const [revealed, setRevealed] = useState(false)
 
   if (!value) return null
@@ -33,33 +35,33 @@ export function FieldRow({ label, value, type }: FieldRowProps) {
         {isMultiline ? (
           <button
             type="button"
-            onClick={() => void copyToClipboard(value, label)}
+            onClick={(e) => { e.stopPropagation(); void copyToClipboard(value, label) }}
             className="font-mono text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-all leading-relaxed text-left bg-transparent border-none p-0 cursor-pointer hover:text-[var(--text-primary)] transition-colors"
           >
-            {value}
+            {highlightByQuery(value, searchQuery)}
           </button>
         ) : isUrl ? (
           <div className="flex items-center gap-1 min-w-0">
             <button
               type="button"
-              onClick={() => openUrl(value)}
+              onClick={(e) => { e.stopPropagation(); openUrl(value) }}
               className="flex items-center gap-1 text-sm text-[var(--text-active)] hover:underline truncate cursor-pointer bg-transparent border-none p-0"
             >
-              <span className="font-mono truncate">{value}</span>
+              <span className="font-mono truncate">{highlightByQuery(value, searchQuery)}</span>
               <ExternalLink size={12} className="shrink-0 opacity-60" />
             </button>
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => void copyToClipboard(value, label)}
+            onClick={(e) => { e.stopPropagation(); void copyToClipboard(value, label) }}
             className={`font-mono text-sm truncate text-left bg-transparent border-none p-0 cursor-pointer transition-colors ${
               isPassword
                 ? 'tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 : 'text-[var(--text-primary)] hover:text-[var(--text-active)]'
             }`}
           >
-            {displayValue}
+            {isPassword ? displayValue : highlightByQuery(displayValue, searchQuery)}
           </button>
         )}
 
@@ -68,7 +70,7 @@ export function FieldRow({ label, value, type }: FieldRowProps) {
           {isPassword && (
             <button
               type="button"
-              onClick={() => setRevealed((prev) => !prev)}
+              onClick={(e) => { e.stopPropagation(); setRevealed((prev) => !prev) }}
               className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
               aria-label={revealed ? '비밀번호 숨기기' : '비밀번호 보기'}
             >
@@ -78,7 +80,7 @@ export function FieldRow({ label, value, type }: FieldRowProps) {
           {isUrl && (
             <button
               type="button"
-              onClick={() => void copyToClipboard(value, label)}
+              onClick={(e) => { e.stopPropagation(); void copyToClipboard(value, label) }}
               className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
               aria-label={`${label} 복사`}
             >

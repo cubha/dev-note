@@ -4,9 +4,10 @@ import { FieldRow } from './FieldRow'
 interface CardContentProps {
   content: CardContentType
   excludeMultiline?: boolean
+  searchQuery?: string
 }
 
-export function CardContentView({ content, excludeMultiline }: CardContentProps) {
+export function CardContentView({ content, excludeMultiline, searchQuery = '' }: CardContentProps) {
   if (content.format === 'legacy') {
     return (
       <div className="px-4 pb-4">
@@ -49,6 +50,7 @@ export function CardContentView({ content, excludeMultiline }: CardContentProps)
           label={field.label}
           value={field.value}
           type={field.type}
+          searchQuery={searchQuery}
         />
       ))}
     </div>

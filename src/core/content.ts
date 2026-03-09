@@ -118,6 +118,12 @@ function extractHybridSearchText(sections: AnySection[]): string {
         for (const item of section.items) {
           parts.push(`${item.label} ${item.url}`)
           if (item.note) parts.push(item.note)
+          if (item.noteCards) {
+            for (const card of item.noteCards) {
+              if (card.title) parts.push(card.title)
+              if (card.text) parts.push(card.text)
+            }
+          }
         }
         break
       case 'env':

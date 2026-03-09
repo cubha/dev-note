@@ -7,7 +7,7 @@
 // - SDK 불필요 — fetch 직접 호출로 번들 크기 0 추가
 
 import type { ItemType } from './db'
-import { SMART_PASTE_SCHEMA, NATURAL_QUERY_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA } from './ai-schemas'
+import { SMART_PASTE_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA } from './ai-schemas'
 import type { PatternHint } from './smart-paste'
 
 // ─── 타입 ────────────────────────────────────────────────────
@@ -18,12 +18,6 @@ export interface SmartPasteResult {
   fields: Array<{ key: string; value: string }>
   suggestedTags: string[]
   confidence: 'high' | 'medium' | 'low'
-}
-
-export interface NaturalQueryResult {
-  searchTerms: string[]
-  typeFilter: ItemType | ''
-  tagFilter: string
 }
 
 export interface DocumentPasteResult {
@@ -112,30 +106,6 @@ export class AIService {
     }
 
     return JSON.parse(textBlock.text) as SmartPasteResult
-  }
-
-  /** 자연어 쿼리 → 구조화 검색 조건 변환 */
-  async naturalQuery(query: string, availableTags: string[]): Promise<NaturalQueryResult> {
-    await this.enforceRateLimit()
-
-    const response = await this.callClaude({
-      model: this.model,
-      max_tokens: 256,
-      system: buildNaturalQueryPrompt(availableTags),
-      messages: [{ role: 'user', content: query }],
-      output_config: {
-        format: { type: 'json_schema', schema: NATURAL_QUERY_SCHEMA },
-      },
-    })
-
-    const textBlock = response.content.find(
-      (b: ClaudeContentBlock) => b.type === 'text',
-    )
-    if (!textBlock?.text) {
-      throw new AIError('Claude 응답에 텍스트가 없습니다.')
-    }
-
-    return JSON.parse(textBlock.text) as NaturalQueryResult
   }
 
   /** 카드 콘텐츠 요약 (한글) */
@@ -240,22 +210,6 @@ export class AIService {
 }
 
 // ─── 시스템 프롬프트 빌더 ────────────────────────────────────
-
-function buildNaturalQueryPrompt(availableTags: string[]): string {
-  return `You are a search query interpreter for a developer's information management tool.
-Convert natural language queries into structured search parameters.
-
-Card types: server, db, api, note, custom, document
-Available tags: ${availableTags.length > 0 ? availableTags.join(', ') : '(none)'}
-
-Rules:
-- Extract search keywords that would match card titles or field values
-- Set typeFilter if the query implies a specific card type (e.g., "MySQL" → "db", "SSH" → "server", "endpoint" → "api")
-- Set tagFilter if the query matches an available tag
-- Use empty string "" for typeFilter/tagFilter when not applicable
-- Keep searchTerms concise (1-3 keywords)
-- Respond based on the meaning, not just exact words`
-}
 
 function buildSummaryPrompt(cardType: ItemType): string {
   return `You are a concise summarizer for a developer's information card.

@@ -1,0 +1,81 @@
+{
+  "version": 2,
+  "exportedAt": 1772323200000,
+  "folders": [
+    {
+      "id": 1,
+      "parentId": null,
+      "name": "예시 프로젝트",
+      "order": 0,
+      "createdAt": 1772323200000
+    }
+  ],
+  "items": [
+    {
+      "folderId": 1,
+      "title": "운영 서버 — Ubuntu 22.04",
+      "type": "server",
+      "tags": ["ubuntu", "운영", "ssh"],
+      "order": 0,
+      "pinned": false,
+      "content": "{\"format\":\"structured\",\"fields\":[{\"key\":\"host\",\"label\":\"Host / IP\",\"value\":\"prod-web-01.example.com\",\"type\":\"text\"},{\"key\":\"port\",\"label\":\"Port\",\"value\":\"22\",\"type\":\"number\"},{\"key\":\"username\",\"label\":\"Username\",\"value\":\"ubuntu\",\"type\":\"text\"},{\"key\":\"password\",\"label\":\"Password\",\"value\":\"P@ssw0rd#2026!\",\"type\":\"password\"},{\"key\":\"keyPath\",\"label\":\"Key / PEM\",\"value\":\"~/.ssh/prod_rsa\",\"type\":\"multiline\"},{\"key\":\"note\",\"label\":\"비고\",\"value\":\"운영 웹 서버 (Nginx + PM2)\\nVPN 연결 후 접속 가능\\n담당자: 김개발 (010-1234-5678)\",\"type\":\"multiline\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    },
+    {
+      "folderId": 1,
+      "title": "PostgreSQL — 운영 DB",
+      "type": "db",
+      "tags": ["postgresql", "운영", "rds"],
+      "order": 1,
+      "pinned": false,
+      "content": "{\"format\":\"structured\",\"fields\":[{\"key\":\"host\",\"label\":\"Host\",\"value\":\"myapp-prod.c9z3kq.ap-northeast-2.rds.amazonaws.com\",\"type\":\"text\"},{\"key\":\"port\",\"label\":\"Port\",\"value\":\"5432\",\"type\":\"number\"},{\"key\":\"dbName\",\"label\":\"Database\",\"value\":\"myapp_production\",\"type\":\"text\"},{\"key\":\"username\",\"label\":\"Username\",\"value\":\"appuser\",\"type\":\"text\"},{\"key\":\"password\",\"label\":\"Password\",\"value\":\"Rds#Pr0d2026!\",\"type\":\"password\"},{\"key\":\"note\",\"label\":\"비고\",\"value\":\"읽기 전용 replica: db-replica-01.internal:5432\\n슬로우 쿼리 임계값: 1000ms\\n백업: 매일 03:00 UTC\",\"type\":\"multiline\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    },
+    {
+      "folderId": 1,
+      "title": "Slack Webhook — 배포 알림",
+      "type": "api",
+      "tags": ["slack", "webhook", "알림"],
+      "order": 2,
+      "pinned": false,
+      "content": "{\"format\":\"structured\",\"fields\":[{\"key\":\"url\",\"label\":\"URL\",\"value\":\"https://hooks.slack.com/services/T0000/B0000/XXXXXXXXXXXXXXXXXXXXXXXX\",\"type\":\"url\"},{\"key\":\"method\",\"label\":\"Method\",\"value\":\"POST\",\"type\":\"text\"},{\"key\":\"apiKey\",\"label\":\"API Key\",\"value\":\"\",\"type\":\"password\"},{\"key\":\"token\",\"label\":\"Token\",\"value\":\"xoxb-0000-0000-XXXXXXXXXXXX\",\"type\":\"password\"},{\"key\":\"headers\",\"label\":\"Headers\",\"value\":\"Content-Type: application/json\",\"type\":\"multiline\"},{\"key\":\"note\",\"label\":\"비고\",\"value\":\"#deploy-alerts 채널\\n배포 완료 / 실패 시 자동 알림\\nRate limit: 1 req/s\",\"type\":\"multiline\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    },
+    {
+      "folderId": 1,
+      "title": "배포 체크리스트",
+      "type": "note",
+      "tags": ["배포", "체크리스트"],
+      "order": 3,
+      "pinned": false,
+      "content": "{\"format\":\"structured\",\"fields\":[{\"key\":\"content\",\"label\":\"내용\",\"value\":\"## 배포 전\\n- [ ] feature 브랜치 PR 승인 확인\\n- [ ] staging 환경 테스트 완료\\n- [ ] DB 마이그레이션 스크립트 검토\\n- [ ] 롤백 플랜 준비\\n\\n## 배포 중\\n- [ ] 슬랙 #deploy 채널에 배포 시작 알림\\n- [ ] PM2 무중단 재시작: `pm2 reload app`\\n- [ ] 헬스체크 엔드포인트 확인: `/health`\\n\\n## 배포 후\\n- [ ] 에러 로그 10분 모니터링\\n- [ ] 주요 기능 스모크 테스트\\n- [ ] 슬랙 배포 완료 알림\",\"type\":\"multiline\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    },
+    {
+      "folderId": 1,
+      "title": "Git 명령어 치트시트",
+      "type": "custom",
+      "tags": ["git", "cheatsheet", "개발"],
+      "order": 4,
+      "pinned": false,
+      "content": "{\"format\":\"structured\",\"fields\":[{\"key\":\"content\",\"label\":\"내용\",\"value\":\"# Git 명령어 치트시트\\n\\n## 브랜치\\n```bash\\ngit checkout -b feature/new-feature  # 브랜치 생성 + 이동\\ngit branch -d feature/done           # 브랜치 삭제 (merged)\\ngit push origin --delete old-branch  # 원격 브랜치 삭제\\n```\\n\\n## 커밋 수정\\n```bash\\ngit commit --amend --no-edit         # 마지막 커밋에 파일 추가\\ngit rebase -i HEAD~3                 # 최근 3개 커밋 수정\\ngit cherry-pick abc1234              # 특정 커밋만 가져오기\\n```\\n\\n## 되돌리기\\n```bash\\ngit revert HEAD                      # 마지막 커밋 되돌리기 (커밋 생성)\\ngit reset --soft HEAD~1              # 커밋 취소, 변경사항 유지\\ngit stash / git stash pop            # 임시 저장\\n```\",\"type\":\"multiline\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    },
+    {
+      "folderId": 1,
+      "title": "프로젝트 인프라 문서",
+      "type": "document",
+      "tags": ["인프라", "aws", "온보딩"],
+      "order": 5,
+      "pinned": true,
+      "content": "{\"format\":\"hybrid\",\"sections\":[{\"id\":\"md_intro_001\",\"type\":\"markdown\",\"title\":\"프로젝트 개요\",\"collapsed\":false,\"text\":\"## my-app 인프라 문서\\n\\n- **환경**: AWS ap-northeast-2 (서울)\\n- **아키텍처**: EC2 + RDS PostgreSQL + S3 + CloudFront\\n- **배포**: GitHub Actions → EC2 (PM2)\\n\\n> 이 문서는 신규 팀원 온보딩 및 인시던트 대응용입니다.\"},{\"id\":\"cred_servers_001\",\"type\":\"credentials\",\"title\":\"서버 접속 정보\",\"collapsed\":false,\"items\":[{\"id\":\"cred_01\",\"label\":\"운영 웹서버 (EC2)\",\"category\":\"server\",\"host\":\"54.180.100.200\",\"port\":\"22\",\"username\":\"ec2-user\",\"password\":\"\",\"extra\":\"~/.ssh/myapp-prod.pem 키 사용. VPN 불필요.\"},{\"id\":\"cred_02\",\"label\":\"개발 서버 (EC2)\",\"category\":\"server\",\"host\":\"13.124.50.100\",\"port\":\"22\",\"username\":\"ec2-user\",\"password\":\"\",\"extra\":\"~/.ssh/myapp-dev.pem 키 사용\"},{\"id\":\"cred_03\",\"label\":\"운영 PostgreSQL (RDS)\",\"category\":\"database\",\"host\":\"myapp-prod.c9z3kq.ap-northeast-2.rds.amazonaws.com\",\"port\":\"5432\",\"username\":\"appuser\",\"password\":\"Rds#Pr0d2026!\",\"database\":\"myapp_production\",\"extra\":\"VPC 내부에서만 접속 가능. 외부 접속 시 SSH 터널링 필요.\"}]},{\"id\":\"url_links_001\",\"type\":\"urls\",\"title\":\"주요 URL 모음\",\"collapsed\":false,\"items\":[{\"id\":\"url_01\",\"label\":\"운영 사이트\",\"url\":\"https://myapp.example.com\",\"note\":\"CloudFront CDN 경유\"},{\"id\":\"url_02\",\"label\":\"관리자 페이지\",\"url\":\"https://myapp.example.com/admin\",\"note\":\"2FA 필수\"},{\"id\":\"url_03\",\"label\":\"API 헬스체크\",\"url\":\"https://api.myapp.example.com/health\",\"method\":\"GET\",\"note\":\"200 OK → 정상\"},{\"id\":\"url_04\",\"label\":\"GitHub Actions CI\",\"url\":\"https://github.com/myorg/myapp/actions\",\"note\":\"배포 파이프라인\"}]},{\"id\":\"env_prod_001\",\"type\":\"env\",\"title\":\"운영 환경변수\",\"collapsed\":false,\"pairs\":[{\"key\":\"NODE_ENV\",\"value\":\"production\",\"secret\":false},{\"key\":\"DATABASE_URL\",\"value\":\"postgresql://appuser:Rds#Pr0d2026!@myapp-prod.c9z3kq.ap-northeast-2.rds.amazonaws.com:5432/myapp_production\",\"secret\":true},{\"key\":\"JWT_SECRET\",\"value\":\"jwt_super_secret_key_2026_prod\",\"secret\":true},{\"key\":\"S3_BUCKET\",\"value\":\"myapp-prod-assets\",\"secret\":false},{\"key\":\"REDIS_URL\",\"value\":\"redis://10.0.1.50:6379\",\"secret\":false},{\"key\":\"SENTRY_DSN\",\"value\":\"https://abc123@o000000.ingest.sentry.io/0000000\",\"secret\":false}]},{\"id\":\"code_deploy_001\",\"type\":\"code\",\"title\":\"배포 커맨드\",\"collapsed\":false,\"language\":\"bash\",\"code\":\"# 운영 서버 접속\\nssh -i ~/.ssh/myapp-prod.pem ec2-user@54.180.100.200\\n\\n# 배포 (GitHub Actions 트리거)\\ngit push origin main\\n\\n# 수동 배포 (긴급 시)\\ncd /var/www/myapp\\ngit pull origin main\\nnpm ci --production\\nnpm run build\\npm2 reload myapp\\n\\n# 로그 확인\\npm2 logs myapp --lines 100\\n\\n# DB 마이그레이션\\nnpx prisma migrate deploy\"}]}",
+      "updatedAt": 1772323200000,
+      "createdAt": 1772323200000
+    }
+  ]
+}

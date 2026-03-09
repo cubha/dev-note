@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSetAtom, useAtomValue } from 'jotai'
-import { X, Terminal, Database, Globe, FileText, Puzzle, FileStack, Sparkles, Loader2 } from 'lucide-react'
+import { X, FileStack, Sparkles, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { nanoid } from 'nanoid'
 import { db } from '../../core/db'
@@ -15,6 +15,7 @@ import type { DocumentPasteResult } from '../../core/ai'
 import { openTabsAtom, activeTabAtom, aiApiKeyAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { SmartPastePanel } from './SmartPastePanel'
+import { ICON_MAP } from '../../shared/constants'
 
 // AI 결과를 AnySection[] 로 변환
 function convertAIResultToSections(result: DocumentPasteResult): AnySection[] {
@@ -73,7 +74,7 @@ function convertAIResultToSections(result: DocumentPasteResult): AnySection[] {
           return {
             ...base, type: 'env' as const,
             pairs: pairs.map(p => ({
-              key: p.key ?? '', value: p.value ?? '', secret: p.secret ?? false,
+              id: nanoid(8), key: p.key ?? '', value: p.value ?? '', secret: p.secret ?? false,
             })),
           }
         } catch {
@@ -86,16 +87,7 @@ function convertAIResultToSections(result: DocumentPasteResult): AnySection[] {
   })
 }
 
-const ICON_MAP: Record<ItemType, React.ComponentType<{ size?: number; className?: string }>> = {
-  server: Terminal,
-  db: Database,
-  api: Globe,
-  note: FileText,
-  custom: Puzzle,
-  document: FileStack,
-}
-
-const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'custom', 'document']
+const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
 
 interface CardFormModalProps {
   item: Item | null          // null = 새 카드 생성 모드
@@ -215,8 +207,8 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
               const pairs = s.content.split('\n').map(line => {
                 const idx = line.indexOf('=')
                 return idx > 0
-                  ? { key: line.slice(0, idx), value: line.slice(idx + 1), secret: false }
-                  : { key: line, value: '', secret: false }
+                  ? { id: nanoid(8), key: line.slice(0, idx), value: line.slice(idx + 1), secret: false }
+                  : { id: nanoid(8), key: line, value: '', secret: false }
               })
               return { id, type: 'env', title: '환경변수', collapsed: false, pairs }
             }
@@ -298,7 +290,9 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
           createdAt: now,
         })
         onClose()
-        openTab(newId as number, setOpenTabs, setActiveTab)
+        if (typeof newId === 'number') {
+          openTab(newId, setOpenTabs, setActiveTab)
+        }
         return
       }
       onClose()

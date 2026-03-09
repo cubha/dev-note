@@ -86,31 +86,33 @@ function CredentialRow({ entry, onChange, onDelete }: {
         <FieldInput label="Host" value={entry.host} onChange={(v) => update({ host: v })} placeholder="10.0.0.1" />
         <FieldInput label="Port" value={entry.port} onChange={(v) => update({ port: v })} placeholder="22" />
         <FieldInput label="Username" value={entry.username} onChange={(v) => update({ username: v })} placeholder="admin" />
-        <div className="flex items-end gap-1">
-          <div className="flex-1">
-            <label className="block text-[10px] text-[var(--text-tertiary)] mb-0.5">Password</label>
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={entry.password}
-              onChange={(e) => update({ password: e.target.value })}
-              placeholder="••••••"
-              className="w-full bg-[var(--bg-input)] rounded px-2 py-1 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-default)] focus:border-[var(--border-accent)] outline-none"
-            />
+        <div>
+          <label className="block text-[10px] text-[var(--text-tertiary)] mb-0.5">Password</label>
+          <div className="relative flex items-center gap-1">
+            <div className="relative flex-1">
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={entry.password}
+                onChange={(e) => update({ password: e.target.value })}
+                placeholder="••••••"
+                className="w-full bg-[var(--bg-input)] rounded px-2 py-1 pr-6 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-default)] focus:border-[var(--border-accent)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0 cursor-pointer bg-transparent border-none text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)]"
+              >
+                {showPw ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => void copyToClipboard(entry.password, '비밀번호')}
+              className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
+            >
+              <Copy size={12} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPw(!showPw)}
-            className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
-          >
-            {showPw ? <EyeOff size={12} /> : <Eye size={12} />}
-          </button>
-          <button
-            type="button"
-            onClick={() => void copyToClipboard(entry.password, '비밀번호')}
-            className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
-          >
-            <Copy size={12} />
-          </button>
         </div>
       </div>
 

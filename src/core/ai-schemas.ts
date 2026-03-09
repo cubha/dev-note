@@ -9,7 +9,7 @@ export const SMART_PASTE_SCHEMA = {
   properties: {
     detectedType: {
       type: 'string' as const,
-      enum: ['server', 'db', 'api', 'note', 'custom', 'document'],
+      enum: ['server', 'db', 'api', 'markdown', 'document'],
       description: '입력 텍스트에서 감지된 카드 타입',
     },
     title: {
@@ -41,29 +41,6 @@ export const SMART_PASTE_SCHEMA = {
     },
   },
   required: ['detectedType', 'title', 'fields', 'suggestedTags', 'confidence'] as const,
-  additionalProperties: false,
-}
-
-/** 자연어 쿼리 → 구조화 검색 조건 JSON Schema */
-export const NATURAL_QUERY_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    searchTerms: {
-      type: 'array' as const,
-      items: { type: 'string' as const },
-      description: '검색 키워드 배열 (Fuse.js에 전달할 텍스트)',
-    },
-    typeFilter: {
-      type: 'string' as const,
-      enum: ['server', 'db', 'api', 'note', 'custom', 'document', ''],
-      description: '카드 타입 필터, 해당 없으면 빈 문자열',
-    },
-    tagFilter: {
-      type: 'string' as const,
-      description: '태그 필터, 해당 없으면 빈 문자열',
-    },
-  },
-  required: ['searchTerms', 'typeFilter', 'tagFilter'] as const,
   additionalProperties: false,
 }
 
