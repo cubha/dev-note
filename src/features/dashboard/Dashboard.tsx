@@ -5,6 +5,7 @@ import { CardGrid } from './CardGrid'
 import { CardFormModal } from '../cards/CardFormModal'
 import { CardDetailEditor } from '../cards/CardDetailEditor'
 import { CardFloatingView } from '../cards/CardFloatingView'
+import { TabContextMenu } from './TabContextMenu'
 
 export function Dashboard() {
   const cardForm = useAtomValue(cardFormAtom)
@@ -35,6 +36,7 @@ export function Dashboard() {
         />
       )}
       <CardFloatingView />
+      <TabContextMenu />
     </main>
   )
 }

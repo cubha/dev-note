@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 // ─── 타입 정의 ────────────────────────────────────────────────
 
-export type ItemType = 'server' | 'db' | 'api' | 'note' | 'custom' | 'document'
+export type ItemType = 'server' | 'db' | 'api' | 'markdown' | 'document'
 
 export interface Folder {
   id: number
@@ -34,21 +34,12 @@ export interface AppConfig {
   lastExportAt: number | null
 }
 
-export interface Embedding {
-  id: number
-  itemId: number            // FK → items.id
-  vector: number[]          // 384차원 (all-MiniLM-L6-v2)
-  textHash: string          // 콘텐츠 변경 감지 (FNV-1a)
-  updatedAt: number
-}
-
 // ─── Dexie v4 클래스 ──────────────────────────────────────────
 
 class DevNoteDB extends Dexie {
   folders!: EntityTable<Folder, 'id'>
   items!: EntityTable<Item, 'id'>
   config!: EntityTable<AppConfig, 'id'>
-  embeddings!: EntityTable<Embedding, 'id'>
 
   constructor() {
     super('dev-note')
@@ -185,6 +176,26 @@ class DevNoteDB extends Dexie {
       folders: '++id, parentId, name, order',
       items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
       embeddings: '++id, &itemId, updatedAt',
+      config:  'id',
+    })
+    // v11: note/custom → markdown 타입 통합
+    this.version(11).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      embeddings: '++id, &itemId, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      await tx.table('items').toCollection().modify((item: Record<string, unknown>) => {
+        if (item.type === 'note' || item.type === 'custom') {
+          item.type = 'markdown'
+        }
+      })
+    })
+    // v12: embeddings 테이블 제거 (시맨틱 검색 기능 제거 완료)
+    this.version(12).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      embeddings: null,
       config:  'id',
     })
   }

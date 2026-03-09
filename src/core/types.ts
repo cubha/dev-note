@@ -63,14 +63,21 @@ export interface CredentialSection extends SectionBase {
   items: CredentialEntry[]
 }
 
+/** URL 항목에 첨부할 메모카드 */
+export interface UrlNoteCard {
+  id: string              // nanoid(8)
+  title: string           // 메모 제목 (빈 문자열 허용)
+  text: string            // 메모 내용
+}
+
 /** URL 항목 */
 export interface UrlEntry {
   id: string
   label: string           // "관리자 페이지", "API 문서" 등
   url: string
   method?: string         // API 전용 (GET/POST 등)
-  auth?: string           // 인증 정보 메모
   note: string
+  noteCards?: UrlNoteCard[]  // 항목별 메모카드 목록
 }
 
 /** URL 모음 섹션 */
@@ -81,6 +88,7 @@ export interface UrlSection extends SectionBase {
 
 /** 환경변수 항목 */
 export interface EnvEntry {
+  id: string              // nanoid(8) — 안정적 key prop
   key: string
   value: string
   secret: boolean         // true → 마스킹 렌더링
@@ -147,11 +155,8 @@ export const FIELD_SCHEMAS: Record<ItemType, FieldSchema[]> = {
     { key: 'headers', label: 'Headers', type: 'multiline', placeholder: 'Content-Type: application/json' },
     { key: 'note', label: '비고', type: 'multiline', placeholder: 'Rate limit, 인증 방식 등' },
   ],
-  note: [
-    { key: 'content', label: '내용', type: 'multiline', placeholder: '메모, 코드 스니펫, 명령어 등' },
-  ],
-  custom: [
-    { key: 'content', label: '내용', type: 'multiline', placeholder: '자유 형식으로 입력' },
+  markdown: [
+    { key: 'content', label: '내용', type: 'multiline', placeholder: '마크다운으로 자유롭게 입력하세요...' },
   ],
   document: [],
 }
@@ -168,7 +173,6 @@ export const TYPE_META: Record<ItemType, TypeMeta> = {
   server:   { label: 'Server',   icon: 'Terminal',   colorKey: 'server' },
   db:       { label: 'DB',       icon: 'Database',   colorKey: 'db' },
   api:      { label: 'API',      icon: 'Globe',      colorKey: 'api' },
-  note:     { label: 'Note',     icon: 'FileText',   colorKey: 'note' },
-  custom:   { label: 'Markdown', icon: 'Puzzle',     colorKey: 'custom' },
+  markdown: { label: 'Markdown', icon: 'FileText',   colorKey: 'markdown' },
   document: { label: 'Document', icon: 'FileStack',  colorKey: 'document' },
 }

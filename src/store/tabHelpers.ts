@@ -1,6 +1,7 @@
 // src/store/tabHelpers.ts
 //
 // 탭 열기/닫기/삭제 헬퍼 — Jotai atom setter를 받아 상태를 갱신
+// 일괄 닫기: closeOtherTabs, closeTabsToRight, closeTabsToLeft, closeSavedTabs, closeAllTabs
 
 import type { SetStateAction } from 'jotai'
 
@@ -76,4 +77,107 @@ export function closeTab(
       setActiveTab(next[next.length - 1])
     }
   }
+}
+
+/**
+ * 지정 탭 제외 나머지 탭 모두 닫기
+ */
+export function closeOtherTabs(
+  keepId: number,
+  openTabs: number[],
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+  setDirtyItems: Setter<Set<number>>,
+) {
+  const toClose = openTabs.filter((id) => id !== keepId)
+  setOpenTabs([keepId])
+  setActiveTab(keepId)
+  setDirtyItems((prev) => {
+    const s = new Set(prev)
+    toClose.forEach((id) => s.delete(id))
+    return s
+  })
+}
+
+/**
+ * 지정 탭 오른쪽 탭들 닫기
+ */
+export function closeTabsToRight(
+  tabId: number,
+  openTabs: number[],
+  activeTab: number | null,
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+  setDirtyItems: Setter<Set<number>>,
+) {
+  const idx = openTabs.indexOf(tabId)
+  if (idx === -1) return
+  const toClose = openTabs.slice(idx + 1)
+  const next = openTabs.slice(0, idx + 1)
+  setOpenTabs(next)
+  if (activeTab !== null && toClose.includes(activeTab)) {
+    setActiveTab(tabId)
+  }
+  setDirtyItems((prev) => {
+    const s = new Set(prev)
+    toClose.forEach((id) => s.delete(id))
+    return s
+  })
+}
+
+/**
+ * 지정 탭 왼쪽 탭들 닫기
+ */
+export function closeTabsToLeft(
+  tabId: number,
+  openTabs: number[],
+  activeTab: number | null,
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+  setDirtyItems: Setter<Set<number>>,
+) {
+  const idx = openTabs.indexOf(tabId)
+  if (idx === -1) return
+  const toClose = openTabs.slice(0, idx)
+  const next = openTabs.slice(idx)
+  setOpenTabs(next)
+  if (activeTab !== null && toClose.includes(activeTab)) {
+    setActiveTab(tabId)
+  }
+  setDirtyItems((prev) => {
+    const s = new Set(prev)
+    toClose.forEach((id) => s.delete(id))
+    return s
+  })
+}
+
+/**
+ * dirty 아닌(저장된) 탭들만 닫기
+ */
+export function closeSavedTabs(
+  dirtyItems: Set<number>,
+  openTabs: number[],
+  activeTab: number | null,
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+) {
+  const toClose = openTabs.filter((id) => !dirtyItems.has(id))
+  const next = openTabs.filter((id) => dirtyItems.has(id))
+  setOpenTabs(next)
+  if (activeTab !== null && toClose.includes(activeTab)) {
+    setActiveTab(next.length > 0 ? next[next.length - 1] : null)
+  }
+}
+
+/**
+ * 모든 탭 닫기
+ */
+export function closeAllTabs(
+  setOpenTabs: Setter<number[]>,
+  setActiveTab: Setter<number | null>,
+  setDirtyItems: Setter<Set<number>>,
+) {
+  setOpenTabs([])
+  setActiveTab(null)
+  setDirtyItems(new Set<number>())
 }

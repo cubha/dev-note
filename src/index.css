@@ -67,13 +67,9 @@
     --badge-api-text: #fb923c;
     --badge-api-accent: #f97316;
 
-    --badge-note-bg: rgba(148, 163, 184, 0.10);
-    --badge-note-text: #94a3b8;
-    --badge-note-accent: #64748b;
-
-    --badge-custom-bg: rgba(139, 92, 246, 0.15);
-    --badge-custom-text: #a78bfa;
-    --badge-custom-accent: #8b5cf6;
+    --badge-markdown-bg: rgba(139, 92, 246, 0.15);
+    --badge-markdown-text: #a78bfa;
+    --badge-markdown-accent: #8b5cf6;
 
     --badge-document-bg: rgba(99, 102, 241, 0.15);
     --badge-document-text: #818cf8;
@@ -157,13 +153,9 @@
     --badge-api-text: #ea580c;
     --badge-api-accent: #f97316;
 
-    --badge-note-bg: rgba(100, 116, 139, 0.08);
-    --badge-note-text: #475569;
-    --badge-note-accent: #64748b;
-
-    --badge-custom-bg: rgba(139, 92, 246, 0.10);
-    --badge-custom-text: #7c3aed;
-    --badge-custom-accent: #8b5cf6;
+    --badge-markdown-bg: rgba(139, 92, 246, 0.10);
+    --badge-markdown-text: #7c3aed;
+    --badge-markdown-accent: #8b5cf6;
 
     --badge-document-bg: rgba(99, 102, 241, 0.10);
     --badge-document-text: #4f46e5;
@@ -270,8 +262,7 @@
   .card[data-type="server"] { border-top: 2px solid var(--badge-server-accent); }
   .card[data-type="db"] { border-top: 2px solid var(--badge-db-accent); }
   .card[data-type="api"] { border-top: 2px solid var(--badge-api-accent); }
-  .card[data-type="note"] { border-top: 2px solid var(--badge-note-accent); }
-  .card[data-type="custom"] { border-top: 2px solid var(--badge-custom-accent); }
+  .card[data-type="markdown"] { border-top: 2px solid var(--badge-markdown-accent); }
 
   /* 핀 고정 카드 */
   .card[data-pinned="true"] {
@@ -311,6 +302,15 @@
     .animate-scale-in { animation: none; }
   }
 
+  /* ── 검색 하이라이트 ─────────────────────────── */
+  .search-hl {
+    background: rgba(59, 130, 246, 0.35);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+    font-style: normal;
+  }
+
   /* ── 마크다운 프리뷰 ──────────────────────────── */
   .md-preview {
     font-size: 14px;
@@ -332,7 +332,7 @@
     font-family: 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
     font-size: 0.85em;
     background: var(--bg-surface-hover);
-    color: var(--badge-custom-text);
+    color: var(--badge-markdown-text);
     border-radius: 4px;
     padding: 0.15em 0.4em;
   }
@@ -348,7 +348,7 @@
   .md-preview pre code { background: none; padding: 0; font-size: 0.85rem; color: var(--text-editor); }
 
   .md-preview blockquote {
-    border-left: 3px solid var(--badge-custom-accent);
+    border-left: 3px solid var(--badge-markdown-accent);
     margin: 0.75rem 0;
     padding: 0.25rem 0 0.25rem 1rem;
     color: var(--text-secondary);

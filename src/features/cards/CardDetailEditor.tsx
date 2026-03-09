@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  Terminal, Database, Globe, FileText, Puzzle, FileStack, ChevronDown, Download,
+  ChevronDown, Download, Eye, EyeOff,
 } from 'lucide-react'
 import {
   EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
@@ -23,19 +23,13 @@ import {
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
+import { ICON_MAP } from '../../shared/constants'
+import { useClickOutside } from '../../shared/hooks/useClickOutside'
 import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema } from './fieldHelpers'
 import { DocumentEditor } from './DocumentEditor'
+import type { DocumentEditorHandle } from './DocumentEditor'
 
-const ICON_MAP: Record<ItemType, React.ComponentType<{ size?: number; className?: string }>> = {
-  server: Terminal,
-  db: Database,
-  api: Globe,
-  note: FileText,
-  custom: Puzzle,
-  document: FileStack,
-}
-
-const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'custom', 'document']
+const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
 
 // ── Main component ──────────────────────────────────
 
@@ -50,6 +44,7 @@ export function CardDetailEditor() {
   const [editorText, setEditorText] = useState('')
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
   const typeDropdownRef = useRef<HTMLDivElement>(null)
+  const docEditorRef = useRef<DocumentEditorHandle>(null)
   const [docDirty, setDocDirty] = useState(false)
 
   // 원본 스냅샷 — 값 비교 기반 dirty 판단
@@ -142,16 +137,8 @@ export function CardDetailEditor() {
   }, [dirty, activeTab, setDirtyItems])
 
   // 타입 드롭다운 외부 클릭 닫기
-  useEffect(() => {
-    if (!typeDropdownOpen) return
-    const close = (e: MouseEvent) => {
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
-        setTypeDropdownOpen(false)
-      }
-    }
-    document.addEventListener('click', close, { capture: true })
-    return () => document.removeEventListener('click', close, { capture: true })
-  }, [typeDropdownOpen])
+  const closeTypeDropdown = useCallback(() => setTypeDropdownOpen(false), [])
+  useClickOutside(typeDropdownRef, typeDropdownOpen, closeTypeDropdown)
 
   // 정형 필드 값 변경
   const handleFieldChange = useCallback((key: string, value: string) => {
@@ -184,12 +171,14 @@ export function CardDetailEditor() {
       const parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
 
       if (type === 'document') {
-        // document 타입: title/tags만 저장 (content는 DocumentEditor 자체 저장)
+        // document 타입: title/tags 저장 + DocumentEditor content 저장 통합
         await db.items.update(item.id, {
           title, type, tags: parsedTags, updatedAt: Date.now(),
         })
         setOriginal(prev => prev ? { ...prev, title, type, tags } : null)
-        // toast는 DocumentEditor에서 표시
+        if (docEditorRef.current) {
+          await docEditorRef.current.save()
+        }
         return
       }
 
@@ -372,8 +361,8 @@ export function CardDetailEditor() {
             className="flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
           />
 
-          {/* .md 다운로드 (Custom) */}
-          {type === 'custom' && (
+          {/* .md 다운로드 (Markdown) */}
+          {type === 'markdown' && (
             <button
               type="button"
               onClick={handleDownloadMd}
@@ -389,7 +378,7 @@ export function CardDetailEditor() {
 
       {/* ── Document 타입: DocumentEditor ────── */}
       {type === 'document' ? (
-        <DocumentEditor item={item} onDirtyChange={setDocDirty} />
+        <DocumentEditor ref={docEditorRef} item={item} onDirtyChange={setDocDirty} />
       ) : (
         <>
           {/* ── 정형 필드 폼 (Server/DB/API) ────── */}
@@ -404,8 +393,8 @@ export function CardDetailEditor() {
           )}
 
           {/* ── 에디터 영역 (비고/내용) ────── */}
-          {showEditor && type === 'custom' ? (
-            <MarkdownSplitView
+          {showEditor && type === 'markdown' ? (
+            <MarkdownEditorWithToggle
               value={editorText}
               onChange={handleEditorChange}
             />
@@ -431,7 +420,44 @@ export function CardDetailEditor() {
   )
 }
 
-// ── 마크다운 Split View (Custom 타입 전용) ────────────────────
+// ── Markdown 에디터 (소스 모드 기본 + 미리보기 토글) ──────────
+
+function MarkdownEditorWithToggle({ value, onChange }: {
+  value: string
+  onChange: (val: string) => void
+}) {
+  const [showPreview, setShowPreview] = useState(false)
+
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* 토글 바 */}
+      <div className="flex items-center justify-end px-4 py-1.5 border-b border-[var(--border-default)] shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowPreview((prev) => !prev)}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer border-none text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
+          title={showPreview ? '미리보기 닫기' : '미리보기 열기'}
+        >
+          {showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+          {showPreview ? '소스' : '미리보기'}
+        </button>
+      </div>
+
+      {/* 에디터 영역 */}
+      {showPreview ? (
+        <MarkdownSplitView value={value} onChange={onChange} />
+      ) : (
+        <NoteEditor
+          value={value}
+          placeholderText="마크다운으로 자유롭게 입력하세요..."
+          onChange={onChange}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── 마크다운 Split View ────────────────────────────────────────
 
 function MarkdownSplitView({ value, onChange }: {
   value: string

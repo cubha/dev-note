@@ -2,10 +2,11 @@ import { useMemo } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Fuse from 'fuse.js'
+import type { FuseResultMatch } from 'fuse.js'
 import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { CardContent as CardContentType } from '../../core/types'
-import { parseContent } from '../../core/content'
+import { parseContent, extractSearchText } from '../../core/content'
 import {
   searchQueryAtom,
   typeFilterAtom,
@@ -24,6 +25,11 @@ import { toast } from 'sonner'
 interface ParsedItem {
   item: Item
   content: CardContentType
+  searchText: string
+}
+
+interface DisplayItem extends ParsedItem {
+  matches?: readonly FuseResultMatch[]
 }
 
 export function CardGrid() {
@@ -41,10 +47,10 @@ export function CardGrid() {
   // 파싱 (동기 — 암호화 제거로 즉시 처리)
   const parsedItems = useMemo<ParsedItem[]>(() => {
     if (!items) return []
-    return items.map((item) => ({
-      item,
-      content: parseContent(item.content),
-    }))
+    return items.map((item) => {
+      const content = parseContent(item.content)
+      return { item, content, searchText: extractSearchText(content) }
+    })
   }, [items])
 
   // 필터링
@@ -77,17 +83,22 @@ export function CardGrid() {
         keys: [
           { name: 'item.title', weight: 0.6 },
           { name: 'item.tags', weight: 0.2 },
+          { name: 'searchText', weight: 0.2 },
         ],
         threshold: 0.4,
         includeScore: true,
+        includeMatches: true,
       }),
     [filteredItems],
   )
 
   // 검색
-  const displayItems = useMemo(() => {
+  const displayItems = useMemo((): DisplayItem[] => {
     if (!searchQuery.trim()) return filteredItems
-    return fuse.search(searchQuery).map((result) => result.item)
+    return fuse.search(searchQuery).map((result) => ({
+      ...result.item,
+      matches: result.matches,
+    }))
   }, [filteredItems, searchQuery, fuse])
 
   const handleEdit = (item: Item) => {
@@ -95,15 +106,23 @@ export function CardGrid() {
   }
 
   const handleDelete = async (item: Item) => {
-    removeItemsFromState([item.id], setOpenTabs, setActiveTab, setDirtyItems)
-    await db.items.delete(item.id)
-    toast.success(`"${item.title}" 삭제됨`, { duration: 2000 })
+    try {
+      await db.items.delete(item.id)
+      removeItemsFromState([item.id], setOpenTabs, setActiveTab, setDirtyItems)
+      toast.success(`"${item.title}" 삭제됨`, { duration: 2000 })
+    } catch (err) {
+      toast.error(`삭제 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
   }
 
   const handleTogglePin = async (item: Item) => {
-    const newPinned = !item.pinned
-    await db.items.update(item.id, { pinned: newPinned })
-    toast.success(newPinned ? '핀 고정됨' : '핀 해제됨', { duration: 2000 })
+    try {
+      const newPinned = !item.pinned
+      await db.items.update(item.id, { pinned: newPinned })
+      toast.success(newPinned ? '핀 고정됨' : '핀 해제됨', { duration: 2000 })
+    } catch (err) {
+      toast.error(`핀 변경 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
   }
 
   const handleAddCard = () => {
@@ -135,11 +154,12 @@ export function CardGrid() {
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <div className="card-grid">
-        {displayItems.map(({ item, content }) => (
+        {displayItems.map(({ item, content, matches }) => (
           <InfoCard
             key={item.id}
             item={item}
             content={content}
+            matches={matches}
             onEdit={handleEdit}
             onDelete={(i) => void handleDelete(i)}
             onTogglePin={(i) => void handleTogglePin(i)}

@@ -44,5 +44,8 @@ $RECYCLE.BIN/
 # ─── Backup data ────────────────────────────────────────────
 note-backup/
 
+# ─── Docs (local analysis, not for version control) ─────────
+docs/
+
 # ─── Playwright MCP artifacts ───────────────────────────────
 .playwright-mcp/

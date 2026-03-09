@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  Terminal, Database, Globe, FileText, Puzzle, FileStack,
+  FileText,
   X, MoreHorizontal, Search, Filter, Tag,
 } from 'lucide-react'
 import { db } from '../../core/db'
@@ -19,20 +19,14 @@ import {
   searchQueryAtom,
   typeFilterAtom,
   tagFilterAtom,
+  tabContextMenuAtom,
 } from '../../store/atoms'
 import { closeTab } from '../../store/tabHelpers'
-
-const TAB_ICON: Record<ItemType, React.ComponentType<{ size?: number; className?: string }>> = {
-  server: Terminal,
-  db: Database,
-  api: Globe,
-  note: FileText,
-  custom: Puzzle,
-  document: FileStack,
-}
+import { ICON_MAP } from '../../shared/constants'
+import { useClickOutside } from '../../shared/hooks/useClickOutside'
 
 const OVERFLOW_BTN_W = 44 // "... N" 버튼 예약 너비
-const FILTER_TYPES: (ItemType | null)[] = [null, 'server', 'db', 'api', 'note', 'custom', 'document']
+const FILTER_TYPES: (ItemType | null)[] = [null, 'server', 'db', 'api', 'markdown', 'document']
 
 export function AppHeader() {
   const openTabs = useAtomValue(openTabsAtom)
@@ -40,6 +34,7 @@ export function AppHeader() {
   const dirtyItems = useAtomValue(dirtyItemsAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
+  const setTabContextMenu = useSetAtom(tabContextMenuAtom)
 
   const [searchQuery, setSearchQuery] = useAtom(searchQueryAtom)
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom)
@@ -101,32 +96,17 @@ export function AppHeader() {
     recalculate()
   }, [recalculate, items])
 
-  const allItems = useLiveQuery(() => db.items.toArray(), [])
-  const allTags = [...new Set((allItems ?? []).flatMap((i) => i.tags))].sort()
+  const allTags = useLiveQuery(async () => {
+    const tagSet = new Set<string>()
+    await db.items.each(item => { for (const t of item.tags) tagSet.add(t) })
+    return [...tagSet].sort()
+  }, [])
 
-  // 오버플로우 드롭다운 외부 클릭 닫기
-  useEffect(() => {
-    if (!overflowOpen) return
-    const close = (e: MouseEvent) => {
-      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
-        setOverflowOpen(false)
-      }
-    }
-    document.addEventListener('click', close, { capture: true })
-    return () => document.removeEventListener('click', close, { capture: true })
-  }, [overflowOpen])
-
-  // 태그 드롭다운 외부 클릭 닫기
-  useEffect(() => {
-    if (!tagDropdownOpen) return
-    const close = (e: MouseEvent) => {
-      if (tagRef.current && !tagRef.current.contains(e.target as Node)) {
-        setTagDropdownOpen(false)
-      }
-    }
-    document.addEventListener('click', close, { capture: true })
-    return () => document.removeEventListener('click', close, { capture: true })
-  }, [tagDropdownOpen])
+  // 외부 클릭 닫기
+  const closeOverflow = useCallback(() => setOverflowOpen(false), [])
+  const closeTagDropdown = useCallback(() => setTagDropdownOpen(false), [])
+  useClickOutside(overflowRef, overflowOpen, closeOverflow)
+  useClickOutside(tagRef, tagDropdownOpen, closeTagDropdown)
 
   const handleCloseTab = (e: React.MouseEvent, itemId: number) => {
     e.stopPropagation()
@@ -138,6 +118,12 @@ export function AppHeader() {
       e.preventDefault()
       closeTab(itemId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
     }
+  }
+
+  const handleTabContextMenu = (e: React.MouseEvent, tabId: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setTabContextMenu({ isOpen: true, x: e.clientX, y: e.clientY, tabId })
   }
 
   const visibleTabs = openTabs.slice(0, visibleCount)
@@ -157,7 +143,7 @@ export function AppHeader() {
               const item = items?.find((i) => i.id === tabId)
               const isActive = activeTab === tabId
               const isDirty = dirtyItems.has(tabId)
-              const Icon = item ? TAB_ICON[item.type] : FileText
+              const Icon = item ? ICON_MAP[item.type] : FileText
 
               return (
                 <button
@@ -169,6 +155,7 @@ export function AppHeader() {
                   type="button"
                   onClick={() => setActiveTab(tabId)}
                   onMouseDown={(e) => handleMiddleClick(e, tabId)}
+                  onContextMenu={(e) => handleTabContextMenu(e, tabId)}
                   className={`group/tab relative flex shrink-0 items-center gap-1.5 px-3 text-xs font-medium transition-colors cursor-pointer border-none ${
                     isActive
                       ? 'bg-[var(--bg-app)] text-[var(--text-primary)]'
@@ -230,7 +217,7 @@ export function AppHeader() {
                       const item = items?.find((i) => i.id === tabId)
                       const isActive = activeTab === tabId
                       const isDirty = dirtyItems.has(tabId)
-                      const Icon = item ? TAB_ICON[item.type] : FileText
+                      const Icon = item ? ICON_MAP[item.type] : FileText
 
                       return (
                         <button
@@ -241,6 +228,7 @@ export function AppHeader() {
                             setActiveTab(tabId)
                             setOverflowOpen(false)
                           }}
+                          onContextMenu={(e) => { setOverflowOpen(false); handleTabContextMenu(e, tabId) }}
                           className={`flex w-full items-center gap-2 px-3 py-1.5 cursor-pointer bg-transparent border-none transition-colors ${
                             isActive
                               ? 'bg-[var(--bg-surface-hover)] text-[var(--text-primary)]'
@@ -336,14 +324,14 @@ export function AppHeader() {
         </div>
 
         {/* 태그 필터 */}
-        {allTags.length > 0 && (
+        {allTags && allTags.length > 0 && (
           <div className="relative" ref={tagRef}>
             <button
               type="button"
               onClick={() => setTagDropdownOpen((prev) => !prev)}
               className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
                 tagFilter
-                  ? 'bg-[var(--badge-custom-bg)] text-[var(--badge-custom-text)]'
+                  ? 'bg-[var(--badge-markdown-bg)] text-[var(--badge-markdown-text)]'
                   : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
               }`}
             >
