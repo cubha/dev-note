@@ -49,3 +49,6 @@ docs/
 
 # ─── Playwright MCP artifacts ───────────────────────────────
 .playwright-mcp/
+
+# ─── MCP (토큰 포함 시 커밋 제외) ────────────────────────────
+.cursor/mcp.json

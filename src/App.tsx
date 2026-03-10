@@ -3,11 +3,14 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { Toaster, toast } from 'sonner'
 import { db, ensureConfig } from './core/db'
 import type { AppConfig } from './core/db'
-import { appConfigAtom, contextMenuAtom } from './store/atoms'
+import { appConfigAtom, contextMenuAtom, announcementOpenAtom } from './store/atoms'
 import { ContextMenu } from './shared/components/ContextMenu'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { Dashboard } from './features/dashboard/Dashboard'
 import { SettingsModal } from './features/settings/SettingsModal'
+import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
+import { GuideModal } from './features/onboarding/GuideModal'
+import { shouldShowAnnouncement } from './features/onboarding/announcement-utils'
 import { useGlobalKeyboardShortcuts } from './shared/hooks/useGlobalKeyboardShortcuts'
 
 /** 브라우저에 데이터 삭제 방지 요청 */
@@ -35,7 +38,9 @@ export default function App() {
   const config = useAtomValue(appConfigAtom)
   const setConfig = useSetAtom(appConfigAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
+  const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
   const backupCheckedRef = useRef(false)
+  const announcementCheckedRef = useRef(false)
 
   useGlobalKeyboardShortcuts()
 
@@ -52,7 +57,14 @@ export default function App() {
       backupCheckedRef.current = true
       void checkBackupReminder(config)
     }
-  }, [config])
+    // 세션당 1회 공지사항 표시 체크
+    if (!announcementCheckedRef.current) {
+      announcementCheckedRef.current = true
+      if (shouldShowAnnouncement()) {
+        setAnnouncementOpen(true)
+      }
+    }
+  }, [config, setAnnouncementOpen])
 
   useEffect(() => {
     const close = () =>
@@ -78,6 +90,8 @@ export default function App() {
       <Dashboard />
       <ContextMenu />
       <SettingsModal />
+      <AnnouncementModal />
+      <GuideModal />
       <Toaster
         theme={config.theme}
         position="bottom-right"

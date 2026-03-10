@@ -139,6 +139,11 @@ export const aiApiKeyPersistAtom = atom(
   },
 )
 
+// ─── 공지사항 & 가이드 ──────────────────────────────────────────
+
+export const announcementOpenAtom = atom<boolean>(false)
+export const guideOpenAtom = atom<boolean>(false)
+
 // ─── 카드 플로팅 뷰 ────────────────────────────────────────────
 
 /** 조회 전용 플로팅 뷰에 표시할 카드 (null = 닫힘) */
