@@ -7,7 +7,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   FileText,
-  X, MoreHorizontal, Search, Filter, Tag,
+  X, MoreHorizontal, Search, Filter, Tag, Bell,
 } from 'lucide-react'
 import { db } from '../../core/db'
 import type { ItemType } from '../../core/db'
@@ -20,6 +20,7 @@ import {
   typeFilterAtom,
   tagFilterAtom,
   tabContextMenuAtom,
+  announcementOpenAtom,
 } from '../../store/atoms'
 import { closeTab } from '../../store/tabHelpers'
 import { ICON_MAP } from '../../shared/constants'
@@ -35,6 +36,7 @@ export function AppHeader() {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const setTabContextMenu = useSetAtom(tabContextMenuAtom)
+  const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
 
   const [searchQuery, setSearchQuery] = useAtom(searchQueryAtom)
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom)
@@ -365,6 +367,19 @@ export function AppHeader() {
             )}
           </div>
         )}
+
+        {/* 구분선 */}
+        <div className="w-px h-5 bg-[var(--border-default)] shrink-0" />
+
+        {/* 공지사항 버튼 */}
+        <button
+          type="button"
+          onClick={() => setAnnouncementOpen(true)}
+          className="flex items-center justify-center rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer bg-transparent border-none"
+          title="공지사항"
+        >
+          <Bell size={15} />
+        </button>
       </div>
     </div>
   )
