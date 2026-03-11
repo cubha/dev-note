@@ -157,6 +157,84 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
     setAddMenuOpen(false)
   }, [])
 
+  // 섹션별 Smart Paste — 텍스트를 해당 섹션 타입에 맞게 파싱 후 병합
+  const handleSectionSmartPaste = useCallback((idx: number, text: string) => {
+    setSections(prev => {
+      const next = [...prev]
+      const section = next[idx]
+      switch (section.type) {
+        case 'markdown':
+          // 기존 텍스트에 추가
+          next[idx] = { ...section, text: section.text ? section.text + '\n' + text : text }
+          break
+        case 'env': {
+          // KEY=VALUE 줄 파싱
+          const newPairs = text.split('\n').filter(l => l.trim()).map(line => {
+            const eqIdx = line.indexOf('=')
+            return eqIdx > 0
+              ? { id: nanoid(8), key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1).trim(), secret: false }
+              : { id: nanoid(8), key: line.trim(), value: '', secret: false }
+          })
+          next[idx] = { ...section, pairs: [...section.pairs, ...newPairs] }
+          break
+        }
+        case 'urls': {
+          // URL 추출
+          const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi
+          const found = text.match(urlRegex)
+          if (found) {
+            const newItems = found.map(url => ({
+              id: nanoid(8), label: '', url, note: '',
+            }))
+            next[idx] = { ...section, items: [...section.items, ...newItems] }
+          } else {
+            // URL 못 찾으면 각 줄을 URL로
+            const lines = text.split('\n').filter(l => l.trim())
+            const newItems = lines.map(line => ({
+              id: nanoid(8), label: '', url: line.trim(), note: '',
+            }))
+            next[idx] = { ...section, items: [...section.items, ...newItems] }
+          }
+          break
+        }
+        case 'credentials': {
+          // 간단한 라벨 기반 파싱
+          const entry: Record<string, string> = {}
+          const labelPatterns: [string, RegExp][] = [
+            ['host', /(?:host|호스트|ip|서버|address)\s*[:：=]\s*(.+)/i],
+            ['port', /(?:port|포트)\s*[:：=]\s*(.+)/i],
+            ['username', /(?:user(?:name)?|사용자|아이디|id)\s*[:：=]\s*(.+)/i],
+            ['password', /(?:pass(?:word)?|비밀번호|pw)\s*[:：=]\s*(.+)/i],
+            ['database', /(?:database|db(?:name)?|데이터베이스)\s*[:：=]\s*(.+)/i],
+          ]
+          for (const [key, pattern] of labelPatterns) {
+            const match = text.match(pattern)
+            if (match) entry[key] = match[1].trim()
+          }
+          const newItem = {
+            id: nanoid(8),
+            label: entry.host ? `${entry.host}${entry.port ? ':' + entry.port : ''}` : '',
+            category: (entry.database ? 'database' : 'server') as 'server' | 'database' | 'other',
+            host: entry.host ?? '', port: entry.port ?? '',
+            username: entry.username ?? '', password: entry.password ?? '',
+            database: entry.database, extra: '',
+          }
+          next[idx] = { ...section, items: [...section.items, newItem] }
+          break
+        }
+        case 'code':
+          // 코드 블록 마커 제거 후 설정
+          {
+            const cleaned = text.replace(/^```\w*\n?/, '').replace(/\n?```$/, '')
+            next[idx] = { ...section, code: section.code ? section.code + '\n' + cleaned : cleaned }
+          }
+          break
+      }
+      return next
+    })
+    toast.success('붙여넣기 적용됨', { duration: 1500 })
+  }, [])
+
   // 드래그 완료 → 순서 변경
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
@@ -190,12 +268,13 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
               onDelete={handleSectionDelete}
               onToggleCollapse={handleToggleCollapse}
               onTitleChange={handleTitleChange}
+              onSmartPaste={handleSectionSmartPaste}
             />
           ))}
         </SortableContext>
       </DndContext>
 
-      {/* 섹션 추가 버튼 */}
+      {/* 섹션 추가 버튼 — 하단 */}
       <div className="relative" ref={addMenuRef}>
         <button
           type="button"
@@ -227,13 +306,14 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
 
 // ── Sortable 래퍼 ────────────────────────────
 
-function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollapse, onTitleChange }: {
+function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollapse, onTitleChange, onSmartPaste }: {
   section: AnySection
   idx: number
   onChange: (idx: number, section: AnySection) => void
   onDelete: (idx: number) => void
   onToggleCollapse: (idx: number) => void
   onTitleChange: (idx: number, title: string) => void
+  onSmartPaste: (idx: number, text: string) => void
 }) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
@@ -254,6 +334,7 @@ function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollaps
         onToggleCollapse={() => onToggleCollapse(idx)}
         onDelete={() => onDelete(idx)}
         onTitleChange={(title) => onTitleChange(idx, title)}
+        onSmartPaste={(text) => onSmartPaste(idx, text)}
         dragHandleProps={{ ...attributes, ...listeners }}
       >
         <SectionContent

@@ -284,9 +284,17 @@ export function SettingsModal() {
 
           {/* ── AI 섹션 ── */}
           <section>
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
-              AI (선택적)
-            </h3>
+            <div className="mb-3 flex items-center gap-2">
+              <svg viewBox="0 0 24 24" className="size-4 text-[var(--accent)]" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                AI 설정
+              </h3>
+              <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+                선택적
+              </span>
+            </div>
             <div className="space-y-3">
 
               <p className="text-xs text-[var(--text-secondary)]">

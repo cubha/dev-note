@@ -21,6 +21,9 @@ export const selectedFolderAtom = atom<number | null>(null)
 /** 사이드바에서 펼쳐진 폴더 ID Set */
 export const expandedFoldersAtom = atom<Set<number>>(new Set<number>())
 
+/** 사이드바 접기/펼치기 */
+export const sidebarCollapsedAtom = atom<boolean>(false)
+
 // ─── 검색 ─────────────────────────────────────────────────────
 
 export const searchOpenAtom  = atom<boolean>(false)

@@ -83,7 +83,7 @@ function UrlEntryRow({ entry, onChange, onDelete }: UrlEntryRowProps) {
           value={entry.label}
           onChange={(e) => setField('label', e.target.value)}
           placeholder="라벨"
-          className="w-24 shrink-0 bg-transparent text-xs font-medium text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-none outline-none"
+          className="min-w-[60px] max-w-[140px] flex-shrink bg-transparent text-xs font-medium text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-none outline-none truncate"
         />
         {entry.method && (
           <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]">

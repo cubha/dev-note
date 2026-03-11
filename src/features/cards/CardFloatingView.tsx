@@ -169,20 +169,14 @@ const CATEGORY_ICONS_VIEW: Record<string, React.ComponentType<{ size?: number; c
 // ── 섹션별 읽기 전용 렌더러 ──────────────────────────────────
 
 function ReadOnlyMarkdown({ section }: { section: MarkdownSection }) {
-  const [html, setHtml] = useState('')
-
-  useEffect(() => {
-    if (!section.text) { setHtml(''); return }
-    const result = marked.parse(section.text) as string
-    setHtml(DOMPurify.sanitize(result))
-  }, [section.text])
-
   if (!section.text) {
     return <p className="text-sm text-[var(--text-placeholder)] italic m-0">내용이 없습니다</p>
   }
 
   return (
-    <div className="md-preview" dangerouslySetInnerHTML={{ __html: html }} />
+    <pre className="text-xs font-mono text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed m-0 break-words">
+      {section.text}
+    </pre>
   )
 }
 

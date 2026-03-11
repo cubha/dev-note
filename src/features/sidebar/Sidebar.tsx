@@ -23,6 +23,7 @@ import {
   cardFormAtom,
   selectedFolderAtom,
   activeTabAtom,
+  sidebarCollapsedAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
@@ -33,6 +34,7 @@ export function Sidebar() {
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const [selectedFolder, setSelectedFolder] = useAtom(selectedFolderAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
+  const setSidebarCollapsed = useSetAtom(sidebarCollapsedAtom)
   const setDragOverFolder = useSetAtom(dragOverFolderAtom)
   const [selectedItems, setSelectedItems] = useAtom(selectedItemsAtom)
   const setFlatVisibleItemIds = useSetAtom(flatVisibleItemIdsAtom)
@@ -295,7 +297,6 @@ export function Sidebar() {
               title="환경설정"
               aria-label="환경설정"
             >
-              {/* 슬라이더 아이콘 — 수평선 3개 + 조정 핸들 */}
               <svg
                 viewBox="0 0 24 24"
                 className="size-3.5"
@@ -310,6 +311,20 @@ export function Sidebar() {
                 <circle cx="9" cy="12" r="2" fill="currentColor" stroke="none" />
                 <line x1="4" y1="18" x2="20" y2="18" />
                 <circle cx="16" cy="18" r="2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+
+            {/* 사이드바 접기 버튼 */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(true)}
+              className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
+              title="사이드바 접기"
+              aria-label="사이드바 접기"
+            >
+              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M15 18l-6-6 6-6" />
+                <path d="M4 4v16" />
               </svg>
             </button>
           </div>
