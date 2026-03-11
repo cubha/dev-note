@@ -13,6 +13,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.1.0',
+    date: '2026-03-11',
+    title: 'MD Smart Paste 마크다운 변환',
+    highlights: [
+      'MD Smart Paste — 자유 텍스트를 마크다운으로 자동 변환 (리스트, 링크, 코드블록)',
+      '섹션별 Smart Paste — 각 섹션 타입에 맞는 붙여넣기 파싱',
+      '사이드바 접기/펼치기 토글',
+      'Card Edit 저장 버튼 추가',
+      'CapsLock Ctrl+S 저장 오류 수정',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.0.0',
     date: '2026-03-10',
     title: 'DevNote 첫 번째 릴리즈',

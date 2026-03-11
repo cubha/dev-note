@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   ChevronDown, ChevronRight, GripVertical, MoreVertical, Trash2, Pencil,
-  Shield, Link, Terminal, Code, FileText,
+  Shield, Link, Terminal, Code, FileText, Clipboard,
 } from 'lucide-react'
 import type { SectionType } from '../../../core/types'
 
@@ -28,17 +28,20 @@ interface SectionWrapperProps {
   onToggleCollapse: () => void
   onDelete: () => void
   onTitleChange: (title: string) => void
+  onSmartPaste?: (text: string) => void
   dragHandleProps?: Record<string, unknown>
   children: React.ReactNode
 }
 
 export function SectionWrapper({
   type, title, collapsed, onToggleCollapse, onDelete, onTitleChange,
-  dragHandleProps, children,
+  onSmartPaste, dragHandleProps, children,
 }: SectionWrapperProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(title)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -112,6 +115,22 @@ export function SectionWrapper({
           </span>
         )}
 
+        {/* Smart Paste 버튼 */}
+        {onSmartPaste && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPasteOpen(prev => !prev) }}
+            title="텍스트 붙여넣기"
+            className={`flex items-center justify-center w-6 h-6 rounded cursor-pointer bg-transparent border-none shrink-0 transition-colors ${
+              pasteOpen
+                ? 'text-[var(--accent)] bg-[var(--bg-surface)]'
+                : 'text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)]'
+            }`}
+          >
+            <Clipboard size={13} />
+          </button>
+        )}
+
         {/* 메뉴 */}
         <div className="relative" ref={menuRef}>
           <button
@@ -142,6 +161,40 @@ export function SectionWrapper({
           )}
         </div>
       </div>
+
+      {/* Smart Paste 영역 */}
+      {pasteOpen && onSmartPaste && (
+        <div className="px-3 py-2 border-b border-[var(--border-default)] bg-[var(--bg-main)] space-y-2">
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={`${SECTION_LABELS[type]} 형식의 텍스트를 붙여넣으세요...`}
+            rows={3}
+            className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-input)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none resize-y"
+          />
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              disabled={!pasteText.trim()}
+              onClick={() => {
+                onSmartPaste(pasteText.trim())
+                setPasteText('')
+                setPasteOpen(false)
+              }}
+              className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer transition-colors"
+            >
+              <Clipboard size={10} /> 적용
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPasteText(''); setPasteOpen(false) }}
+              className="rounded-md px-2.5 py-1 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 본문 */}
       {!collapsed && (

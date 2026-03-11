@@ -56,6 +56,133 @@ export function detectCardType(text: string): ItemType | null {
   return null
 }
 
+// ─── 마크다운 변환 ──────────────────────────────────────────
+
+/** 자유 텍스트를 마크다운 형식으로 변환 */
+function convertToMarkdown(text: string): string {
+  const lines = text.split('\n')
+  const result: string[] = []
+
+  let inCodeBlock = false
+  let codeLines: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // 펜스 코드 블록 내부 — 그대로 유지
+    if (/^```/.test(line)) {
+      if (inCodeBlock) {
+        result.push('```' + '\n' + codeLines.join('\n') + '\n```')
+        codeLines = []
+        inCodeBlock = false
+      } else {
+        // 들여쓰기 코드 블록 플러시
+        flushIndentedCode(result, codeLines)
+        inCodeBlock = true
+      }
+      continue
+    }
+    if (inCodeBlock) {
+      codeLines.push(line)
+      continue
+    }
+
+    // 4-space 들여쓰기 코드 블록 감지
+    if (/^ {4,}\S/.test(line) || /^\t\S/.test(line)) {
+      codeLines.push(line.replace(/^ {4}/, '').replace(/^\t/, ''))
+      continue
+    }
+    // 들여쓰기 코드 블록이 끝났으면 플러시
+    if (codeLines.length > 0) {
+      flushIndentedCode(result, codeLines)
+      codeLines = []
+    }
+
+    const trimmed = line.trim()
+
+    // 빈 줄
+    if (!trimmed) {
+      result.push('')
+      continue
+    }
+
+    // 구분선 패턴 (===, ___, ---)
+    if (/^[=]{3,}$/.test(trimmed) || /^[_]{3,}$/.test(trimmed)) {
+      result.push('---')
+      continue
+    }
+
+    // 번호 리스트 변환: 1) 2) (1) (2) ① ② 등 → 1. 2.
+    const numberedMatch = trimmed.match(/^(?:(\d+)[)）]|[（(](\d+)[)）]|([①②③④⑤⑥⑦⑧⑨⑩]))\s+(.+)/)
+    if (numberedMatch) {
+      let num: string
+      if (numberedMatch[1]) {
+        num = numberedMatch[1]
+      } else if (numberedMatch[2]) {
+        num = numberedMatch[2]
+      } else {
+        const circled = '①②③④⑤⑥⑦⑧⑨⑩'
+        num = String(circled.indexOf(numberedMatch[3]) + 1)
+      }
+      result.push(`${num}. ${numberedMatch[4]}`)
+      continue
+    }
+
+    // 불릿 리스트 변환: •, ◦, ▪, ▸, ▹, ►, ○ → -
+    const bulletMatch = trimmed.match(/^[•◦▪▸▹►○]\s+(.+)/)
+    if (bulletMatch) {
+      result.push(`- ${bulletMatch[1]}`)
+      continue
+    }
+
+    // 독립 URL 행 → 링크 변환
+    const urlOnlyMatch = trimmed.match(/^(https?:\/\/[^\s]+)$/)
+    if (urlOnlyMatch) {
+      try {
+        const url = new URL(urlOnlyMatch[1])
+        const label = url.hostname + (url.pathname !== '/' ? url.pathname : '')
+        result.push(`[${label}](${urlOnlyMatch[1]})`)
+      } catch {
+        result.push(trimmed)
+      }
+      continue
+    }
+
+    // Title: value 패턴 → ## Title (다음 줄에 value가 없는 단독 라벨만)
+    // "키: 값" 형태의 정보일 때, 앞뒤로 비슷한 패턴이 연속이면 테이블 형식일 수 있으므로
+    // 연속되지 않는 단독 "제목:" 패턴만 헤더로 변환
+    const headerMatch = trimmed.match(/^([가-힣a-zA-Z\s]{2,15})[:：]\s*$/)
+    if (headerMatch) {
+      result.push(`## ${headerMatch[1].trim()}`)
+      continue
+    }
+
+    // 그 외 — 원본 유지
+    result.push(line)
+  }
+
+  // 미완 코드 블록 플러시
+  if (codeLines.length > 0) {
+    if (inCodeBlock) {
+      result.push('```\n' + codeLines.join('\n') + '\n```')
+    } else {
+      flushIndentedCode(result, codeLines)
+    }
+  }
+
+  return result.join('\n').trim()
+}
+
+function flushIndentedCode(result: string[], codeLines: string[]): void {
+  if (codeLines.length >= 2) {
+    result.push('```\n' + codeLines.join('\n') + '\n```')
+  } else if (codeLines.length === 1) {
+    // 단일 줄은 코드 블록으로 변환하지 않음
+    result.push('    ' + codeLines[0])
+  }
+  codeLines.length = 0
+}
+
 // ─── 메인 파서 ───────────────────────────────────────────────
 
 export function localSmartParse(text: string, type: ItemType): LocalParseResult {
@@ -66,10 +193,12 @@ export function localSmartParse(text: string, type: ItemType): LocalParseResult 
     case 'server': hasStructuredMatch = parseServer(text, fields); break
     case 'db':     hasStructuredMatch = parseDB(text, fields); break
     case 'api':    hasStructuredMatch = parseAPI(text, fields); break
-    case 'markdown':
-      fields.push({ key: 'content', value: text.trim(), confidence: 'high' })
+    case 'markdown': {
+      const converted = convertToMarkdown(text)
+      fields.push({ key: 'content', value: converted, confidence: 'high' })
       hasStructuredMatch = true
       break
+    }
     case 'document':
       break
     default: {

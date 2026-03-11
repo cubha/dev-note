@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  ChevronDown, Download, Eye, EyeOff,
+  ChevronDown, Download, Eye, EyeOff, Save,
 } from 'lucide-react'
 import {
   EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
@@ -255,7 +255,7 @@ export function CardDetailEditor() {
   // Ctrl+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+      if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
         void handleSave()
       }
@@ -373,6 +373,22 @@ export function CardDetailEditor() {
               .md
             </button>
           )}
+
+          {/* 저장 버튼 */}
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={!dirty}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border-none shrink-0 ${
+              dirty
+                ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+                : 'bg-[var(--bg-surface-hover)] text-[var(--text-placeholder)] cursor-default'
+            }`}
+            title="저장 (Ctrl+S)"
+          >
+            <Save size={13} />
+            저장
+          </button>
         </div>
       </div>
 

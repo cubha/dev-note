@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { Toaster, toast } from 'sonner'
 import { db, ensureConfig } from './core/db'
 import type { AppConfig } from './core/db'
-import { appConfigAtom, contextMenuAtom, announcementOpenAtom } from './store/atoms'
+import { appConfigAtom, contextMenuAtom, announcementOpenAtom, sidebarCollapsedAtom } from './store/atoms'
 import { ContextMenu } from './shared/components/ContextMenu'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { Dashboard } from './features/dashboard/Dashboard'
@@ -39,6 +39,7 @@ export default function App() {
   const setConfig = useSetAtom(appConfigAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
+  const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const backupCheckedRef = useRef(false)
   const announcementCheckedRef = useRef(false)
 
@@ -86,7 +87,25 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
-      <Sidebar />
+      {sidebarCollapsed ? (
+        /* 접힌 상태: 왼쪽 가장자리 얇은 핸들 — hover 시 확장 */
+        <div
+          className="group/sidebar-handle shrink-0 flex flex-col items-center w-3 hover:w-10 bg-[var(--bg-sidebar)] border-r border-[var(--border-default)] cursor-pointer transition-all duration-200"
+          onClick={() => setSidebarCollapsed(false)}
+          title="사이드바 펼치기"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') setSidebarCollapsed(false) }}
+        >
+          <div className="mt-3 opacity-0 group-hover/sidebar-handle:opacity-100 transition-opacity">
+            <svg viewBox="0 0 24 24" className="size-3.5 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </div>
+        </div>
+      ) : (
+        <Sidebar />
+      )}
       <Dashboard />
       <ContextMenu />
       <SettingsModal />
