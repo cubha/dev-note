@@ -12,9 +12,8 @@ import {
 import type { Item } from '../../core/db'
 import type {
   AnySection, SectionType, HybridContent,
-  MarkdownSection, CredentialSection, UrlSection, EnvSection, CodeSection,
 } from '../../core/types'
-import { parseContent, serializeContent } from '../../core/content'
+import { parseContent, serializeContent, createSection } from '../../core/content'
 import { db } from '../../core/db'
 import { toast } from 'sonner'
 import { SectionWrapper } from './sections/SectionWrapper'
@@ -34,28 +33,6 @@ const ADD_SECTION_OPTIONS: { type: SectionType; label: string; icon: React.Compo
   { type: 'code', label: '코드', icon: Code },
   { type: 'markdown', label: '메모', icon: FileText },
 ]
-
-// ── 빈 섹션 생성 헬퍼 ──────────────────
-
-function createSection(type: SectionType): AnySection {
-  const base = { id: nanoid(12), title: '', collapsed: false }
-  switch (type) {
-    case 'markdown':
-      return { ...base, type: 'markdown', text: '' } satisfies MarkdownSection
-    case 'credentials':
-      return { ...base, type: 'credentials', items: [] } satisfies CredentialSection
-    case 'urls':
-      return { ...base, type: 'urls', items: [] } satisfies UrlSection
-    case 'env':
-      return { ...base, type: 'env', pairs: [] } satisfies EnvSection
-    case 'code':
-      return { ...base, type: 'code', language: 'text', code: '' } satisfies CodeSection
-    default: {
-      const _exhaustive: never = type
-      throw new Error(`Unhandled section type: ${_exhaustive}`)
-    }
-  }
-}
 
 // ── 메인 컴포넌트 ──────────────────────────
 

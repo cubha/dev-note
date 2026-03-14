@@ -1,4 +1,4 @@
-import type { CardContent, StructuredContent, HybridContent, CardField, AnySection } from './types'
+import type { CardContent, StructuredContent, HybridContent, CardField, AnySection, SectionType, MarkdownSection, CredentialSection, UrlSection, EnvSection, CodeSection } from './types'
 import { FIELD_SCHEMAS } from './types'
 import type { ItemType } from './db'
 import { nanoid } from 'nanoid'
@@ -138,6 +138,29 @@ function extractHybridSearchText(sections: AnySection[]): string {
     }
   }
   return parts.join(' ')
+}
+
+/**
+ * 타입에 맞는 빈 섹션을 생성한다.
+ */
+export function createSection(type: SectionType): AnySection {
+  const base = { id: nanoid(12), title: '', collapsed: false }
+  switch (type) {
+    case 'markdown':
+      return { ...base, type: 'markdown', text: '' } satisfies MarkdownSection
+    case 'credentials':
+      return { ...base, type: 'credentials', items: [] } satisfies CredentialSection
+    case 'urls':
+      return { ...base, type: 'urls', items: [] } satisfies UrlSection
+    case 'env':
+      return { ...base, type: 'env', pairs: [] } satisfies EnvSection
+    case 'code':
+      return { ...base, type: 'code', language: 'text', code: '' } satisfies CodeSection
+    default: {
+      const _exhaustive: never = type
+      throw new Error(`Unhandled section type: ${_exhaustive}`)
+    }
+  }
 }
 
 /**
