@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSetAtom } from 'jotai'
-import { X } from 'lucide-react'
+import { X, Shield, Link, Terminal, Code, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '../../core/db'
 import type { Item, ItemType } from '../../core/db'
-import type { CardField, StructuredContent, AnySection, HybridContent } from '../../core/types'
+import type { CardField, StructuredContent, AnySection, HybridContent, SectionType } from '../../core/types'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
-import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent } from '../../core/content'
+import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection } from '../../core/content'
 import { checkDuplicates } from '../../core/duplicate-check'
 import { openTabsAtom, activeTabAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
@@ -15,6 +15,14 @@ import type { FieldApplyData, DocumentApplyData } from './SmartPastePanel'
 import { ICON_MAP } from '../../shared/constants'
 
 const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
+
+const SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+  { type: 'credentials', label: '접속 정보', icon: Shield },
+  { type: 'urls', label: 'URL', icon: Link },
+  { type: 'env', label: '환경변수', icon: Terminal },
+  { type: 'code', label: '코드', icon: Code },
+  { type: 'markdown', label: '메모', icon: FileText },
+]
 
 interface CardFormModalProps {
   item: Item | null          // null = 새 카드 생성 모드
@@ -261,25 +269,56 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
           {/* 동적 필드들 */}
           {type === 'document' ? (
             <div className="space-y-3">
-              {!isEditMode && docSections && docSections.length > 0 && (
-                <div className="rounded-lg border border-dashed border-[var(--border-accent)] bg-[var(--bg-surface-hover)] px-4 py-3 text-center">
-                  <p className="text-xs text-[var(--text-secondary)] m-0">
-                    {docSections.length}개 섹션이 준비됨 — 저장 후 에디터에서 편집 가능
-                  </p>
-                </div>
-              )}
-              {!isEditMode && (!docSections || docSections.length === 0) && (
-                <div className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface-hover)] px-4 py-3 text-center">
-                  <p className="text-xs text-[var(--text-tertiary)] m-0">
-                    Smart Paste로 텍스트를 붙여넣거나, 빈 문서로 시작하세요
-                  </p>
-                </div>
-              )}
-              {isEditMode && (
+              {isEditMode ? (
                 <div className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface-hover)] px-4 py-4 text-center">
                   <p className="text-xs text-[var(--text-tertiary)] m-0">
                     문서 내용은 에디터에서 편집하세요
                   </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-[var(--text-tertiary)]">섹션 선택</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SECTION_OPTIONS.map(({ type: sType, label, icon: Icon }) => (
+                      <button
+                        key={sType}
+                        type="button"
+                        onClick={() => setDocSections(prev => [...(prev ?? []), createSection(sType)])}
+                        className="flex items-center gap-1.5 rounded-md border border-[var(--border-default)] bg-transparent px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
+                      >
+                        <Icon size={12} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {docSections && docSections.length > 0 && (
+                    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] divide-y divide-[var(--border-default)]">
+                      {docSections.map((section, idx) => {
+                        const opt = SECTION_OPTIONS.find(o => o.type === section.type)
+                        const Icon = opt?.icon ?? FileText
+                        return (
+                          <div key={section.id} className="flex items-center justify-between px-3 py-2">
+                            <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                              <Icon size={12} className="text-[var(--text-tertiary)]" />
+                              <span>{opt?.label ?? section.type}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDocSections(prev => prev ? prev.filter((_, i) => i !== idx) : null)}
+                              className="rounded p-0.5 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] cursor-pointer bg-transparent border-none transition-colors"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {(!docSections || docSections.length === 0) && (
+                    <p className="text-xs text-[var(--text-placeholder)] py-1">
+                      섹션을 선택하거나 Smart Paste로 내용을 붙여넣으세요
+                    </p>
+                  )}
                 </div>
               )}
             </div>

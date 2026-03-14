@@ -263,6 +263,7 @@
   .card[data-type="db"] { border-top: 2px solid var(--badge-db-accent); }
   .card[data-type="api"] { border-top: 2px solid var(--badge-api-accent); }
   .card[data-type="markdown"] { border-top: 2px solid var(--badge-markdown-accent); }
+  .card[data-type="document"] { border-top: 2px solid var(--badge-document-accent); }
 
   /* 핀 고정 카드 */
   .card[data-pinned="true"] {

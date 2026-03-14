@@ -33,12 +33,12 @@ export function detectCardType(text: string): ItemType | null {
   // DB — Key=Value (ADO.NET, 연결 문자열)
   if (/\b(Database|Initial Catalog|dbname)\s*=/i.test(text)) return 'db'
 
-  // API — curl 명령
+  // API — curl 명령 (명확한 단독 신호)
   if (/\bcurl\s+/i.test(text)) return 'api'
-  // API — URL + 키워드
-  if (/https?:\/\/.*\b(api|endpoint|webhook)\b/i.test(text)) return 'api'
-  // API — 인증 키
-  if (/\b(api[_-]?key|bearer|authorization)\s*[:=]/i.test(text)) return 'api'
+  // API — 인증 키 (명확한 단독 신호)
+  if (/\b(api[_-]?key|x-api-key|bearer|authorization)\s*[:=]/i.test(text)) return 'api'
+  // API — HTTP 메서드 + URL 조합 (메서드 없이 URL만 있으면 api로 감지하지 않음)
+  if (/\b(GET|POST|PUT|PATCH|DELETE)\b/.test(text) && /https?:\/\//i.test(text)) return 'api'
 
   // Server — SSH config 블록
   if (/^\s*Host\s+\S+/m.test(text)) return 'server'

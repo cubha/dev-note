@@ -225,13 +225,14 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
   const handleAnalyzeFields = useCallback(async (text: string) => {
     // Step 1: Tier 1 (정규식)
-    const detectedType = detectCardType(text) ?? currentType
+    // markdown 카드는 타입 자동 감지 없이 항상 markdown으로 처리 (오탐 방지)
+    const detectedType = currentType === 'markdown' ? 'markdown' : (detectCardType(text) ?? currentType)
     const tier1Result = localSmartParse(text, detectedType)
 
     if (tier1Result.hasStructuredMatch && tier1Result.fields.length > 0) {
       const title = generateTitle(detectedType, tier1Result.fields)
       setState({
-        status: tier1Result.fields.length >= 2 ? 'success' : 'partial',
+        status: (detectedType === 'markdown' || tier1Result.fields.length >= 2) ? 'success' : 'partial',
         fields: tier1Result.fields,
         detectedType,
         suggestedTitle: title,
