@@ -294,4 +294,4 @@ npm run lint      # ESLint 검사
 
 ## 📜 라이선스
 
-MIT
+이 프로젝트는 [MIT License](./LICENSE)로 배포됩니다.
