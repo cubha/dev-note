@@ -7,7 +7,7 @@ import {
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
-import { cardViewAtom, aiApiKeyAtom } from '../../store/atoms'
+import { cardViewAtom, aiApiKeyAtom, SHARED_WORKER_URL } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
@@ -69,10 +69,10 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
   const [expanded, setExpanded] = useState(true)
 
   const handleSummarize = useCallback(async () => {
-    if (!apiKey) return
+    if (!apiKey && !SHARED_WORKER_URL) return
     setLoading(true)
     try {
-      const service = new AIService(apiKey)
+      const service = new AIService(apiKey, SHARED_WORKER_URL)
       const text = extractSearchText(content)
       if (!text.trim()) {
         toast.error('요약할 콘텐츠가 없습니다.')

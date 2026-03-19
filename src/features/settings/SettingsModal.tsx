@@ -3,16 +3,17 @@
 // 환경설정 모달
 // 설정 항목: 에디터 글꼴 크기 / 자동 줄바꿈 / 줄 번호 표시 / 테마 / AI 설정
 
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useEffect, useCallback, useState } from 'react'
 import { db } from '../../core/db'
-import { appConfigAtom, settingsOpenAtom, aiApiKeyPersistAtom } from '../../store/atoms'
+import { appConfigAtom, settingsOpenAtom, aiApiKeyPersistAtom, workerAvailableAtom } from '../../store/atoms'
 import { AIService } from '../../core/ai'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(settingsOpenAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
   const [apiKey, setApiKey] = useAtom(aiApiKeyPersistAtom)
+  const workerAvailable = useAtomValue(workerAvailableAtom)
 
   // AI 설정 로컬 상태
   const [keyInput, setKeyInput] = useState('')
@@ -83,7 +84,7 @@ export function SettingsModal() {
     setValidating(true)
     setValidationResult('idle')
     try {
-      const service = new AIService(trimmed)
+      const service = new AIService(trimmed, undefined)
       const valid = await service.validateApiKey()
       if (valid) {
         setApiKey(trimmed)
@@ -301,6 +302,20 @@ export function SettingsModal() {
                 Claude API 키를 입력하면 Smart Paste AI 기능을 사용할 수 있습니다.
                 키는 브라우저 세션에만 저장되며, 탭을 닫으면 자동 삭제됩니다.
               </p>
+
+              {workerAvailable && (
+                <div className="flex items-center gap-2 rounded-md border border-[var(--text-success)]/20 bg-[var(--text-success)]/5 px-3 py-2">
+                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0 text-[var(--text-success)]" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span className="text-xs text-[var(--text-success)]">
+                    공유 키 활성 — API 키 없이도 AI 기능을 사용할 수 있습니다
+                  </span>
+                  <span className="ml-auto shrink-0 rounded-full bg-[var(--text-success)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-success)]">
+                    50회/일
+                  </span>
+                </div>
+              )}
 
               {apiKey ? (
                 // 키가 설정된 상태

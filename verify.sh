@@ -89,9 +89,12 @@ if [ -n "$CHANGED_FILES" ]; then
     fi
 
     # ── [Spec 5] 외부 fetch 호출 금지 (완전 로컬 오프라인 앱) ─
-    if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
-      fail "[보안] 외부 fetch() 호출 발견 — 이 앱은 완전 로컬 오프라인 전용: $file"
-      SPEC_FAILS=$((SPEC_FAILS + 1))
+    # 예외: src/core/ai.ts — Claude API / Worker 프록시 호출 (BYOK, 선택적 기능)
+    if [[ "$file" != "src/core/ai.ts" ]]; then
+      if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+        fail "[보안] 외부 fetch() 호출 발견 — 이 앱은 완전 로컬 오프라인 전용: $file"
+        SPEC_FAILS=$((SPEC_FAILS + 1))
+      fi
     fi
 
     # ── [Spec 6] File System Access API — 폴백 병행 필수 ─────
