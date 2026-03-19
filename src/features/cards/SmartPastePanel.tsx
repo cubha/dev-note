@@ -18,7 +18,7 @@ import { detectCardType, localSmartParse, generateTitle, detectPatterns, localDo
 import type { ParsedField } from '../../core/smart-paste'
 import { AIService } from '../../core/ai'
 import type { SmartPasteResult, DocumentPasteResult } from '../../core/ai'
-import { aiApiKeyAtom, aiApiKeyPersistAtom } from '../../store/atoms'
+import { aiApiKeyAtom, aiApiKeyPersistAtom, SHARED_WORKER_URL } from '../../store/atoms'
 
 // ─── 타입 ────────────────────────────────────────────────────
 
@@ -201,7 +201,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
     setAiKeyValidating(true)
     setAiKeyError('')
     try {
-      const service = new AIService(trimmed)
+      const service = new AIService(trimmed, undefined)
       const valid = await service.validateApiKey()
       if (valid) {
         setApiKey(trimmed)
@@ -244,10 +244,10 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
       return
     }
 
-    // Step 2: Tier 2 (Claude AI)
-    if (apiKey) {
+    // Step 2: Tier 2 (Claude AI — BYOK 또는 Worker 공유 모드)
+    if (apiKey || SHARED_WORKER_URL) {
       try {
-        const service = new AIService(apiKey)
+        const service = new AIService(apiKey, SHARED_WORKER_URL)
         const aiResult: SmartPasteResult = await service.smartPaste(text, detectedType !== currentType ? detectedType : undefined)
 
         const parsedFields: ParsedField[] = aiResult.fields.map(f => ({
@@ -298,9 +298,9 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
   const handleAnalyzeDocument = useCallback(async (text: string) => {
     const hints = detectPatterns(text)
 
-    if (apiKey) {
+    if (apiKey || SHARED_WORKER_URL) {
       try {
-        const service = new AIService(apiKey)
+        const service = new AIService(apiKey, SHARED_WORKER_URL)
         const result: DocumentPasteResult = await service.documentSmartPaste(text, hints)
         const sections = convertAIResultToSections(result)
 

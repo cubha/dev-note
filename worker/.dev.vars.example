@@ -1,0 +1,3 @@
+# 로컬 개발용 환경변수 예시
+# 실제 값은 .dev.vars 에 복사 후 입력 (.gitignore 적용됨)
+CLAUDE_API_KEY=sk-ant-api03-...

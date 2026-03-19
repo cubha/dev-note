@@ -70,17 +70,22 @@ export class RateLimitError extends AIError {
 
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
-const DEFAULT_MODEL = 'claude-haiku-4-5-20241015'
+// smartPaste/summarize: 정형 추출 → 속도·비용 우선
+const FAST_MODEL = 'claude-haiku-4-5-20251001'
+// documentSmartPaste: 복잡한 섹션 분류·구조화 → 품질 우선
+const QUALITY_MODEL = 'claude-sonnet-4-6'
 const MIN_INTERVAL_MS = 500
 
 export class AIService {
-  private apiKey: string
-  private model: string
+  /** BYOK 키 or null (공유 Worker 모드) */
+  private apiKey: string | null
+  /** 공유 Worker URL (null = BYOK 직접 호출) */
+  private workerUrl: string | null
   private lastCallTime = 0
 
-  constructor(apiKey: string, model?: string) {
+  constructor(apiKey: string | null, workerUrl?: string) {
     this.apiKey = apiKey
-    this.model = model ?? DEFAULT_MODEL
+    this.workerUrl = workerUrl ?? null
   }
 
   /** Smart Paste — 비정형 텍스트에서 구조화 데이터 추출 */
@@ -89,7 +94,7 @@ export class AIService {
 
     const systemPrompt = buildSmartPastePrompt(targetType)
     const response = await this.callClaude({
-      model: this.model,
+      model: FAST_MODEL,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: 'user', content: text }],
@@ -113,7 +118,7 @@ export class AIService {
     await this.enforceRateLimit()
 
     const response = await this.callClaude({
-      model: this.model,
+      model: FAST_MODEL,
       max_tokens: 512,
       system: buildSummaryPrompt(cardType),
       messages: [{ role: 'user', content: text }],
@@ -132,12 +137,12 @@ export class AIService {
     return JSON.parse(textBlock.text) as SummaryResult
   }
 
-  /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 */
+  /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 (Sonnet: 복잡한 멀티섹션 분류) */
   async documentSmartPaste(text: string, hints: PatternHint[]): Promise<DocumentPasteResult> {
     await this.enforceRateLimit()
 
     const response = await this.callClaude({
-      model: this.model,
+      model: QUALITY_MODEL,
       max_tokens: 2048,
       system: buildDocumentPastePrompt(hints),
       messages: [{ role: 'user', content: text }],
@@ -160,7 +165,7 @@ export class AIService {
   async validateApiKey(): Promise<boolean> {
     try {
       await this.callClaude({
-        model: this.model,
+        model: FAST_MODEL,
         max_tokens: 1,
         messages: [{ role: 'user', content: 'hi' }],
       })
@@ -174,14 +179,24 @@ export class AIService {
   }
 
   private async callClaude(body: Record<string, unknown>): Promise<ClaudeResponse> {
-    const res = await fetch(CLAUDE_API_URL, {
+    // Worker 모드: 공유 키, API 키 헤더 불필요
+    const isWorkerMode = !!this.workerUrl && !this.apiKey
+    const url = isWorkerMode
+      ? `${this.workerUrl}/v1/messages`
+      : CLAUDE_API_URL
+
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+    }
+    if (!isWorkerMode && this.apiKey) {
+      headers['x-api-key'] = this.apiKey
+      headers['anthropic-version'] = ANTHROPIC_VERSION
+      headers['anthropic-dangerous-direct-browser-access'] = 'true'
+    }
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-        'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers,
       body: JSON.stringify(body),
     })
 

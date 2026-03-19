@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.2.0',
+    date: '2026-03-19',
+    title: 'AI 공유 키 모드 & 모델 분기',
+    highlights: [
+      'Cloudflare Workers 공유 키 모드 — API 키 없이도 AI 기능 사용 가능 (IP당 50회/일)',
+      'AI 모델 자동 분기 — Smart Paste는 Haiku(속도), Document Smart Paste는 Sonnet(품질)',
+      'Claude Haiku 4.5 모델 ID 수정 (키 검증 실패 버그 수정)',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.1.0',
     date: '2026-03-11',
     title: 'MD Smart Paste 마크다운 변환',
