@@ -122,34 +122,6 @@ export const tagFilterAtom = atom<string | null>(null)
 /** 빌드 타임 Worker URL (.env.local, gitignore) */
 export const SHARED_WORKER_URL = import.meta.env.VITE_WORKER_URL as string | undefined
 
-/** Worker URL이 빌드에 포함되어 있으면 공유 키 모드 사용 가능 */
-export const workerAvailableAtom = atom<boolean>(!!SHARED_WORKER_URL)
-
-// ─── AI (BYOK — 완전 선택적) ─────────────────────────────────
-
-const AI_KEY_STORAGE_KEY = 'dev-note-claude-key'
-
-/** Claude API 키 (메모리 상태) */
-export const aiApiKeyAtom = atom<string | null>(
-  sessionStorage.getItem(AI_KEY_STORAGE_KEY),
-)
-
-/** API 키가 설정되어 AI 기능을 사용할 수 있는지 */
-export const aiEnabledAtom = atom((get) => get(aiApiKeyAtom) !== null)
-
-/** sessionStorage 연동 write atom (브라우저 닫으면 자동 소멸) */
-export const aiApiKeyPersistAtom = atom(
-  (get) => get(aiApiKeyAtom),
-  (_get, set, key: string | null) => {
-    if (key) {
-      sessionStorage.setItem(AI_KEY_STORAGE_KEY, key)
-    } else {
-      sessionStorage.removeItem(AI_KEY_STORAGE_KEY)
-    }
-    set(aiApiKeyAtom, key)
-  },
-)
-
 // ─── 공지사항 & 가이드 ──────────────────────────────────────────
 
 export const announcementOpenAtom = atom<boolean>(false)

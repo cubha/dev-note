@@ -11,7 +11,7 @@
 **카드 기반 대시보드 + 탭 편집** 방식으로 접속 정보·노트·API 정보를 타입별로 구조화 관리합니다.
 
 - **완전 로컬**: 모든 데이터는 브라우저 IndexedDB에만 저장
-- **AI 활용 (선택적)**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Claude API BYOK
+- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Cloudflare Workers 공유 키 (IP당 50회/일)
 - **무설치**: 빌드 결과물을 브라우저에서 바로 실행 (GitHub Pages 배포)
 - **5종 카드 타입**: Server, DB, API, Markdown, Document (다중 섹션 문서)
 
@@ -28,7 +28,7 @@
 | Editor | CodeMirror 6 (`lang-json`, `lang-sql`) | 6.x |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
-| AI (선택적) | Claude API fetch 직접 호출 (BYOK, sessionStorage) | - |
+| AI | Claude API (Cloudflare Workers 프록시, IP당 50회/일) | - |
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite` 플러그인) | 4.2 |
 | DnD | @dnd-kit/core + @dnd-kit/sortable | 6.3 / 10.0 |
 | Markdown | marked + DOMPurify | 17.0 / 3.3 |
@@ -48,9 +48,8 @@ src/
 │   ├── db.ts              # Dexie v4 스키마 v12 + 마이그레이션
 │   ├── types.ts           # CardField, StructuredContent, HybridContent, FIELD_SCHEMAS, TYPE_META
 │   ├── content.ts         # parseContent, serializeContent, extractSearchText
-│   ├── smart-paste.ts     # Tier 1 정규식 파서 + detectPatterns (패턴 힌트)
-│   ├── ai.ts              # Tier 2 Claude API 래퍼 (smartPaste, summarize, documentSmartPaste)
-│   ├── ai-schemas.ts      # SMART_PASTE_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA
+│   ├── ai.ts              # Claude API 래퍼 (smartPaste, markdownSmartPaste, summarize, documentSmartPaste)
+│   ├── ai-schemas.ts      # SMART_PASTE_SCHEMA, MARKDOWN_PASTE_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA
 │   └── duplicate-check.ts # 중복 host/url 경고
 ├── features/
 │   ├── sidebar/
@@ -61,7 +60,7 @@ src/
 │   │   ├── CardDetailEditor.tsx    # 탭 편집 (제목·타입·태그·CodeMirror, document→DocumentEditor 위임)
 │   │   ├── CardFormModal.tsx       # 카드 생성 모달 (5종 타입, document Smart Paste)
 │   │   ├── DocumentEditor.tsx      # document 전용 에디터 (DnD 섹션 정렬, Ctrl+S)
-│   │   ├── SmartPastePanel.tsx     # Smart Paste UI (Tier 1/2 분기)
+│   │   ├── SmartPastePanel.tsx     # Smart Paste UI (Claude AI 단일 호출)
 │   │   ├── CardFloatingView.tsx    # 카드 플로팅 뷰 (AI 요약, HybridDocumentView)
 │   │   ├── InfoCard.tsx            # 카드 그리드 단위 (DocumentPreview 포함)
 │   │   ├── CardContent.tsx         # 카드 내 필드 표시
@@ -95,8 +94,6 @@ src/
 │   │   └── StorageButtons.tsx  # 내보내기/가져오기 UI 버튼
 │   ├── settings/
 │   │   └── SettingsModal.tsx   # 환경설정 모달 (에디터 + AI 설정)
-│   └── ai/
-│       └── AISettingsPanel.tsx # AI API 키 관리 패널
 ├── store/
 │   ├── atoms.ts           # Jotai atoms (탭, AI, 검색, 대시보드, 온보딩)
 │   └── tabHelpers.ts      # openTab(), closeTab() 헬퍼 함수
@@ -179,29 +176,25 @@ interface HybridContent {
 
 ---
 
-## 🤖 AI 기능 (선택적 — API 키 없이도 앱 정상 동작)
+## 🤖 AI 기능
 
-API 키는 `sessionStorage`에만 저장 (브라우저 닫으면 자동 소멸). 두 가지 방식 지원:
+Cloudflare Workers 공유 키 단일 체제 — 별도 API 키 설정 없이 사용 가능 (IP당 50회/일)
 
-- **BYOK** — 개인 Claude API 키 직접 입력 (무제한)
-- **공유 키 모드** — 빌드에 Cloudflare Worker URL 포함 시 키 없이 사용 가능 (IP당 50회/일)
-
-### 2-Tier 하이브리드 아키텍처
+### AI 아키텍처
 
 ```
-Tier 1 (오프라인, 0ms)  — 정규식 기반 패턴 감지 + 기본 구조화
-Tier 2 (온라인, BYOK/공유)  — Claude API Structured Outputs → 고정밀 구조화
+Claude API (Cloudflare Workers 프록시)
   ├── Smart Paste / 요약  → claude-haiku-4-5  (속도·비용 우선)
   └── Document Smart Paste → claude-sonnet-4-6 (복잡 섹션 분류, 품질 우선)
 ```
 
-| 기능 | Tier | 설명 |
-|------|------|------|
-| Smart Paste | 1+2 | 자유 텍스트 붙여넣기 → 카드 필드 자동 매핑 |
-| MD Smart Paste | 1 | 자유 텍스트 → 마크다운 자동 변환 (리스트, 링크, 코드블록 등) |
-| Document Smart Paste | 1+2 | 자유 텍스트 → Section[] 구조화 (document 타입) |
-| 섹션별 Smart Paste | 1 | 각 섹션 타입에 맞는 텍스트 파싱 (env=KEY=VALUE, urls=URL추출 등) |
-| 콘텐츠 요약 | 2 | 카드 내용 → 핵심 요약 + 키포인트 |
+| 기능 | 설명 |
+|------|------|
+| Smart Paste | 자유 텍스트 붙여넣기 → 카드 필드 자동 매핑 (Claude AI) |
+| MD Smart Paste | 자유 텍스트 → 마크다운 자동 변환 (헤더, 리스트, 표, 코드블록 등, Claude AI) |
+| Document Smart Paste | 자유 텍스트 → Section[] 구조화 (document 타입, Claude AI) |
+| 섹션별 Smart Paste | 각 섹션 타입에 맞는 텍스트 파싱 (env=KEY=VALUE, urls=URL추출 등) |
+| 콘텐츠 요약 | 카드 내용 → 핵심 요약 + 키포인트 (Claude AI) |
 
 ---
 
@@ -239,12 +232,23 @@ Tier 2 (온라인, BYOK/공유)  — Claude API Structured Outputs → 고정밀
 
 ## 🚀 릴리즈 노트
 
+### v1.2.1 (2026-03-19)
+
+**추가**
+- 카드/폴더 삭제 시 확인 대화상자 표시
+- Markdown Smart Paste — 자유 텍스트를 Claude AI로 마크다운 정리 (헤더, 표, 코드블록 등 자동 변환)
+- 사용 가이드에 AI Smart Paste 단계 추가
+
+**제거**
+- 개인 API 키(BYOK) 설정 UI 제거 — 공유 키 단일 체제로 완전 전환
+- 오프라인 정규식 파서(Tier 1) 제거 — Smart Paste 전체를 Claude AI 단일 호출로 통합
+
 ### v1.2.0 (2026-03-19)
 
-**AI API 키 개선**
-- Claude API 모델 ID 수정 — Haiku 4.5 (`claude-haiku-4-5-20251001`) 올바른 버전으로 교체 (기존 잘못된 ID로 인한 키 검증 실패 버그 수정)
-- Cloudflare Workers 공유 키 모드 추가 — 빌드에 Worker URL이 포함된 경우 개인 API 키 없이 AI 기능 사용 가능 (IP당 50회/일 rate limit)
+**AI 공유 키 단일 체제 전환**
+- Cloudflare Workers 공유 키 모드 — API 키 없이 AI 기능 사용 가능 (IP당 50회/일 rate limit)
 - AI 모델 자동 분기 — Smart Paste·요약은 Haiku(속도 우선), Document Smart Paste는 Sonnet(품질 우선)으로 자동 선택
+- Claude Haiku 4.5 모델 ID 수정 (`claude-haiku-4-5-20251001`) — 기존 잘못된 ID로 인한 오류 수정
 
 ### v1.1.1 (2026-03-14)
 
@@ -279,19 +283,19 @@ DevNote 첫 번째 정식 릴리즈
 - **5종 카드 타입** — Server, DB, API, Markdown, Document
 - **Document 카드** — 5종 섹션 에디터 (Markdown, Code, Credentials, URLs, Env), DnD 섹션 정렬
 - **폴더 트리 & 드래그 앤 드롭** — 계층 구조 관리, 폴더 간 이동
-- **Smart Paste** — 클립보드 붙여넣기로 카드 자동 생성 (Tier 1 정규식 + Tier 2 Claude API)
+- **Smart Paste** — 클립보드 붙여넣기로 카드 자동 생성 (Claude AI)
 - **Fuse.js 키워드 검색** — 제목, 태그, 콘텐츠 통합 퍼지 매칭
 - **타입/태그 필터 & 다중 선택** — Ctrl+Click, Shift+Click 지원
 - **탭 기반 편집** — 다중 탭 동시 편집, CodeMirror 6 에디터
 - **Markdown 에디터 미리보기** — 소스/스플릿 토글
 - **JSON 내보내기/가져오기** — 전체/선택, Append/Replace 모드, 자동 백업 알림
 - **다크/라이트 테마** — 즉시 전환
-- **AI 콘텐츠 요약** — Claude API BYOK (선택적)
+- **AI 콘텐츠 요약** — Cloudflare Workers 공유 키
 - **공지사항 & 사용 가이드** — 초회 접근 시 자동 표시, 릴리즈노트
 
 **보안**
 - XSS 방지: URL 프로토콜 검증 (http/https만 허용)
-- AI API 키 sessionStorage 전용 저장 (브라우저 종료 시 자동 소멸)
+- AI API 키 클라이언트 미보유 (Cloudflare Workers 프록시를 통해서만 호출)
 - IndexedDB 영속 스토리지 (navigator.storage.persist)
 
 ---

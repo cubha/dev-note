@@ -52,3 +52,6 @@ docs/
 
 # ─── Cursor IDE ──────────────────────────────────────────────
 .cursor/
+
+# ─── Claude Code (local config with secrets) ────────────────
+.claude/

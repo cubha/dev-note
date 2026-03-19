@@ -49,15 +49,12 @@ export function ContextMenu() {
   // ── 단일 항목/폴더 삭제 ─────────────────────────────────────
   const handleDelete = async () => {
     if (menu.targetId === null || !folders || !items) return
-    closeMenu()
 
     if (menu.type === 'folder') {
-      const { folderIds, itemIds } = collectDescendants(
-        folders,
-        items,
-        menu.targetId,
-      )
-
+      const { folderIds, itemIds } = collectDescendants(folders, items, menu.targetId)
+      const confirmed = window.confirm(`폴더와 하위 카드 ${itemIds.length}개를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)
+      if (!confirmed) return
+      closeMenu()
       removeItemsFromState(itemIds, setOpenTabs, setActiveTab, setDirtyItems)
       await db.transaction('rw', db.folders, db.items, async () => {
         await db.folders.bulkDelete(folderIds)
@@ -65,6 +62,9 @@ export function ContextMenu() {
       })
     } else if (menu.type === 'item') {
       const id = menu.targetId
+      const confirmed = window.confirm('이 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')
+      if (!confirmed) return
+      closeMenu()
       removeItemsFromState([id], setOpenTabs, setActiveTab, setDirtyItems)
       await db.items.delete(id)
     }
@@ -73,6 +73,8 @@ export function ContextMenu() {
   // ── 다중 선택 항목 일괄 삭제 ────────────────────────────────
   const handleMultiDelete = async () => {
     const ids = Array.from(selectedItems)
+    const confirmed = window.confirm(`${ids.length}개 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)
+    if (!confirmed) return
     closeMenu()
     removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
     setSelectedItems(new Set<number>())

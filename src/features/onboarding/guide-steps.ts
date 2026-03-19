@@ -11,6 +11,16 @@ export interface GuideStep {
 
 export const GUIDE_STEPS: GuideStep[] = [
   {
+    title: 'AI 연동 기능',
+    description:
+      'Claude AI를 활용한 Smart Paste와 요약 기능으로 정보 입력과 정리를 자동화합니다.',
+    icon: 'ai',
+    tips: [
+      'Smart Paste: 자유 형식 텍스트를 붙여넣으면 카드 필드를 자동 채우기',
+      'AI 요약: 카드 내용을 한 줄로 요약하여 빠르게 파악',
+    ],
+  },
+  {
     title: '카드 기반 정보 관리',
     description:
       '5종 카드 타입으로 서버, DB, API, 메모, 문서를 체계적으로 관리하세요.',
