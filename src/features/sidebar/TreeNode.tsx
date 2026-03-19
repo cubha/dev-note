@@ -362,7 +362,7 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
           handleClick(e as unknown as React.MouseEvent)
         }
       }}
-      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
+      className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] select-none ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
       style={{ paddingLeft: `${(depth + 1) * 12}px` }}
     >
       <DragHandle />

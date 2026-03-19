@@ -1,6 +1,6 @@
 // src/features/sidebar/Sidebar.tsx
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -24,10 +24,13 @@ import {
   selectedFolderAtom,
   activeTabAtom,
   sidebarCollapsedAtom,
+  openTabsAtom,
+  dirtyItemsAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
+import { removeItemsFromState } from '../../store/tabHelpers'
 
 export function Sidebar() {
   const setCardForm = useSetAtom(cardFormAtom)
@@ -40,6 +43,10 @@ export function Sidebar() {
   const setFlatVisibleItemIds = useSetAtom(flatVisibleItemIdsAtom)
   const expanded = useAtomValue(expandedFoldersAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
+  const setOpenTabs = useSetAtom(openTabsAtom)
+  const setDirtyItems = useSetAtom(dirtyItemsAtom)
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const handleThemeToggle = async () => {
     if (!config) return
@@ -69,6 +76,11 @@ export function Sidebar() {
     const flat = getFlatVisibleItemIds(treeNodes, rootItems, expanded)
     setFlatVisibleItemIds(flat)
   }, [treeNodes, rootItems, expanded, setFlatVisibleItemIds])
+
+  // ─── 선택 해제 시 confirm 상태 초기화 ─────────────────────────
+  useEffect(() => {
+    if (selectedItems.size === 0) setConfirmingDelete(false)
+  }, [selectedItems.size])
 
   // ─── DnD 센서 설정 ────────────────────────────────────────────
   // distance: 5px — 클릭과 드래그 구분
@@ -249,13 +261,21 @@ export function Sidebar() {
     setCardForm({ isOpen: true, editItem: null, folderId: selectedFolder })
   }
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedItems)
+    removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
+    setSelectedItems(new Set<number>())
+    setConfirmingDelete(false)
+    await db.items.bulkDelete(ids)
+  }
+
   return (
     <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-[var(--border-default)] bg-[var(--bg-sidebar)] p-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setActiveTab(null)}
+            onClick={() => { setSelectedFolder(null); setActiveTab(null) }}
             className="flex items-center gap-2 cursor-pointer bg-transparent border-none p-0 hover:opacity-70 transition-opacity"
             title="메인 화면으로 이동"
           >
@@ -423,6 +443,53 @@ export function Sidebar() {
           </DndContext>
         )}
       </div>
+
+      {/* 다중 선택 액션 바 */}
+      {selectedItems.size > 0 && (
+        <div className="border-t border-[var(--border-default)] px-3 py-2">
+          {confirmingDelete ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-[var(--text-secondary)] text-center">
+                {selectedItems.size}개 카드를 삭제하시겠습니까?
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="flex-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  className="flex-1 rounded px-2 py-1 text-xs text-white bg-[var(--color-error,#ef4444)] hover:opacity-90 transition-opacity cursor-pointer border-none"
+                >
+                  삭제 확인
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-[var(--text-secondary)]">
+                {selectedItems.size}개 선택됨
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+              >
+                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                </svg>
+                일괄 삭제
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 새 카드 추가 버튼 */}
       <div className="border-t border-[var(--border-default)] px-3 py-2">

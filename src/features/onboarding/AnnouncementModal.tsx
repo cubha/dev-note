@@ -98,7 +98,7 @@ export function AnnouncementModal() {
         </div>
 
         {/* 릴리즈노트 목록 */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        <div className="h-[600px] overflow-y-auto px-5 py-4 space-y-3">
           {VISIBLE_NOTES.map((note, idx) => {
             const Icon = TYPE_ICON[note.type]
             return (

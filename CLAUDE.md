@@ -15,7 +15,7 @@
 - **Search**: Fuse.js (클라이언트 사이드 퍼지 검색)
 - **Styling**: Tailwind CSS v4 (`@tailwindcss/vite` 플러그인 방식 — v3 방식과 다름)
 - **Language**: TypeScript Strict Mode (`any` 타입 금지)
-- **AI (선택적)**: Claude API fetch 직접 호출 (BYOK, 사용자 API 키)
+- **AI (선택적)**: Cloudflare Workers 프록시 경유 Claude API 호출 (공유 키 모드, IP당 50회/일)
 
 ---
 
@@ -27,14 +27,12 @@ src/
 │   ├── db.ts              # Dexie v4 스키마 v8 & DB 인스턴스
 │   ├── types.ts           # CardField, StructuredContent, FIELD_SCHEMAS, TYPE_META
 │   ├── content.ts         # parseContent, serializeContent, extractSearchText
-│   ├── smart-paste.ts     # 정규식 기반 파서 (Tier 1, 오프라인)
-│   ├── ai.ts              # Claude API fetch 래퍼 (Tier 2, BYOK)
-│   └── ai-schemas.ts      # Smart Paste JSON Schema
+│   ├── ai.ts              # Claude API fetch 래퍼 (Cloudflare Workers 공유 키 모드)
+│   └── ai-schemas.ts      # Smart Paste / Summary / Document Paste JSON Schema
 ├── features/
 │   ├── sidebar/           # 폴더 트리, 항목 목록 (useLiveQuery 연동)
 │   ├── cards/             # InfoCard, FieldRow, CardContent, CardFormModal, CardDetailEditor
 │   ├── dashboard/         # AppHeader, CardGrid, Dashboard
-│   ├── ai/                # AISettingsPanel (API 키 관리)
 │   ├── settings/          # SettingsModal
 │   └── storage/           # 파일 내보내기/가져오기, DB 덤프/복원
 ├── store/
@@ -59,11 +57,11 @@ src/
 
 ## 🤖 AI 레이어 규칙
 
-- **AI 기능은 완전 선택적(opt-in)** — API 키 없이도 앱의 모든 핵심 기능(카드 CRUD, 폴더, 검색, 내보내기)은 정상 동작
-- **API 키는 sessionStorage에만 저장** — 브라우저 닫으면 자동 소멸
-- **BYOK(Bring Your Own Key)** — 사용자가 직접 Claude API 키 입력, 앱은 키를 외부 전송하지 않음
-- **Claude API fetch 직접 호출** — SDK 불필요, `anthropic-dangerous-direct-browser-access` 헤더 사용
-- **2계층 하이브리드** — Tier 1(정규식, 오프라인, 0ms) → Tier 2(Claude API, 온라인, BYOK)
+- **AI 기능은 완전 선택적(opt-in)** — Worker URL 미설정 시에도 앱의 모든 핵심 기능(카드 CRUD, 폴더, 검색, 내보내기)은 정상 동작
+- **Cloudflare Workers 공유 키 단일 체제** — API 키는 Worker 서버에서 관리, 클라이언트는 키를 보유하지 않음
+- **Worker URL은 빌드 타임 환경변수** — `VITE_WORKER_URL` (.env.local, gitignore)
+- **Claude API fetch 직접 호출** — SDK 불필요, Worker 프록시가 인증 헤더 추가
+- **모델 자동 분기** — Smart Paste·요약은 Haiku(속도·비용 우선), Document Smart Paste는 Sonnet(품질 우선)
 
 ---
 
@@ -109,5 +107,5 @@ src/
 - `any` 타입 사용
 - File System Access API 폴백 없는 단독 사용
 - `tailwind.config.ts` 생성
-- AI API 키를 localStorage 또는 IndexedDB에 영구 저장
+- API 키를 클라이언트(localStorage/sessionStorage/IndexedDB)에 저장
 - AI 기능을 핵심 CRUD 경로의 필수 의존성으로 만드는 것

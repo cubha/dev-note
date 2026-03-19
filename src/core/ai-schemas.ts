@@ -91,6 +91,33 @@ export const DOCUMENT_PASTE_SCHEMA = {
   additionalProperties: false,
 }
 
+/** Markdown Smart Paste — 자유 텍스트 → 정돈된 마크다운 변환 */
+export const MARKDOWN_PASTE_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    title: {
+      type: 'string' as const,
+      description: '콘텐츠 제목 (자동 생성, 30자 이내)',
+    },
+    content: {
+      type: 'string' as const,
+      description: '정돈된 마크다운 콘텐츠 (헤더, 리스트, 표, 코드블록 등 활용)',
+    },
+    suggestedTags: {
+      type: 'array' as const,
+      items: { type: 'string' as const },
+      description: '추천 태그',
+    },
+    confidence: {
+      type: 'string' as const,
+      enum: ['high', 'medium', 'low'],
+      description: '변환 신뢰도',
+    },
+  },
+  required: ['title', 'content', 'suggestedTags', 'confidence'] as const,
+  additionalProperties: false,
+}
+
 /** 콘텐츠 요약 JSON Schema */
 export const SUMMARY_SCHEMA = {
   type: 'object' as const,

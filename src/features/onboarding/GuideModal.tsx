@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAtom } from 'jotai'
 import {
   LayoutGrid, FolderTree, Search,
-  Code2, Download, ChevronLeft, ChevronRight,
+  Code2, Download, ChevronLeft, ChevronRight, Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { guideOpenAtom } from '../../store/atoms'
@@ -18,7 +18,7 @@ const ICON_MAP: Record<GuideStep['icon'], LucideIcon> = {
   search: Search,
   editor: Code2,
   export: Download,
-  ai: Code2,
+  ai: Sparkles,
 }
 
 const ICON_COLOR: Record<GuideStep['icon'], string> = {
@@ -133,13 +133,13 @@ export function GuideModal() {
           </div>
 
           {/* 팁 — 하단 고정 */}
-          <div className="flex flex-col gap-1.5 w-full max-w-[320px] mt-auto">
+          <div className="flex flex-col gap-1.5 w-full max-w-[360px] mt-auto text-left">
             {current.tips.map((tip) => (
               <div
                 key={tip}
-                className="flex items-center gap-2 rounded-md bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+                className="flex items-start gap-2 rounded-md bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-secondary)]"
               >
-                <span className="text-[10px] text-[var(--text-tertiary)]">TIP</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] shrink-0 mt-px">TIP</span>
                 <span>{tip}</span>
               </div>
             ))}

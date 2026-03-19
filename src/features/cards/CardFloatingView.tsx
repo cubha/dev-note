@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom } from 'jotai'
 import {
   Terminal, Database, FileText, X, Sparkles, Loader2, ChevronDown, ChevronUp,
   ChevronRight, Shield, Link, Code, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
+  AlertTriangle, Send, Check,
 } from 'lucide-react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
-import { cardViewAtom, aiApiKeyAtom, SHARED_WORKER_URL } from '../../store/atoms'
+import { cardViewAtom, SHARED_WORKER_URL } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
@@ -17,8 +18,8 @@ import type {
 } from '../../core/types'
 import type { ItemType } from '../../core/db'
 import { extractSearchText } from '../../core/content'
-import { AIService } from '../../core/ai'
-import type { SummaryResult } from '../../core/ai'
+import { AIService, AIError, reportError } from '../../core/ai'
+import type { SummaryResult, AIErrorCode } from '../../core/ai'
 import { CardContentView } from './CardContent'
 import { hasFormFields } from './fieldHelpers'
 import { copyToClipboard } from '../../shared/utils/clipboard'
@@ -60,19 +61,156 @@ function MarkdownView({ content }: { content: CardContentType }) {
 
 // ─────────────────────────────────────────────────────────────
 
+// ── AI 요약 에러 타입 ────────────────────────────────────────
+
+interface SummaryErrorDetail {
+  code: AIErrorCode
+  httpStatus: number
+  message: string
+  timestamp: string
+  reported: boolean
+}
+
+const SUMMARY_ERROR_LABELS: Record<string, string> = {
+  auth_error: 'API 키 오류',
+  permission_error: 'API 권한 부족',
+  credit_exhausted: '크레딧 소진',
+  daily_limit_exceeded: '일일 사용 한도 초과',
+  anthropic_rate_limit: 'API 호출 한도 초과',
+  overloaded: '서버 과부하',
+  input_too_long: '입력 텍스트 초과',
+  invalid_request: '잘못된 요청',
+  invalid_model: '지원하지 않는 모델',
+  parse_error: '요청 파싱 오류',
+  network_error: '네트워크 연결 실패',
+  unknown: '알 수 없는 오류',
+}
+
+// ── AI 요약 에러 모달 ────────────────────────────────────────
+
+function AISummaryErrorModal({
+  detail,
+  cardType,
+  onClose,
+  onReported,
+}: {
+  detail: SummaryErrorDetail
+  cardType: ItemType
+  onClose: () => void
+  onReported: () => void
+}) {
+  const [sending, setSending] = useState(false)
+
+  const handleReport = async () => {
+    if (!SHARED_WORKER_URL || detail.reported) return
+    setSending(true)
+    const ok = await reportError(SHARED_WORKER_URL, {
+      code: detail.code,
+      status: detail.httpStatus,
+      message: detail.message,
+      cardType,
+      timestamp: detail.timestamp,
+    })
+    setSending(false)
+    if (ok) {
+      onReported()
+      toast.success('오류 리포트가 전송되었습니다.', { duration: 3000 })
+    } else {
+      toast.error('리포트 전송에 실패했습니다.', { duration: 3000 })
+    }
+  }
+
+  const label = SUMMARY_ERROR_LABELS[detail.code] ?? SUMMARY_ERROR_LABELS.unknown
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} aria-hidden />
+      <div
+        role="dialog"
+        aria-modal
+        aria-label="AI 요약 오류"
+        className="fixed left-1/2 top-1/2 z-[70] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl animate-scale-in"
+      >
+        <div className="flex items-center gap-2 border-b border-[var(--border-default)] px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 text-[var(--text-error)]" />
+          <h3 className="text-sm font-medium text-[var(--text-primary)]">AI 요약 오류</h3>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer"
+            aria-label="닫기"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="px-4 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-[var(--text-error)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--text-error)]">
+              {label}
+            </span>
+            {detail.httpStatus > 0 && (
+              <span className="text-[10px] text-[var(--text-placeholder)]">HTTP {detail.httpStatus}</span>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{detail.message}</p>
+          <div className="rounded-md bg-[var(--bg-input)] px-3 py-2 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[var(--text-placeholder)]">에러 코드</span>
+              <span className="font-mono text-[10px] text-[var(--text-secondary)]">{detail.code}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[var(--text-placeholder)]">시각</span>
+              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                {new Date(detail.timestamp).toLocaleString('ko-KR')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-[var(--border-default)] px-4 py-3">
+          <button
+            type="button"
+            onClick={() => void handleReport()}
+            disabled={sending || detail.reported || !SHARED_WORKER_URL}
+            className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
+          >
+            {sending ? (
+              <><Loader2 size={12} className="animate-spin" /> 전송 중...</>
+            ) : detail.reported ? (
+              <><Check size={12} /> 전송 완료</>
+            ) : (
+              <><Send size={12} /> 관리자에게 전송</>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── AI 요약 섹션 ─────────────────────────────────────────────
 
 function AISummarySection({ content, cardType }: { content: CardContentType; cardType: ItemType }) {
-  const apiKey = useAtomValue(aiApiKeyAtom)
   const [summary, setSummary] = useState<SummaryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(true)
+  const [errorDetail, setErrorDetail] = useState<SummaryErrorDetail | null>(null)
+  const [errorModalOpen, setErrorModalOpen] = useState(false)
 
   const handleSummarize = useCallback(async () => {
-    if (!apiKey && !SHARED_WORKER_URL) return
     setLoading(true)
+    setErrorDetail(null)
     try {
-      const service = new AIService(apiKey, SHARED_WORKER_URL)
+      const service = new AIService(SHARED_WORKER_URL!)
       const text = extractSearchText(content)
       if (!text.trim()) {
         toast.error('요약할 콘텐츠가 없습니다.')
@@ -82,18 +220,21 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
       setSummary(result)
       setExpanded(true)
     } catch (err) {
-      toast.error(`요약 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+      const timestamp = new Date().toISOString()
+      const detail: SummaryErrorDetail = err instanceof AIError
+        ? { code: err.code, httpStatus: err.httpStatus, message: err.message, timestamp, reported: false }
+        : { code: 'unknown', httpStatus: 0, message: err instanceof Error ? err.message : '알 수 없는 오류', timestamp, reported: false }
+      setErrorDetail(detail)
+      setErrorModalOpen(true)
     } finally {
       setLoading(false)
     }
-  }, [apiKey, content, cardType])
-
-  if (!apiKey) return null
+  }, [content, cardType])
 
   return (
     <div className="shrink-0">
       {!summary && (
-        <div className="px-6 py-2 border-b border-[var(--border-default)]">
+        <div className="px-6 py-2 border-b border-[var(--border-default)] space-y-1.5">
           <button
             type="button"
             onClick={() => void handleSummarize()}
@@ -105,7 +246,32 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
               : <><Sparkles size={12} /> AI 요약</>
             }
           </button>
+          {errorDetail && (
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-[10px] text-[var(--text-error)]">{errorDetail.message}</p>
+              <button
+                type="button"
+                onClick={() => setErrorModalOpen(true)}
+                className="shrink-0 rounded px-2 py-0.5 text-[10px] text-[var(--text-error)] hover:bg-[var(--text-error)]/10 bg-transparent border border-[var(--text-error)]/30 cursor-pointer transition-colors"
+              >
+                상세/문의
+              </button>
+            </div>
+          )}
         </div>
+      )}
+
+      {errorModalOpen && errorDetail && (
+        <AISummaryErrorModal
+          detail={errorDetail}
+          cardType={cardType}
+          onClose={() => setErrorModalOpen(false)}
+          onReported={() => {
+            const updated = { ...errorDetail, reported: true }
+            setErrorDetail(updated)
+            setErrorModalOpen(false)
+          }}
+        />
       )}
 
       {summary && (
@@ -570,17 +736,17 @@ export function CardFloatingView() {
           </button>
         </div>
 
-        {/* ── AI 요약 ───────────────────────── */}
-        <AISummarySection content={content} cardType={item.type} />
-
-        {/* ── 본문 ────────────────────────── */}
-        <div className="flex-1 overflow-y-auto py-2">
-          {item.type === 'markdown'
-            ? <MarkdownView content={content} />
-            : item.type === 'document' && content.format === 'hybrid'
-              ? <HybridDocumentView content={content} />
-              : <CardContentView content={content} />
-          }
+        {/* ── 본문 (AI 요약 포함) ──────────── */}
+        <div className="flex-1 overflow-y-auto">
+          <AISummarySection content={content} cardType={item.type} />
+          <div className="py-2">
+            {item.type === 'markdown'
+              ? <MarkdownView content={content} />
+              : item.type === 'document' && content.format === 'hybrid'
+                ? <HybridDocumentView content={content} />
+                : <CardContentView content={content} />
+            }
+          </div>
         </div>
 
         {/* ── 태그 (있을 때만) ──────────────── */}
