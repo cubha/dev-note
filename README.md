@@ -105,9 +105,10 @@ src/
     │   ├── useClickOutside.ts             # 외부 클릭 감지
     │   └── useResizableHeight.ts          # 드래그 리사이즈
     └── utils/
-        ├── clipboard.ts    # 클립보드 복사
-        ├── url.ts          # URL 유효성 검사 (isSafeUrl)
-        └── highlight.tsx   # 검색 키워드 하이라이트
+        ├── clipboard.ts           # 클립보드 복사
+        ├── url.ts                 # URL 유효성 검사 (isSafeUrl)
+        ├── highlight.tsx          # 검색 키워드 하이라이트
+        └── error-report-dedup.ts  # 에러 리포트 중복 전송 방지 (sessionStorage)
 ```
 
 ---

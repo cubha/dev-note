@@ -77,11 +77,11 @@ function classifyAnthropicError(status: number, body: string, origin: string): R
   const msg = parsed.error?.message ?? ''
 
   if (status === 401) {
-    return jsonError('API 키가 유효하지 않습니다.', 401, origin, 'auth_error')
+    return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}`, 401, origin, 'auth_error')
   }
 
   if (status === 403) {
-    return jsonError('API 키 권한이 부족합니다.', 403, origin, 'permission_error')
+    return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}`, 403, origin, 'permission_error')
   }
 
   if (status === 429) {
@@ -201,25 +201,42 @@ async function handleMessages(request: Request, env: Env, origin: string): Promi
     parsed.max_tokens = MAX_TOKENS_LIMIT
   }
 
-  // ── Claude API 프록시 ─────────────────────────────────────
-  const claudeResponse = await fetch(CLAUDE_API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key': env.CLAUDE_API_KEY,
-      'anthropic-version': ANTHROPIC_VERSION,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(parsed),
-  })
+  // ── Claude API 프록시 (일시적 에러 시 1회 재시도) ──────────
+  const RETRYABLE_STATUSES = [403, 429, 529]
+  const MAX_RETRIES = 3
+  const requestBody = JSON.stringify(parsed)
+
+  let claudeResponse: Response
+  let responseBody: string
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    claudeResponse = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': env.CLAUDE_API_KEY,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'content-type': 'application/json',
+      },
+      body: requestBody,
+    })
+
+    responseBody = await claudeResponse.text()
+
+    // 성공이거나 재시도 불가 에러면 즉시 탈출
+    if (claudeResponse.ok || !RETRYABLE_STATUSES.includes(claudeResponse.status)) break
+
+    // 마지막 시도가 아니면 500ms 대기 후 재시도
+    if (attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, 500))
+    }
+  }
 
   // rate limit 카운터 증가 (TTL: 25시간 — 자정 넘어도 여유있게 만료)
   await env.RATE_LIMIT_KV.put(kvKey, String(count + 1), { expirationTtl: 90000 })
 
-  const responseBody = await claudeResponse.text()
-
   // Anthropic 에러 → 분류된 응답
-  if (!claudeResponse.ok) {
-    return classifyAnthropicError(claudeResponse.status, responseBody, origin)
+  if (!claudeResponse!.ok) {
+    return classifyAnthropicError(claudeResponse!.status, responseBody!, origin)
   }
 
   return new Response(responseBody, {
