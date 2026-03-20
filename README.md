@@ -11,7 +11,7 @@
 **카드 기반 대시보드 + 탭 편집** 방식으로 접속 정보·노트·API 정보를 타입별로 구조화 관리합니다.
 
 - **완전 로컬**: 모든 데이터는 브라우저 IndexedDB에만 저장
-- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Cloudflare Workers 공유 키 (IP당 50회/일)
+- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Vercel Edge Function 공유 키 (IP당 50회/일)
 - **무설치**: 빌드 결과물을 브라우저에서 바로 실행 (GitHub Pages 배포)
 - **5종 카드 타입**: Server, DB, API, Markdown, Document (다중 섹션 문서)
 
@@ -28,7 +28,7 @@
 | Editor | CodeMirror 6 (`lang-json`, `lang-sql`) | 6.x |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
-| AI | Claude API (Cloudflare Workers 프록시, IP당 50회/일) | - |
+| AI | Claude API (Vercel Edge Function 프록시, IP당 50회/일) | - |
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite` 플러그인) | 4.2 |
 | DnD | @dnd-kit/core + @dnd-kit/sortable | 6.3 / 10.0 |
 | Markdown | marked + DOMPurify | 17.0 / 3.3 |
@@ -40,9 +40,11 @@
 ## 📁 프로젝트 구조
 
 ```
-worker/                    # Cloudflare Workers 프록시 (공유 키 모드)
-│   ├── src/index.ts       # IP rate limit(KV) + Claude API 프록시
-│   └── wrangler.toml      # Workers 설정
+api/                       # Vercel Edge Function 프록시 (공유 키 모드)
+│   └── v1/
+│       ├── messages.ts    # Claude API 프록시 (지수 백오프 재시도)
+│       └── error-report.ts # Discord webhook 에러 리포트
+vercel.json                # Vercel 프로젝트 설정 (rewrites, framework null)
 src/
 ├── core/
 │   ├── db.ts              # Dexie v4 스키마 v12 + 마이그레이션
@@ -179,12 +181,12 @@ interface HybridContent {
 
 ## 🤖 AI 기능
 
-Cloudflare Workers 공유 키 단일 체제 — 별도 API 키 설정 없이 사용 가능 (IP당 50회/일)
+Vercel Edge Function 공유 키 단일 체제 — 별도 API 키 설정 없이 사용 가능 (IP당 50회/일)
 
 ### AI 아키텍처
 
 ```
-Claude API (Cloudflare Workers 프록시)
+Claude API (Vercel Edge Function 프록시)
   ├── Smart Paste / 요약  → claude-haiku-4-5  (속도·비용 우선)
   └── Document Smart Paste → claude-sonnet-4-6 (복잡 섹션 분류, 품질 우선)
 ```
@@ -232,6 +234,18 @@ Claude API (Cloudflare Workers 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.2.2 (2026-03-21)
+
+**API 프록시 Vercel 마이그레이션**
+- Cloudflare Worker → Vercel Edge Function으로 API 프록시 이전
+- Cloudflare-to-Cloudflare WAF 간헐적 403 차단 문제 근본 해결
+- 지수 백오프 + 지터 재시도 (403/429/529, 최대 3회)
+- User-Agent·Accept 헤더 추가로 WAF 봇 감지 방지
+- Cloudflare WAF HTML challenge 감지 로직 추가
+- 에러 리포트에 request-id, 재시도 횟수 디버깅 정보 포함
+- 환경변수 리네이밍: `VITE_WORKER_URL` → `VITE_API_URL`
+- URL trailing slash 자동 제거 방어 로직 추가
 
 ### v1.2.1 (2026-03-19)
 
@@ -291,12 +305,12 @@ DevNote 첫 번째 정식 릴리즈
 - **Markdown 에디터 미리보기** — 소스/스플릿 토글
 - **JSON 내보내기/가져오기** — 전체/선택, Append/Replace 모드, 자동 백업 알림
 - **다크/라이트 테마** — 즉시 전환
-- **AI 콘텐츠 요약** — Cloudflare Workers 공유 키
+- **AI 콘텐츠 요약** — Vercel Edge Function 공유 키
 - **공지사항 & 사용 가이드** — 초회 접근 시 자동 표시, 릴리즈노트
 
 **보안**
 - XSS 방지: URL 프로토콜 검증 (http/https만 허용)
-- AI API 키 클라이언트 미보유 (Cloudflare Workers 프록시를 통해서만 호출)
+- AI API 키 클라이언트 미보유 (Vercel Edge Function 프록시를 통해서만 호출)
 - IndexedDB 영속 스토리지 (navigator.storage.persist)
 
 ---
