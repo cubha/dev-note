@@ -119,8 +119,8 @@ export const tagFilterAtom = atom<string | null>(null)
 
 // ─── AI — Worker 공유 키 모드 ────────────────────────────────
 
-/** 빌드 타임 Worker URL (.env.local, gitignore) */
-export const SHARED_WORKER_URL = import.meta.env.VITE_WORKER_URL as string | undefined
+/** 빌드 타임 Worker URL (.env.local, gitignore) — trailing slash 방어 */
+export const SHARED_WORKER_URL = (import.meta.env.VITE_WORKER_URL as string | undefined)?.replace(/\/+$/, '')
 
 // ─── 공지사항 & 가이드 ──────────────────────────────────────────
 
