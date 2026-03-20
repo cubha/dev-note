@@ -25,6 +25,7 @@ import { hasFormFields } from './fieldHelpers'
 import { copyToClipboard } from '../../shared/utils/clipboard'
 import { ICON_MAP } from '../../shared/constants'
 import { isSafeUrl } from '../../shared/utils/url'
+import { isErrorAlreadyReported, markErrorReported } from '../../shared/utils/error-report-dedup'
 
 // ── 마크다운 렌더링 뷰 (markdown 타입 전용) ──────────────────
 
@@ -100,9 +101,10 @@ function AISummaryErrorModal({
   onReported: () => void
 }) {
   const [sending, setSending] = useState(false)
+  const alreadyReported = detail.reported || isErrorAlreadyReported(detail.code)
 
   const handleReport = async () => {
-    if (!SHARED_WORKER_URL || detail.reported) return
+    if (!SHARED_WORKER_URL || alreadyReported) return
     setSending(true)
     const ok = await reportError(SHARED_WORKER_URL, {
       code: detail.code,
@@ -113,6 +115,7 @@ function AISummaryErrorModal({
     })
     setSending(false)
     if (ok) {
+      markErrorReported(detail.code)
       onReported()
       toast.success('오류 리포트가 전송되었습니다.', { duration: 3000 })
     } else {
@@ -173,12 +176,12 @@ function AISummaryErrorModal({
           <button
             type="button"
             onClick={() => void handleReport()}
-            disabled={sending || detail.reported || !SHARED_WORKER_URL}
+            disabled={sending || alreadyReported || !SHARED_WORKER_URL}
             className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
           >
             {sending ? (
               <><Loader2 size={12} className="animate-spin" /> 전송 중...</>
-            ) : detail.reported ? (
+            ) : alreadyReported ? (
               <><Check size={12} /> 전송 완료</>
             ) : (
               <><Send size={12} /> 관리자에게 전송</>
