@@ -8,7 +8,7 @@ import {
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
-import { cardViewAtom, SHARED_WORKER_URL } from '../../store/atoms'
+import { cardViewAtom, SHARED_API_URL } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
@@ -104,9 +104,9 @@ function AISummaryErrorModal({
   const alreadyReported = detail.reported || isErrorAlreadyReported(detail.code)
 
   const handleReport = async () => {
-    if (!SHARED_WORKER_URL || alreadyReported) return
+    if (!SHARED_API_URL || alreadyReported) return
     setSending(true)
-    const ok = await reportError(SHARED_WORKER_URL, {
+    const ok = await reportError(SHARED_API_URL, {
       code: detail.code,
       status: detail.httpStatus,
       message: detail.message,
@@ -176,7 +176,7 @@ function AISummaryErrorModal({
           <button
             type="button"
             onClick={() => void handleReport()}
-            disabled={sending || alreadyReported || !SHARED_WORKER_URL}
+            disabled={sending || alreadyReported || !SHARED_API_URL}
             className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
           >
             {sending ? (
@@ -213,7 +213,7 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
     setLoading(true)
     setErrorDetail(null)
     try {
-      const service = new AIService(SHARED_WORKER_URL!)
+      const service = new AIService(SHARED_API_URL!)
       const text = extractSearchText(content)
       if (!text.trim()) {
         toast.error('요약할 콘텐츠가 없습니다.')

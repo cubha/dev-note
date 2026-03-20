@@ -117,10 +117,10 @@ export const typeFilterAtom = atom<ItemType | null>(null)
 /** 대시보드 태그 필터 */
 export const tagFilterAtom = atom<string | null>(null)
 
-// ─── AI — Worker 공유 키 모드 ────────────────────────────────
+// ─── AI — Vercel Edge Function 프록시 ────────────────────────
 
-/** 빌드 타임 Worker URL (.env.local, gitignore) — trailing slash 방어 */
-export const SHARED_WORKER_URL = (import.meta.env.VITE_WORKER_URL as string | undefined)?.replace(/\/+$/, '')
+/** 빌드 타임 API URL (.env.local, gitignore) — trailing slash 방어 */
+export const SHARED_API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '')
 
 // ─── 공지사항 & 가이드 ──────────────────────────────────────────
 
