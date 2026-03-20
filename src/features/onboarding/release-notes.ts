@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.2.2',
+    date: '2026-03-21',
+    title: 'API 프록시 Vercel 마이그레이션',
+    highlights: [
+      'Cloudflare Worker → Vercel Edge Function 이전 — 간헐적 403 차단 문제 해결',
+      '지수 백오프 + 지터 재시도 (최대 3회) — AI 호출 안정성 대폭 향상',
+      '에러 리포트에 디버깅 정보(request-id, 재시도 횟수) 포함',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.2.1',
     date: '2026-03-19',
     title: 'AI Smart Paste 통합 & 삭제 확인',
