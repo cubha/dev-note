@@ -1,0 +1,10 @@
+{
+  "framework": null,
+  "installCommand": "npm install @upstash/redis",
+  "buildCommand": "",
+  "outputDirectory": "",
+  "rewrites": [
+    { "source": "/v1/messages", "destination": "/api/v1/messages" },
+    { "source": "/v1/error-report", "destination": "/api/v1/error-report" }
+  ]
+}

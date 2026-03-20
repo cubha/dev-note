@@ -53,5 +53,8 @@ docs/
 # ─── Cursor IDE ──────────────────────────────────────────────
 .cursor/
 
+# ─── Vercel ──────────────────────────────────────────────────
+.vercel/
+
 # ─── Claude Code (local config with secrets) ────────────────
 .claude/
