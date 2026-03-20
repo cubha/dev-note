@@ -6,6 +6,7 @@
  * - 모델 화이트리스트 + max_tokens 상한 (고비용 요청 차단)
  * - IP당 일일 rate limit (KV Store)
  * - Anthropic 에러 분류 → 클라이언트 친화적 응답
+ * - 지수 백오프 + 지터 재시도 (Cloudflare WAF 간헐적 차단 대응)
  * - /v1/error-report → Discord webhook 에러 리포트 전달
  */
 
@@ -33,6 +34,13 @@ const ALLOWED_MODELS = [
 const MAX_TOKENS_LIMIT = 4096
 const ERROR_REPORT_DAILY_LIMIT = 10
 
+// ── 재시도 설정 ──────────────────────────────────────────────
+const RETRYABLE_STATUSES = [403, 429, 529]
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 500
+const MAX_DELAY_MS = 4000
+const JITTER_MS = 500
+
 // KV 키 형식: "rl:{ip}:{YYYY-MM-DD}"
 function getRateLimitKey(ip: string): string {
   const today = new Date().toISOString().slice(0, 10)
@@ -42,6 +50,13 @@ function getRateLimitKey(ip: string): string {
 function getErrorReportKey(ip: string): string {
   const today = new Date().toISOString().slice(0, 10)
   return `er:${ip}:${today}`
+}
+
+/** 지수 백오프 + 지터: 500ms → 1000ms → 2000ms (+ 0~500ms 랜덤) */
+function getRetryDelay(attempt: number): number {
+  const exponential = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), MAX_DELAY_MS)
+  const jitter = Math.random() * JITTER_MS
+  return exponential + jitter
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -65,7 +80,17 @@ interface AnthropicError {
   error?: { type?: string; message?: string }
 }
 
-function classifyAnthropicError(status: number, body: string, origin: string): Response {
+function classifyAnthropicError(
+  status: number, body: string, origin: string, requestId: string, retries: number,
+): Response {
+  // Cloudflare WAF challenge 감지 (HTML 응답)
+  if (body.includes('<!DOCTYPE') || body.includes('<html')) {
+    return jsonError(
+      `Cloudflare WAF 차단이 감지되었습니다. (${retries}회 재시도 후 실패, request-id: ${requestId})`,
+      403, origin, 'cloudflare_challenge',
+    )
+  }
+
   let parsed: AnthropicError = {}
   try {
     parsed = JSON.parse(body) as AnthropicError
@@ -75,21 +100,22 @@ function classifyAnthropicError(status: number, body: string, origin: string): R
 
   const type = parsed.error?.type ?? ''
   const msg = parsed.error?.message ?? ''
+  const debugSuffix = ` (retries: ${retries}, request-id: ${requestId})`
 
   if (status === 401) {
-    return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}`, 401, origin, 'auth_error')
+    return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}${debugSuffix}`, 401, origin, 'auth_error')
   }
 
   if (status === 403) {
-    return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}`, 403, origin, 'permission_error')
+    return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}${debugSuffix}`, 403, origin, 'permission_error')
   }
 
   if (status === 429) {
-    return jsonError('Anthropic API 호출 한도를 초과했습니다. 잠시 후 재시도해주세요.', 429, origin, 'anthropic_rate_limit')
+    return jsonError(`Anthropic API 호출 한도를 초과했습니다.${debugSuffix}`, 429, origin, 'anthropic_rate_limit')
   }
 
   if (status === 529) {
-    return jsonError('Claude 서버가 과부하 상태입니다. 잠시 후 재시도해주세요.', 503, origin, 'overloaded')
+    return jsonError(`Claude 서버가 과부하 상태입니다.${debugSuffix}`, 503, origin, 'overloaded')
   }
 
   if (status === 400) {
@@ -102,7 +128,7 @@ function classifyAnthropicError(status: number, body: string, origin: string): R
     return jsonError(`요청 오류: ${msg.slice(0, 200)}`, 400, origin, 'invalid_request')
   }
 
-  return jsonError(`Claude API 오류 (${status}): ${msg.slice(0, 200)}`, status, origin, 'unknown')
+  return jsonError(`Claude API 오류 (${status}): ${msg.slice(0, 200)}${debugSuffix}`, status, origin, 'unknown')
 }
 
 // ── Discord webhook 전송 ────────────────────────────────────
@@ -201,13 +227,12 @@ async function handleMessages(request: Request, env: Env, origin: string): Promi
     parsed.max_tokens = MAX_TOKENS_LIMIT
   }
 
-  // ── Claude API 프록시 (일시적 에러 시 1회 재시도) ──────────
-  const RETRYABLE_STATUSES = [403, 429, 529]
-  const MAX_RETRIES = 3
+  // ── Claude API 프록시 (지수 백오프 + 지터 재시도) ──────────
   const requestBody = JSON.stringify(parsed)
 
-  let claudeResponse: Response
-  let responseBody: string
+  let claudeResponse: Response = undefined!
+  let responseBody = ''
+  let lastRequestId = ''
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     claudeResponse = await fetch(CLAUDE_API_URL, {
@@ -216,18 +241,21 @@ async function handleMessages(request: Request, env: Env, origin: string): Promi
         'x-api-key': env.CLAUDE_API_KEY,
         'anthropic-version': ANTHROPIC_VERSION,
         'content-type': 'application/json',
+        'user-agent': 'dev-note-worker/1.0',
+        'accept': 'application/json',
       },
       body: requestBody,
     })
 
     responseBody = await claudeResponse.text()
+    lastRequestId = claudeResponse.headers.get('request-id') ?? ''
 
     // 성공이거나 재시도 불가 에러면 즉시 탈출
     if (claudeResponse.ok || !RETRYABLE_STATUSES.includes(claudeResponse.status)) break
 
-    // 마지막 시도가 아니면 500ms 대기 후 재시도
+    // 마지막 시도가 아니면 지수 백오프 + 지터 대기 후 재시도
     if (attempt < MAX_RETRIES) {
-      await new Promise(r => setTimeout(r, 500))
+      await new Promise(r => setTimeout(r, getRetryDelay(attempt)))
     }
   }
 
@@ -235,8 +263,8 @@ async function handleMessages(request: Request, env: Env, origin: string): Promi
   await env.RATE_LIMIT_KV.put(kvKey, String(count + 1), { expirationTtl: 90000 })
 
   // Anthropic 에러 → 분류된 응답
-  if (!claudeResponse!.ok) {
-    return classifyAnthropicError(claudeResponse!.status, responseBody!, origin)
+  if (!claudeResponse.ok) {
+    return classifyAnthropicError(claudeResponse.status, responseBody, origin, lastRequestId, MAX_RETRIES)
   }
 
   return new Response(responseBody, {
