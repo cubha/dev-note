@@ -57,10 +57,10 @@ src/
 
 ## 🤖 AI 레이어 규칙
 
-- **AI 기능은 완전 선택적(opt-in)** — Worker URL 미설정 시에도 앱의 모든 핵심 기능(카드 CRUD, 폴더, 검색, 내보내기)은 정상 동작
-- **Cloudflare Workers 공유 키 단일 체제** — API 키는 Worker 서버에서 관리, 클라이언트는 키를 보유하지 않음
-- **Worker URL은 빌드 타임 환경변수** — `VITE_WORKER_URL` (.env.local, gitignore)
-- **Claude API fetch 직접 호출** — SDK 불필요, Worker 프록시가 인증 헤더 추가
+- **AI 기능은 완전 선택적(opt-in)** — API URL 미설정 시에도 앱의 모든 핵심 기능(카드 CRUD, 폴더, 검색, 내보내기)은 정상 동작
+- **Vercel Edge Function 공유 키 단일 체제** — API 키는 Vercel 서버에서 관리, 클라이언트는 키를 보유하지 않음
+- **API URL은 빌드 타임 환경변수** — `VITE_API_URL` (.env.local, gitignore)
+- **Claude API fetch 직접 호출** — SDK 불필요, Vercel Edge Function 프록시가 인증 헤더 추가
 - **모델 자동 분기** — Smart Paste·요약은 Haiku(속도·비용 우선), Document Smart Paste는 Sonnet(품질 우선)
 
 ---

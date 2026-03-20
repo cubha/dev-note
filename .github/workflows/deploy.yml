@@ -28,7 +28,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_WORKER_URL: ${{ secrets.VITE_WORKER_URL }}  # Vercel Edge Function URL
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}  # Vercel Edge Function URL
 
       - uses: actions/upload-pages-artifact@v3
         with:

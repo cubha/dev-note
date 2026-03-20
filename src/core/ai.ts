@@ -1,7 +1,7 @@
 // src/core/ai.ts
 //
-// Claude API fetch 래퍼 (Cloudflare Workers 공유 키 단일 체제)
-// - Worker 프록시를 통해 호출 (API 키 클라이언트 미보유)
+// Claude API fetch 래퍼 (Vercel Edge Function 공유 키 체제)
+// - Vercel Edge Function 프록시를 통해 호출 (API 키 클라이언트 미보유)
 // - Structured Outputs: output_config.format.json_schema로 100% 유효 JSON 보장
 // - 호출 간격 제한 (500ms 쿨다운)
 // - SDK 불필요 — fetch 직접 호출로 번들 크기 0 추가

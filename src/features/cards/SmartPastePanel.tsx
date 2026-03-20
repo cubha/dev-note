@@ -3,7 +3,7 @@
 // Smart Paste 패널 — 모든 카드 타입 통합 지원
 // - server/db/api/markdown: 텍스트 → Claude AI → 필드 미리보기 → 적용
 // - document: 텍스트 → Claude AI → 섹션 구조화 → 미리보기 → 적용
-// - Worker 공유 키 모드 단일 체제
+// - Vercel Edge Function 공유 키 모드
 // - AI 에러 발생 시 에러 모달 + Discord 관리자 문의
 
 import { useState, useCallback } from 'react'
@@ -15,7 +15,7 @@ import type { CardField, AnySection } from '../../core/types'
 import { FIELD_SCHEMAS } from '../../core/types'
 import { AIService, AIError, reportError } from '../../core/ai'
 import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult, AIErrorCode } from '../../core/ai'
-import { SHARED_WORKER_URL } from '../../store/atoms'
+import { SHARED_API_URL } from '../../store/atoms'
 import { isErrorAlreadyReported, markErrorReported } from '../../shared/utils/error-report-dedup'
 
 // ─── 타입 ────────────────────────────────────────────────────
@@ -215,10 +215,10 @@ function SmartPasteErrorModal({
   const alreadyReported = detail.reported || isErrorAlreadyReported(detail.code)
 
   const handleReport = async () => {
-    if (!SHARED_WORKER_URL || alreadyReported) return
+    if (!SHARED_API_URL || alreadyReported) return
     setSending(true)
 
-    const ok = await reportError(SHARED_WORKER_URL, {
+    const ok = await reportError(SHARED_API_URL, {
       code: detail.code,
       status: detail.httpStatus,
       message: detail.message,
@@ -309,7 +309,7 @@ function SmartPasteErrorModal({
           <button
             type="button"
             onClick={() => void handleReport()}
-            disabled={sending || alreadyReported || !SHARED_WORKER_URL}
+            disabled={sending || alreadyReported || !SHARED_API_URL}
             className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
           >
             {sending ? (
@@ -359,7 +359,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
   const handleAnalyzeMarkdown = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_WORKER_URL!)
+      const service = new AIService(SHARED_API_URL!)
       const result: MarkdownPasteResult = await service.markdownSmartPaste(text)
 
       setState({
@@ -381,7 +381,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
   const handleAnalyzeFields = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_WORKER_URL!)
+      const service = new AIService(SHARED_API_URL!)
       const aiResult: SmartPasteResult = await service.smartPaste(text, currentType)
 
       setState({
@@ -403,7 +403,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
   const handleAnalyzeDocument = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_WORKER_URL!)
+      const service = new AIService(SHARED_API_URL!)
       const result: DocumentPasteResult = await service.documentSmartPaste(text)
       const sections = convertAIResultToSections(result)
 
