@@ -14,7 +14,7 @@ import {
 } from '../../store/atoms'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
 
-const FILTER_TYPES: (ItemType | null)[] = [null, 'server', 'db', 'api', 'markdown', 'document']
+const FILTER_TYPES: (ItemType | null)[] = [null, 'server', 'db', 'api', 'note', 'document']
 
 export function SearchFilterBar() {
   const [searchQuery, setSearchQuery] = useAtom(searchQueryAtom)
@@ -100,7 +100,7 @@ export function SearchFilterBar() {
             onClick={() => setTagDropdownOpen((prev) => !prev)}
             className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
               tagFilter
-                ? 'bg-[var(--badge-markdown-bg)] text-[var(--badge-markdown-text)]'
+                ? 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]'
                 : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
             }`}
           >

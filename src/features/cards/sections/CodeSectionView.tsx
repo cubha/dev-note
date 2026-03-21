@@ -1,15 +1,38 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
+import { useAtomValue } from 'jotai'
 import { Copy } from 'lucide-react'
 import {
   EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
   highlightActiveLine, placeholder as cmPlaceholder,
+  MatchDecorator, Decoration, ViewPlugin, type DecorationSet, type ViewUpdate,
 } from '@codemirror/view'
-import { EditorState as CMState, Compartment } from '@codemirror/state'
+import { EditorState as CMState, Compartment, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import type { CodeSection } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
 import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
+import { effectiveKeybindingsAtom } from '../../../store/atoms'
+import { buildEditorKeymap } from '../../../shared/utils/editorKeymap'
+
+/** 언어 모드 미설정 시 기본 주석 토큰 (// 스타일) */
+const defaultCommentTokens: Extension = CMState.languageData.of(
+  () => [{ commentTokens: { line: '//' } }]
+)
+
+/** // 주석 시각적 하이라이팅 */
+const commentDecorator = new MatchDecorator({
+  regexp: /\/\/.*/g,
+  decoration: Decoration.mark({ class: 'cm-comment-highlight' }),
+})
+const commentHighlight = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+    constructor(view: EditorView) { this.decorations = commentDecorator.createDeco(view) }
+    update(update: ViewUpdate) { this.decorations = commentDecorator.updateDeco(update, this.decorations) }
+  },
+  { decorations: v => v.decorations }
+)
 
 const LANGUAGES = [
   'text', 'bash', 'sql', 'json',
@@ -92,11 +115,14 @@ function MiniCodeEditor({ value, language, onChange, height }: {
   onChange: (val: string) => void
   height: number
 }) {
+  const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
+  const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const isProgrammaticRef = useRef(false)
   const langCompartment = useRef(new Compartment())
+  const editorKeymapCompartment = useRef(new Compartment())
 
   useEffect(() => { onChangeRef.current = onChange })
 
@@ -114,6 +140,8 @@ function MiniCodeEditor({ value, language, onChange, height }: {
           highlightActiveLine(),
           bracketMatching(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          defaultCommentTokens,
+          editorKeymapCompartment.current.of(cmKeymap.of(customKeymap)),
           cmKeymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           langCompartment.current.of([]),
           cmPlaceholder('코드를 입력하세요...'),
@@ -141,7 +169,9 @@ function MiniCodeEditor({ value, language, onChange, height }: {
             '.cm-activeLineGutter': { background: 'transparent' },
             '.cm-selectionBackground': { background: 'var(--accent-glow) !important' },
             '&.cm-focused .cm-selectionBackground': { background: 'rgba(59,130,246,0.25) !important' },
+            '.cm-comment-highlight': { color: 'var(--text-tertiary)', fontStyle: 'italic' },
           }),
+          commentHighlight,
         ],
       }),
       parent: containerRef.current,
@@ -168,6 +198,17 @@ function MiniCodeEditor({ value, language, onChange, height }: {
       isProgrammaticRef.current = false
     }
   }, [value])
+
+  // 에디터 커스텀 키맵 변경
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: editorKeymapCompartment.current.reconfigure(
+        cmKeymap.of(customKeymap),
+      ),
+    })
+  }, [customKeymap])
 
   // language 변경 시 동적 로드
   useEffect(() => {

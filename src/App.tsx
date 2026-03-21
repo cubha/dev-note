@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { Toaster, toast } from 'sonner'
+import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import { db, ensureConfig } from './core/db'
 import type { AppConfig } from './core/db'
 import { appConfigAtom, contextMenuAtom, announcementOpenAtom, sidebarCollapsedAtom } from './store/atoms'
@@ -86,6 +87,7 @@ export default function App() {
   }
 
   return (
+    <HotkeysProvider>
     <div className="flex h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
       {sidebarCollapsed ? (
         /* 접힌 상태: 왼쪽 가장자리 얇은 핸들 — hover 시 확장 */
@@ -117,6 +119,7 @@ export default function App() {
         toastOptions={{ style: toastStyle }}
       />
     </div>
+    </HotkeysProvider>
   )
 }
 

@@ -13,7 +13,7 @@
 - **완전 로컬**: 모든 데이터는 브라우저 IndexedDB에만 저장
 - **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Vercel Edge Function 공유 키 (IP당 50회/일)
 - **무설치**: 빌드 결과물을 브라우저에서 바로 실행 (GitHub Pages 배포)
-- **5종 카드 타입**: Server, DB, API, Markdown, Document (다중 섹션 문서)
+- **5종 카드 타입**: Server, DB, API, Note (마크다운+코드), Document (다중 섹션 문서)
 
 ---
 
@@ -26,6 +26,7 @@
 | Data | Dexie.js (IndexedDB 래퍼) | 4.3 |
 | State | Jotai (전역 UI 상태) + `useLiveQuery` (DB 반응형) | 2.18 / dexie-react-hooks 4.2 |
 | Editor | CodeMirror 6 (`lang-json`, `lang-sql`) | 6.x |
+| Keybindings | @tanstack/react-hotkeys (단축키 시스템) | - |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
 | AI | Claude API (Vercel Edge Function 프록시, IP당 50회/일) | - |
@@ -47,11 +48,12 @@ api/                       # Vercel Edge Function 프록시 (공유 키 모드)
 vercel.json                # Vercel 프로젝트 설정 (rewrites, framework null)
 src/
 ├── core/
-│   ├── db.ts              # Dexie v4 스키마 v12 + 마이그레이션
+│   ├── db.ts              # Dexie v4 스키마 v13 + 마이그레이션
 │   ├── types.ts           # CardField, StructuredContent, HybridContent, FIELD_SCHEMAS, TYPE_META
 │   ├── content.ts         # parseContent, serializeContent, extractSearchText
 │   ├── ai.ts              # Claude API 래퍼 (smartPaste, markdownSmartPaste, summarize, documentSmartPaste)
 │   ├── ai-schemas.ts      # SMART_PASTE_SCHEMA, MARKDOWN_PASTE_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA
+│   ├── keybindings.ts     # 키바인딩 코어 타입/상수 (DEFAULT_KEYBINDINGS, validate, getEffectiveBindings)
 │   └── duplicate-check.ts # 중복 host/url 경고
 ├── features/
 │   ├── sidebar/
@@ -95,7 +97,8 @@ src/
 │   │   ├── ImportModeModal.tsx # 가져오기 모드 선택 모달
 │   │   └── StorageButtons.tsx  # 내보내기/가져오기 UI 버튼
 │   ├── settings/
-│   │   └── SettingsModal.tsx   # 환경설정 모달 (에디터 + AI 설정)
+│   │   ├── SettingsModal.tsx   # 환경설정 모달 (에디터 + AI + 단축키 탭)
+│   │   └── KeybindingsTab.tsx  # 단축키 커스터마이징 탭 (카테고리별 그룹, 키 녹화, 충돌 감지)
 ├── store/
 │   ├── atoms.ts           # Jotai atoms (탭, AI, 검색, 대시보드, 온보딩)
 │   └── tabHelpers.ts      # openTab(), closeTab() 헬퍼 함수
@@ -103,11 +106,13 @@ src/
     ├── components/
     │   └── ContextMenu.tsx  # 우클릭 메뉴 (이름 변경, 삭제)
     ├── hooks/
-    │   ├── useGlobalKeyboardShortcuts.ts  # Ctrl+N, Ctrl+K, Ctrl+W, Del 등
+    │   ├── useGlobalKeyboardShortcuts.ts  # 전역 단축키 핸들러 (@tanstack/react-hotkeys 연동)
+    │   ├── useHotkeyRecorder.ts           # 키 녹화 훅 (단축키 설정 UI용)
     │   ├── useClickOutside.ts             # 외부 클릭 감지
     │   └── useResizableHeight.ts          # 드래그 리사이즈
     └── utils/
         ├── clipboard.ts           # 클립보드 복사
+        ├── editorKeymap.ts        # CodeMirror 에디터 단축키 빌더
         ├── url.ts                 # URL 유효성 검사 (isSafeUrl)
         ├── highlight.tsx          # 검색 키워드 하이라이트
         └── error-report-dedup.ts  # 에러 리포트 중복 전송 방지 (sessionStorage)
@@ -115,7 +120,7 @@ src/
 
 ---
 
-## 🗄 데이터 스키마 (DB v12)
+## 🗄 데이터 스키마 (DB v13)
 
 ```
 folders:    ++id, parentId, name, order
@@ -130,7 +135,7 @@ config:     id (단일 레코드, id=1 고정)
 | Server | Terminal | StructuredContent | host, port, username, password, keyPath, note |
 | DB | Database | StructuredContent | host, port, dbName, username, password, note |
 | API | Globe | StructuredContent | url, method, apiKey, token, headers, note |
-| Markdown | FileText | StructuredContent | content (자유 텍스트, 미리보기 토글) |
+| Note | FileText | StructuredContent | content (자유 텍스트 + 코드, 마크다운 미리보기 토글) |
 | **Document** | **FileStack** | **HybridContent** | **다중 섹션 (markdown, credentials, urls, env, code)** |
 
 ### HybridContent — document 타입 전용 포맷
@@ -160,7 +165,8 @@ interface HybridContent {
 
 ### 에디터
 - **CodeMirror 6** 기반 코드 에디터 (JSON, SQL 언어 모드)
-- **Markdown 미리보기** 토글 (소스/스플릿)
+- **`//` 주석 하이라이팅** — MatchDecorator로 언어 모드 무관 시각적 강조 (Note 에디터 + Document 코드 섹션)
+- **Note 카드 미리보기** 토글 (소스/스플릿, 마크다운 렌더링)
 - **Document 섹션 편집** — DnD 정렬, 섹션별 접기/펼치기, 리사이즈, 섹션별 Smart Paste, 메모(markdown) 섹션 소스/미리보기 토글
 - **저장 버튼** — 헤더에 상시 표시 (dirty 상태 연동, Ctrl+S 병행)
 
@@ -174,7 +180,8 @@ interface HybridContent {
 - **다크/라이트 테마** 전환
 - **사이드바 접기/펼치기** — 헤더 접기 버튼 + hover 핸들로 복원
 - **탭 기반 편집** — 다중 탭 동시 편집, Ctrl+S 저장
-- **키보드 단축키** — Ctrl+N(새 카드), Ctrl+K(검색), Ctrl+W(탭 닫기), Del(삭제)
+- **단축키 커스터마이징** — 환경설정 > 단축키 탭에서 카테고리별 키 재설정 (키 녹화, 충돌 감지, 브라우저 예약키 차단, 대안 키 제안)
+- **키보드 단축키** — 새 카드(Mod+Alt+N), 검색(Mod+K), 탭 닫기(Mod+Alt+W), 저장(Mod+S), 줄 주석 토글(Mod+/) 등 14종
 - **공지사항 & 사용 가이드** — 초회 접근 시 자동 표시
 
 ---
@@ -220,7 +227,7 @@ Claude API (Vercel Edge Function 프록시)
 | 13 | 클립보드 자동 지우기 | 비밀번호·토큰 복사 후 10초 타이머로 `navigator.clipboard.writeText('')` 자동 호출 (보안 강화) | P3 |
 | 14 | 내보내기 민감 필드 제외 | JSON 내보내기 시 password / apiKey / token 필드 제외 체크박스 옵션 추가 | P3 |
 | 15 | DB 쿼리 성능 최적화 | `CardGrid` 전체 items 로드 → 타입 인덱스(`where('type')`) 활용 필터링, 태그 추출 쿼리 최적화 (대규모 데이터 10K+ 대응) | P3 |
-| 16 | Markdown/Document 카드 그리드 표시 개선 | 카드 크기 고정 유지, 메모/문서 내용 미리보기가 잘려 보이는 문제 개선 — 텍스트 클리핑 최적화, 섹션 요약 표시 개선 | P2 |
+| 16 | Note/Document 카드 그리드 표시 개선 | 카드 크기 고정 유지, 메모/문서 내용 미리보기가 잘려 보이는 문제 개선 — 텍스트 클리핑 최적화, 섹션 요약 표시 개선 | P2 |
 
 ---
 
@@ -234,6 +241,26 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.3.0 (2026-03-21)
+
+**단축키 커스터마이징 시스템**
+- 환경설정 > 단축키 탭 신설 — 14종 명령을 카테고리별(카드/폴더/탭/검색/UI/에디터)로 그룹화
+- 키 녹화 모드 — 설정 버튼 클릭 후 원하는 키 입력으로 즉시 등록
+- 충돌 감지 및 브라우저 예약키 차단 (Mod+N, Mod+T 등) + 경고 표시
+- 대안 키 자동 제안 (Alt·Shift 변형 조합)
+- 기본값 초기화 버튼 (단일 항목 / 전체)
+- Jotai `keybindingOverridesAtom`으로 IndexedDB 영속 저장
+
+**Note 카드 (구 Markdown)**
+- 카드 타입 명칭 변경: `markdown` → `note` (DB v13 자동 마이그레이션)
+- 기존 사용자 데이터 마이그레이션 자동 적용 (앱 시작 시 1회)
+- JSON 가져오기 시 구 `markdown` 타입 자동 변환 (`LEGACY_TYPE_MAP`)
+
+**에디터 `//` 주석 하이라이팅**
+- MatchDecorator로 `//.*` 패턴 감지 → muted/italic 색상 강조
+- 언어 모드(text/bash/sql/json) 무관하게 동작
+- Note 에디터(NoteEditor) + Document 코드 섹션(MiniCodeEditor) 양쪽 적용
 
 ### v1.2.2 (2026-03-21)
 
@@ -269,7 +296,7 @@ Claude API (Vercel Edge Function 프록시)
 
 **버그 수정**
 - Smart Paste API 오탐 수정 — URL에 'api' 키워드가 포함된 경우 api 타입으로 오감지되던 문제 해결. curl 명령 / 인증 키 / HTTP 메서드+URL 조합이 있을 때만 api로 감지
-- Markdown 카드 Smart Paste 타입 고정 — 텍스트 붙여넣기 시 타입 자동 감지가 markdown을 다른 타입으로 오인하던 문제 해결
+- Note 카드 Smart Paste 타입 고정 — 텍스트 붙여넣기 시 타입 자동 감지가 note를 다른 타입으로 오인하던 문제 해결
 - Document 카드 상단 컬러 테두리 누락 수정
 
 **리팩토링**

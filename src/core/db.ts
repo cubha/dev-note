@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 // ─── 타입 정의 ────────────────────────────────────────────────
 
-export type ItemType = 'server' | 'db' | 'api' | 'markdown' | 'document'
+export type ItemType = 'server' | 'db' | 'api' | 'note' | 'document'
 
 export interface Folder {
   id: number
@@ -197,6 +197,18 @@ class DevNoteDB extends Dexie {
       items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
       embeddings: null,
       config:  'id',
+    })
+    // v13: markdown → note 타입 이름 변경
+    this.version(13).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(async (tx) => {
+      await tx.table('items').toCollection().modify((item: Record<string, unknown>) => {
+        if (item.type === 'markdown') {
+          item.type = 'note'
+        }
+      })
     })
   }
 }

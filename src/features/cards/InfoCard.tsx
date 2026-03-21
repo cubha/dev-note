@@ -212,7 +212,7 @@ export function InfoCard({ item, content, matches, onEdit, onDelete, onTogglePin
       <div className="pt-3 flex-1 overflow-hidden">
         {item.type === 'document' && content.format === 'hybrid'
           ? <DocumentPreview content={content} searchQuery={searchQuery} />
-          : item.type === 'markdown'
+          : item.type === 'note'
             ? <NotePreview content={content} searchQuery={searchQuery} />
             : <CardContentView content={content} searchQuery={searchQuery} excludeMultiline />
         }

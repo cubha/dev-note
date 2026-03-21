@@ -743,7 +743,7 @@ export function CardFloatingView() {
         <div className="flex-1 overflow-y-auto">
           <AISummarySection content={content} cardType={item.type} />
           <div className="py-2">
-            {item.type === 'markdown'
+            {item.type === 'note'
               ? <MarkdownView content={content} />
               : item.type === 'document' && content.format === 'hybrid'
                 ? <HybridDocumentView content={content} />

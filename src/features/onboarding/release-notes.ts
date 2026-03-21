@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.3.0',
+    date: '2026-03-21',
+    title: '단축키 커스터마이징 & Note 카드',
+    highlights: [
+      '환경설정 > 단축키 탭 신설 — 14종 명령 키 재설정, 키 녹화, 충돌 감지, 브라우저 예약키 차단',
+      'Markdown 카드 → Note 카드 리네이밍 (DB v13 자동 마이그레이션)',
+      '에디터 // 주석 하이라이팅 — 언어 모드 무관하게 시각적 강조',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.2.2',
     date: '2026-03-21',
     title: 'API 프록시 Vercel 마이그레이션',

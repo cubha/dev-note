@@ -355,7 +355,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
     setErrorModalDetail(detail)
   }, [])
 
-  // ── 분석: markdown 카드 (AI) ────────────────────────────
+  // ── 분석: note 카드 (AI) ────────────────────────────
 
   const handleAnalyzeMarkdown = useCallback(async (text: string) => {
     try {
@@ -365,7 +365,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
       setState({
         status: 'success',
         fields: [{ key: 'content', value: result.content }],
-        detectedType: 'markdown',
+        detectedType: 'note',
         suggestedTitle: result.title,
         suggestedTags: result.suggestedTags,
         errorMessage: '',
@@ -425,7 +425,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
   // ── 분석 실행 (통합 엔트리포인트) ────────────────────────
 
-  const isMarkdownMode = currentType === 'markdown'
+  const isMarkdownMode = currentType === 'note'
 
   const handleAnalyze = useCallback(async () => {
     const text = inputText.trim()

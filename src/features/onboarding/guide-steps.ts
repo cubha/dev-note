@@ -25,7 +25,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     description:
       '5종 카드 타입으로 서버, DB, API, 메모, 문서를 체계적으로 관리하세요.',
     icon: 'cards',
-    tips: ['Ctrl+N으로 새 카드 생성', '카드 클릭으로 상세 보기'],
+    tips: ['사이드바에서 새 카드 추가', '카드 클릭으로 상세 보기'],
   },
   {
     title: '폴더 & 태그 정리',
@@ -39,12 +39,12 @@ export const GUIDE_STEPS: GuideStep[] = [
     description:
       '제목, 태그, 콘텐츠를 포함한 키워드 검색으로 원하는 정보를 빠르게 찾으세요.',
     icon: 'search',
-    tips: ['Ctrl+K로 검색 포커스', '타입/태그 필터 조합 가능'],
+    tips: ['Ctrl+K로 검색 포커스', '타입/태그 필터 조합 가능', '환경설정에서 단축키 커스터마이징 가능'],
   },
   {
     title: '전문 에디터',
     description:
-      'CodeMirror 기반 코드 에디터와 Markdown 미리보기를 지원합니다.',
+      'CodeMirror 기반 코드 에디터와 Note 카드의 Markdown 미리보기를 지원합니다.',
     icon: 'editor',
     tips: ['Ctrl+S로 저장', 'Document 카드는 섹션별 편집 가능'],
   },

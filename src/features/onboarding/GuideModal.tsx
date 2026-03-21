@@ -25,7 +25,7 @@ const ICON_COLOR: Record<GuideStep['icon'], string> = {
   cards: 'var(--accent)',
   folders: 'var(--text-success)',
   search: 'var(--badge-api-text)',
-  editor: 'var(--badge-markdown-text)',
+  editor: 'var(--badge-note-text)',
   export: 'var(--badge-document-text)',
   ai: 'var(--badge-db-text)',
 }
