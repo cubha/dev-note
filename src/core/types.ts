@@ -155,8 +155,8 @@ export const FIELD_SCHEMAS: Record<ItemType, FieldSchema[]> = {
     { key: 'headers', label: 'Headers', type: 'multiline', placeholder: 'Content-Type: application/json' },
     { key: 'note', label: '비고', type: 'multiline', placeholder: 'Rate limit, 인증 방식 등' },
   ],
-  markdown: [
-    { key: 'content', label: '내용', type: 'multiline', placeholder: '마크다운으로 자유롭게 입력하세요...' },
+  note: [
+    { key: 'content', label: '내용', type: 'multiline', placeholder: '자유롭게 입력하세요...' },
   ],
   document: [],
 }
@@ -173,6 +173,6 @@ export const TYPE_META: Record<ItemType, TypeMeta> = {
   server:   { label: 'Server',   icon: 'Terminal',   colorKey: 'server' },
   db:       { label: 'DB',       icon: 'Database',   colorKey: 'db' },
   api:      { label: 'API',      icon: 'Globe',      colorKey: 'api' },
-  markdown: { label: 'Markdown', icon: 'FileText',   colorKey: 'markdown' },
+  note:     { label: 'Note',     icon: 'FileText',   colorKey: 'note' },
   document: { label: 'Document', icon: 'FileStack',  colorKey: 'document' },
 }

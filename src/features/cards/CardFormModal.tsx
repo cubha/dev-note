@@ -14,7 +14,7 @@ import { SmartPastePanel } from './SmartPastePanel'
 import type { FieldApplyData, DocumentApplyData } from './SmartPastePanel'
 import { ICON_MAP } from '../../shared/constants'
 
-const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
+const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 
 const SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { type: 'credentials', label: '접속 정보', icon: Shield },

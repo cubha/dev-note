@@ -40,7 +40,7 @@ export function EmptyState({ onAddCard }: EmptyStateProps) {
         </button>
 
         <p className="text-xs text-[var(--text-placeholder)]">
-          사이드바의 "새 카드 추가" 또는 Ctrl+N으로도 시작할 수 있어요
+          사이드바의 "새 카드 추가" 버튼으로도 시작할 수 있어요
         </p>
       </div>
     </div>

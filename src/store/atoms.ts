@@ -1,6 +1,8 @@
 import { atom } from 'jotai'
 import type { AppConfig, Item, ItemType } from '../core/db'
 import type { CardContent as CardContentType } from '../core/types'
+import type { UserOverrides, CommandId } from '../core/keybindings'
+import { getEffectiveBindings } from '../core/keybindings'
 
 // ─── 탭 관리 ──────────────────────────────────────────────────
 
@@ -136,3 +138,45 @@ export interface CardViewState {
 }
 
 export const cardViewAtom = atom<CardViewState | null>(null)
+
+// ─── 키바인딩 설정 ─────────────────────────────────────────────
+
+const KEYBINDINGS_STORAGE_KEY = 'dev-note:keybindings'
+
+function loadKeybindingOverrides(): UserOverrides {
+  try {
+    const raw = localStorage.getItem(KEYBINDINGS_STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as UserOverrides
+  } catch {
+    return {}
+  }
+}
+
+/** 사용자 키바인딩 오버라이드 (localStorage 동기화) */
+export const keybindingOverridesAtom = atom<UserOverrides>(
+  loadKeybindingOverrides()
+)
+
+/** localStorage에 저장하는 write-through atom */
+export const keybindingOverridesWriteAtom = atom<
+  UserOverrides,
+  [UserOverrides],
+  void
+>(
+  (get) => get(keybindingOverridesAtom),
+  (get, set, newOverrides) => {
+    set(keybindingOverridesAtom, newOverrides)
+    try {
+      localStorage.setItem(KEYBINDINGS_STORAGE_KEY, JSON.stringify(newOverrides))
+    } catch {
+      // localStorage 쓰기 실패 시 무시 (private 모드 등)
+    }
+    void get // suppress unused warning
+  }
+)
+
+/** 현재 유효한 키바인딩 맵 (기본값 + 오버라이드 머지) */
+export const effectiveKeybindingsAtom = atom<Record<CommandId, string>>(
+  (get) => getEffectiveBindings(get(keybindingOverridesAtom))
+)

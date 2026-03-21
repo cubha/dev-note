@@ -43,9 +43,9 @@ function isNullOrNumber(value: unknown): value is number | null {
 
 // ─── 도메인 타입가드 ───────────────────────────────────────────
 
-const VALID_ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
+const VALID_ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 export const LEGACY_TYPE_MAP: Record<string, ItemType> = {
-  ssh: 'server', http: 'api', note: 'markdown', custom: 'markdown',
+  ssh: 'server', http: 'api', note: 'note', custom: 'note', markdown: 'note',
 }
 
 function isValidItemType(value: unknown): value is ItemType {

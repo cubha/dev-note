@@ -6,6 +6,6 @@ export const ICON_MAP: Record<ItemType, React.ComponentType<{ size?: number; cla
   server: Terminal,
   db: Database,
   api: Globe,
-  markdown: FileText,
+  note: FileText,
   document: FileStack,
 }

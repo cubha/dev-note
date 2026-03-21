@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { formatForDisplay } from '@tanstack/hotkeys'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ChevronDown, Download, Eye, EyeOff, Save,
@@ -7,8 +8,9 @@ import {
 import {
   EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
   highlightActiveLine, placeholder as cmPlaceholder,
+  MatchDecorator, Decoration, ViewPlugin, type DecorationSet, type ViewUpdate,
 } from '@codemirror/view'
-import { EditorState as CMState, Compartment } from '@codemirror/state'
+import { EditorState as CMState, Compartment, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import { marked } from 'marked'
@@ -19,8 +21,9 @@ import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent } from '../../core/content'
 import {
-  activeTabAtom, dirtyItemsAtom,
+  activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom,
 } from '../../store/atoms'
+import { buildEditorKeymap } from '../../shared/utils/editorKeymap'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
 import { ICON_MAP } from '../../shared/constants'
@@ -29,13 +32,15 @@ import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema 
 import { DocumentEditor } from './DocumentEditor'
 import type { DocumentEditorHandle } from './DocumentEditor'
 
-const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'markdown', 'document']
+const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 
 // ── Main component ──────────────────────────────────
 
 export function CardDetailEditor() {
   const activeTab = useAtomValue(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
+  const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
+  const saveKeyLabel = formatForDisplay(effectiveKeys['card.save'])
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState<ItemType>('server')
@@ -362,7 +367,7 @@ export function CardDetailEditor() {
           />
 
           {/* .md 다운로드 (Markdown) */}
-          {type === 'markdown' && (
+          {type === 'note' && (
             <button
               type="button"
               onClick={handleDownloadMd}
@@ -384,7 +389,7 @@ export function CardDetailEditor() {
                 ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
                 : 'bg-[var(--bg-surface-hover)] text-[var(--text-placeholder)] cursor-default'
             }`}
-            title="저장 (Ctrl+S)"
+            title={`저장 (${saveKeyLabel})`}
           >
             <Save size={13} />
             저장
@@ -409,7 +414,7 @@ export function CardDetailEditor() {
           )}
 
           {/* ── 에디터 영역 (비고/내용) ────── */}
-          {showEditor && type === 'markdown' ? (
+          {showEditor && type === 'note' ? (
             <MarkdownEditorWithToggle
               value={editorText}
               onChange={handleEditorChange}
@@ -520,6 +525,25 @@ function MarkdownSplitView({ value, onChange }: {
   )
 }
 
+/** 언어 모드 미설정 시 기본 주석 토큰 (// 스타일) */
+const defaultCommentTokens: Extension = CMState.languageData.of(
+  () => [{ commentTokens: { line: '//' } }]
+)
+
+/** // 주석 시각적 하이라이팅 */
+const commentDecorator = new MatchDecorator({
+  regexp: /\/\/.*/g,
+  decoration: Decoration.mark({ class: 'cm-comment-highlight' }),
+})
+const commentHighlight = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+    constructor(view: EditorView) { this.decorations = commentDecorator.createDeco(view) }
+    update(update: ViewUpdate) { this.decorations = commentDecorator.updateDeco(update, this.decorations) }
+  },
+  { decorations: v => v.decorations }
+)
+
 // ── CodeMirror 에디터 ────────────────────────────────
 
 function NoteEditor({ value, placeholderText, onChange, onScroll }: {
@@ -528,12 +552,15 @@ function NoteEditor({ value, placeholderText, onChange, onScroll }: {
   onChange: (val: string) => void
   onScroll?: (ratio: number) => void
 }) {
+  const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
+  const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const onScrollRef = useRef(onScroll)
   const isProgrammaticRef = useRef(false)
   const placeholderCompartment = useRef(new Compartment())
+  const editorKeymapCompartment = useRef(new Compartment())
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -555,6 +582,8 @@ function NoteEditor({ value, placeholderText, onChange, onScroll }: {
           highlightActiveLine(),
           bracketMatching(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          defaultCommentTokens,
+          editorKeymapCompartment.current.of(cmKeymap.of(customKeymap)),
           cmKeymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           phComp.of(cmPlaceholder(placeholderText)),
           EditorView.updateListener.of((update) => {
@@ -590,7 +619,9 @@ function NoteEditor({ value, placeholderText, onChange, onScroll }: {
             '.cm-selectionBackground': { background: 'var(--accent-glow) !important' },
             '&.cm-focused .cm-selectionBackground': { background: 'rgba(59,130,246,0.25) !important' },
             '.cm-matchingBracket': { color: 'var(--text-primary)', outline: '1px solid var(--border-accent)' },
+            '.cm-comment-highlight': { color: 'var(--text-tertiary)', fontStyle: 'italic' },
           }),
+          commentHighlight,
         ],
       }),
       parent: containerRef.current,
@@ -614,6 +645,17 @@ function NoteEditor({ value, placeholderText, onChange, onScroll }: {
       ),
     })
   }, [placeholderText])
+
+  // 에디터 커스텀 키맵 변경
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: editorKeymapCompartment.current.reconfigure(
+        cmKeymap.of(customKeymap),
+      ),
+    })
+  }, [customKeymap])
 
   // 외부 value 변경 시 에디터 내용 교체
   useEffect(() => {

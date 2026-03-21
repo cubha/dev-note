@@ -270,7 +270,7 @@ const TYPE_BADGE: Record<
   server:   { label: 'SVR',  className: 'bg-[var(--badge-server-bg)] text-[var(--badge-server-text)]' },
   db:       { label: 'DB',   className: 'bg-[var(--badge-db-bg)] text-[var(--badge-db-text)]' },
   api:      { label: 'API',  className: 'bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]' },
-  markdown: { label: 'MD',   className: 'bg-[var(--badge-markdown-bg)] text-[var(--badge-markdown-text)]' },
+  note:     { label: 'Note', className: 'bg-[var(--badge-note-bg)] text-[var(--badge-note-text)]' },
   document: { label: 'DOC',  className: 'bg-[var(--badge-document-bg)] text-[var(--badge-document-text)]' },
 }
 
