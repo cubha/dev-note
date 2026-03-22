@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
-import { Eye, EyeOff, Copy, ExternalLink, ChevronDown } from 'lucide-react'
+import { Copy, ExternalLink, ChevronDown } from 'lucide-react'
 import type { CardField, FieldSchema } from '../../core/types'
+import { Input } from '../../shared/components/Input'
+import { TextArea } from '../../shared/components/TextArea'
 import { FIELD_SCHEMAS } from '../../core/types'
 import type { ItemType } from '../../core/db'
 import { copyToClipboard } from '../../shared/utils/clipboard'
 import { openUrl } from '../../shared/utils/url'
 import { EDITOR_FIELD_KEYS } from './fieldHelpers'
+import { usePasswordReveal } from '../../shared/hooks/usePasswordReveal'
 
 // ── 구조화 필드 폼 ──────────────────────────────────────
 
@@ -15,7 +17,7 @@ interface StructuredFieldFormProps {
   onFieldChange: (key: string, value: string) => void
 }
 
-export function StructuredFieldForm({ fields, type, onFieldChange }: StructuredFieldFormProps) {
+export const StructuredFieldForm = ({ fields, type, onFieldChange }: StructuredFieldFormProps) => {
   const schemas = FIELD_SCHEMAS[type]
   const formSchemas = schemas.filter(s => !EDITOR_FIELD_KEYS.has(s.key))
 
@@ -41,12 +43,12 @@ export function StructuredFieldForm({ fields, type, onFieldChange }: StructuredF
 
 // ── 개별 필드 입력 ──────────────────────────────────────
 
-function FieldInput({ schema, value, onChange }: {
+const FieldInput = ({ schema, value, onChange }: {
   schema: FieldSchema
   value: string
   onChange: (value: string) => void
-}) {
-  const [revealed, setRevealed] = useState(false)
+}) => {
+  const { toggle, inputType, Icon, ariaLabel } = usePasswordReveal()
 
   const isPassword = schema.type === 'password'
   const isUrl = schema.type === 'url' || schema.type === 'email'
@@ -55,7 +57,7 @@ function FieldInput({ schema, value, onChange }: {
 
   return (
     <div className="group flex items-start gap-3">
-      <label className="w-24 shrink-0 text-xs font-medium text-[var(--text-tertiary)] pt-2.5 text-right">
+      <label className="w-24 shrink-0 label-text pt-2.5 text-right">
         {schema.label}
       </label>
 
@@ -68,18 +70,21 @@ function FieldInput({ schema, value, onChange }: {
             onChange={onChange}
           />
         ) : isMultiline ? (
-          <AutoResizeTextarea
+          <TextArea
+            autoResize
             value={value}
             placeholder={schema.placeholder}
-            onChange={onChange}
+            onChange={(e) => onChange(e.target.value)}
+            rows={2}
+            className="flex-1 font-mono leading-relaxed"
           />
         ) : (
-          <input
-            type={isPassword && !revealed ? 'password' : schema.type === 'number' ? 'number' : 'text'}
+          <Input
+            type={isPassword ? inputType : schema.type === 'number' ? 'number' : 'text'}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={schema.placeholder}
-            className="flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
+            className="flex-1 font-mono"
           />
         )}
 
@@ -88,11 +93,11 @@ function FieldInput({ schema, value, onChange }: {
           {isPassword && (
             <button
               type="button"
-              onClick={() => setRevealed(prev => !prev)}
-              className="rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
-              aria-label={revealed ? '비밀번호 숨기기' : '비밀번호 보기'}
+              onClick={toggle}
+              className="subtle-btn rounded p-1.5 hover:bg-[var(--bg-surface-hover)]"
+              aria-label={ariaLabel}
             >
-              {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+              <Icon size={14} />
             </button>
           )}
 
@@ -111,7 +116,7 @@ function FieldInput({ schema, value, onChange }: {
             <button
               type="button"
               onClick={() => void copyToClipboard(value, schema.label)}
-              className="rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
+              className="subtle-btn rounded p-1.5 hover:bg-[var(--bg-surface-hover)]"
               aria-label={`${schema.label} 복사`}
             >
               <Copy size={14} />
@@ -125,12 +130,12 @@ function FieldInput({ schema, value, onChange }: {
 
 // ── 드롭다운 셀렉트 ────────────────────────────────────
 
-function DropdownSelect({ value, options, placeholder, onChange }: {
+const DropdownSelect = ({ value, options, placeholder, onChange }: {
   value: string
   options: string[]
   placeholder?: string
   onChange: (value: string) => void
-}) {
+}) => {
   return (
     <div className="relative flex-1">
       <select
@@ -151,30 +156,3 @@ function DropdownSelect({ value, options, placeholder, onChange }: {
   )
 }
 
-// ── 자동 크기 조절 텍스트에어리어 ───────────────────────
-
-function AutoResizeTextarea({ value, placeholder, onChange }: {
-  value: string
-  placeholder?: string
-  onChange: (value: string) => void
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
-
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={2}
-      className="flex-1 resize-none rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors leading-relaxed"
-    />
-  )
-}

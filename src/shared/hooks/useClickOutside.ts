@@ -1,11 +1,11 @@
 import { useEffect, type RefObject } from 'react'
 
 /** ref 외부 클릭 시 콜백 실행 (capture phase) */
-export function useClickOutside(
+export const useClickOutside = (
   ref: RefObject<HTMLElement | null>,
   isOpen: boolean,
   onClose: () => void,
-): void {
+): void => {
   useEffect(() => {
     if (!isOpen) return
     const handler = (e: MouseEvent) => {

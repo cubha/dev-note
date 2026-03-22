@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 /** 마우스 드래그로 높이를 조절하는 훅 */
-export function useResizableHeight(minHeight: number, defaultHeight: number) {
+export const useResizableHeight = (minHeight: number, defaultHeight: number) => {
   const [height, setHeight] = useState(defaultHeight)
   const dragStartY = useRef<number | null>(null)
   const dragStartH = useRef(defaultHeight)

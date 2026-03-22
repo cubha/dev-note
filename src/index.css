@@ -383,3 +383,20 @@
     }
   }
 }
+
+@layer components {
+  /* 필드 라벨 공통 스타일 */
+  .label-text {
+    @apply text-xs font-medium text-[var(--text-tertiary)];
+  }
+
+  /* 메타/보조 텍스트 공통 스타일 */
+  .meta-text {
+    @apply text-[10px] text-[var(--text-placeholder)];
+  }
+
+  /* 서브틀 아이콘/텍스트 버튼 공통 스타일 */
+  .subtle-btn {
+    @apply text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none transition-colors;
+  }
+}

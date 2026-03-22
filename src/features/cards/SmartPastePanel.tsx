@@ -8,29 +8,24 @@
 
 import { useState, useCallback } from 'react'
 import { nanoid } from 'nanoid'
+import { Clipboard, Sparkles, ChevronDown, ChevronUp, Check, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Clipboard, Sparkles, ChevronDown, ChevronUp, Check, X, Loader2, Send, AlertTriangle } from 'lucide-react'
 import type { ItemType } from '../../core/db'
 import type { CardField, AnySection } from '../../core/types'
 import { FIELD_SCHEMAS } from '../../core/types'
-import { AIService, AIError, reportError } from '../../core/ai'
-import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult, AIErrorCode } from '../../core/ai'
+import { AIService } from '../../core/ai'
+import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult } from '../../core/ai'
 import { SHARED_API_URL } from '../../store/atoms'
-import { isErrorAlreadyReported, markErrorReported } from '../../shared/utils/error-report-dedup'
+import { AIErrorModal } from '../../shared/components/AIErrorModal'
+import { TextArea } from '../../shared/components/TextArea'
+import type { ErrorDetail } from '../../shared/constants/ai-errors'
+import { extractErrorDetail } from '../../shared/constants/ai-errors'
 
 // ─── 타입 ────────────────────────────────────────────────────
 
 interface ParsedField {
   key: string
   value: string
-}
-
-interface ErrorDetail {
-  code: AIErrorCode
-  httpStatus: number
-  message: string
-  timestamp: string
-  reported: boolean
 }
 
 interface SmartPasteState {
@@ -76,50 +71,9 @@ const INITIAL_STATE: SmartPasteState = {
   sections: null,
 }
 
-// ─── 에러 코드 → 사용자 메시지 매핑 ─────────────────────────
-
-const ERROR_LABELS: Record<string, string> = {
-  auth_error: 'API 키 오류',
-  permission_error: 'API 권한 부족',
-  credit_exhausted: '크레딧 소진',
-  daily_limit_exceeded: '일일 사용 한도 초과',
-  anthropic_rate_limit: 'API 호출 한도 초과',
-  overloaded: '서버 과부하',
-  input_too_long: '입력 텍스트 초과',
-  invalid_request: '잘못된 요청',
-  invalid_model: '지원하지 않는 모델',
-  parse_error: '요청 파싱 오류',
-  network_error: '네트워크 연결 실패',
-  unknown: '알 수 없는 오류',
-}
-
-// ─── AI 에러에서 ErrorDetail 추출 ────────────────────────────
-
-function extractErrorDetail(err: unknown): ErrorDetail {
-  const timestamp = new Date().toISOString()
-
-  if (err instanceof AIError) {
-    return {
-      code: err.code,
-      httpStatus: err.httpStatus,
-      message: err.message,
-      timestamp,
-      reported: false,
-    }
-  }
-
-  return {
-    code: 'unknown',
-    httpStatus: 0,
-    message: err instanceof Error ? err.message : '알 수 없는 오류',
-    timestamp,
-    reported: false,
-  }
-}
-
 // ─── AI 결과 → AnySection[] 변환 ────────────────────────────
 
-function convertAIResultToSections(result: DocumentPasteResult): AnySection[] {
+const convertAIResultToSections = (result: DocumentPasteResult): AnySection[] => {
   return result.sections.map((s) => {
     const id = nanoid(12)
     const base = { id, title: s.title, collapsed: false }
@@ -198,144 +152,9 @@ const SECTION_ICON: Record<string, string> = {
   code: '\uD83D\uDCBB',
 }
 
-// ─── 에러 모달 컴포넌트 ──────────────────────────────────────
-
-function SmartPasteErrorModal({
-  detail,
-  cardType,
-  onClose,
-  onReported,
-}: {
-  detail: ErrorDetail
-  cardType: ItemType
-  onClose: () => void
-  onReported: () => void
-}) {
-  const [sending, setSending] = useState(false)
-  const alreadyReported = detail.reported || isErrorAlreadyReported(detail.code)
-
-  const handleReport = async () => {
-    if (!SHARED_API_URL || alreadyReported) return
-    setSending(true)
-
-    const ok = await reportError(SHARED_API_URL, {
-      code: detail.code,
-      status: detail.httpStatus,
-      message: detail.message,
-      cardType,
-      timestamp: detail.timestamp,
-    })
-
-    setSending(false)
-
-    if (ok) {
-      markErrorReported(detail.code)
-      onReported()
-      toast.success('오류 리포트가 전송되었습니다.', { duration: 3000 })
-    } else {
-      toast.error('리포트 전송에 실패했습니다.', { duration: 3000 })
-    }
-  }
-
-  const label = ERROR_LABELS[detail.code] ?? ERROR_LABELS.unknown
-
-  return (
-    <>
-      {/* 백드롭 */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={onClose}
-        aria-hidden
-      />
-
-      {/* 모달 */}
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="Smart Paste 오류"
-        className="fixed left-1/2 top-1/2 z-50 w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl animate-scale-in"
-      >
-        {/* 헤더 */}
-        <div className="flex items-center gap-2 border-b border-[var(--border-default)] px-4 py-3">
-          <AlertTriangle size={16} className="shrink-0 text-[var(--text-error)]" />
-          <h3 className="text-sm font-medium text-[var(--text-primary)]">Smart Paste 오류</h3>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer"
-            aria-label="닫기"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* 본문 */}
-        <div className="px-4 py-4 space-y-3">
-          {/* 에러 유형 배지 */}
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-[var(--text-error)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--text-error)]">
-              {label}
-            </span>
-            {detail.httpStatus > 0 && (
-              <span className="text-[10px] text-[var(--text-placeholder)]">
-                HTTP {detail.httpStatus}
-              </span>
-            )}
-          </div>
-
-          {/* 에러 메시지 */}
-          <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-            {detail.message}
-          </p>
-
-          {/* 메타 정보 */}
-          <div className="rounded-md bg-[var(--bg-input)] px-3 py-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[var(--text-placeholder)]">에러 코드</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">{detail.code}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[var(--text-placeholder)]">시각</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-                {new Date(detail.timestamp).toLocaleString('ko-KR')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 푸터 */}
-        <div className="flex items-center gap-2 border-t border-[var(--border-default)] px-4 py-3">
-          <button
-            type="button"
-            onClick={() => void handleReport()}
-            disabled={sending || alreadyReported || !SHARED_API_URL}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
-          >
-            {sending ? (
-              <><Loader2 size={12} className="animate-spin" /> 전송 중...</>
-            ) : alreadyReported ? (
-              <><Check size={12} /> 전송 완료</>
-            ) : (
-              <><Send size={12} /> 관리자에게 전송</>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
 // ─── 컴포넌트 ────────────────────────────────────────────────
 
-export function SmartPastePanel({ currentType, onApply, onApplyDocument }: SmartPastePanelProps) {
+export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: SmartPastePanelProps) => {
   const [expanded, setExpanded] = useState(false)
   const [inputText, setInputText] = useState('')
   const [state, setState] = useState<SmartPasteState>(INITIAL_STATE)
@@ -520,7 +339,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
       {expanded && (
         <div className="border-t border-[var(--border-default)] px-3 py-3 space-y-3">
           {/* 텍스트 입력 */}
-          <textarea
+          <TextArea
             value={inputText}
             onChange={(e) => { setInputText(e.target.value); if (state.status !== 'idle') setState(INITIAL_STATE) }}
             placeholder={isDocumentMode
@@ -531,7 +350,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
             }
             rows={isDocumentMode ? 5 : 4}
             readOnly={state.status === 'parsing'}
-            className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none resize-y transition-colors"
+            className="rounded-md font-mono text-xs resize-y"
           />
 
           {/* 분석 버튼 */}
@@ -765,8 +584,8 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
 
       {/* 에러 모달 */}
       {errorModalDetail && (
-        <SmartPasteErrorModal
-          detail={errorModalDetail}
+        <AIErrorModal
+          errorDetail={errorModalDetail}
           cardType={currentType}
           onClose={() => setErrorModalDetail(null)}
           onReported={() => {
@@ -774,6 +593,7 @@ export function SmartPastePanel({ currentType, onApply, onApplyDocument }: Smart
             setErrorModalDetail(updated)
             setState(prev => prev.errorDetail ? { ...prev, errorDetail: updated } : prev)
           }}
+          title="Smart Paste 오류"
         />
       )}
     </div>

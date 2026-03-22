@@ -3,7 +3,6 @@ import { useAtom } from 'jotai'
 import {
   Terminal, Database, FileText, X, Sparkles, Loader2, ChevronDown, ChevronUp,
   ChevronRight, Shield, Link, Code, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
-  AlertTriangle, Send, Check,
 } from 'lucide-react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -18,18 +17,21 @@ import type {
 } from '../../core/types'
 import type { ItemType } from '../../core/db'
 import { extractSearchText } from '../../core/content'
-import { AIService, AIError, reportError } from '../../core/ai'
-import type { SummaryResult, AIErrorCode } from '../../core/ai'
+import { AIService } from '../../core/ai'
+import type { SummaryResult } from '../../core/ai'
 import { CardContentView } from './CardContent'
 import { hasFormFields } from './fieldHelpers'
 import { copyToClipboard } from '../../shared/utils/clipboard'
 import { ICON_MAP } from '../../shared/constants'
 import { isSafeUrl } from '../../shared/utils/url'
-import { isErrorAlreadyReported, markErrorReported } from '../../shared/utils/error-report-dedup'
+import { AIErrorModal } from '../../shared/components/AIErrorModal'
+import type { ErrorDetail } from '../../shared/constants/ai-errors'
+import { extractErrorDetail } from '../../shared/constants/ai-errors'
+import { IconButton } from '../../shared/components/IconButton'
 
 // ── 마크다운 렌더링 뷰 (markdown 타입 전용) ──────────────────
 
-function MarkdownView({ content }: { content: CardContentType }) {
+const MarkdownView = ({ content }: { content: CardContentType }) => {
   const [html, setHtml] = useState('')
 
   const rawText =
@@ -62,151 +64,13 @@ function MarkdownView({ content }: { content: CardContentType }) {
 
 // ─────────────────────────────────────────────────────────────
 
-// ── AI 요약 에러 타입 ────────────────────────────────────────
-
-interface SummaryErrorDetail {
-  code: AIErrorCode
-  httpStatus: number
-  message: string
-  timestamp: string
-  reported: boolean
-}
-
-const SUMMARY_ERROR_LABELS: Record<string, string> = {
-  auth_error: 'API 키 오류',
-  permission_error: 'API 권한 부족',
-  credit_exhausted: '크레딧 소진',
-  daily_limit_exceeded: '일일 사용 한도 초과',
-  anthropic_rate_limit: 'API 호출 한도 초과',
-  overloaded: '서버 과부하',
-  input_too_long: '입력 텍스트 초과',
-  invalid_request: '잘못된 요청',
-  invalid_model: '지원하지 않는 모델',
-  parse_error: '요청 파싱 오류',
-  network_error: '네트워크 연결 실패',
-  unknown: '알 수 없는 오류',
-}
-
-// ── AI 요약 에러 모달 ────────────────────────────────────────
-
-function AISummaryErrorModal({
-  detail,
-  cardType,
-  onClose,
-  onReported,
-}: {
-  detail: SummaryErrorDetail
-  cardType: ItemType
-  onClose: () => void
-  onReported: () => void
-}) {
-  const [sending, setSending] = useState(false)
-  const alreadyReported = detail.reported || isErrorAlreadyReported(detail.code)
-
-  const handleReport = async () => {
-    if (!SHARED_API_URL || alreadyReported) return
-    setSending(true)
-    const ok = await reportError(SHARED_API_URL, {
-      code: detail.code,
-      status: detail.httpStatus,
-      message: detail.message,
-      cardType,
-      timestamp: detail.timestamp,
-    })
-    setSending(false)
-    if (ok) {
-      markErrorReported(detail.code)
-      onReported()
-      toast.success('오류 리포트가 전송되었습니다.', { duration: 3000 })
-    } else {
-      toast.error('리포트 전송에 실패했습니다.', { duration: 3000 })
-    }
-  }
-
-  const label = SUMMARY_ERROR_LABELS[detail.code] ?? SUMMARY_ERROR_LABELS.unknown
-
-  return (
-    <>
-      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="AI 요약 오류"
-        className="fixed left-1/2 top-1/2 z-[70] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl animate-scale-in"
-      >
-        <div className="flex items-center gap-2 border-b border-[var(--border-default)] px-4 py-3">
-          <AlertTriangle size={16} className="shrink-0 text-[var(--text-error)]" />
-          <h3 className="text-sm font-medium text-[var(--text-primary)]">AI 요약 오류</h3>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer"
-            aria-label="닫기"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        <div className="px-4 py-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-[var(--text-error)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--text-error)]">
-              {label}
-            </span>
-            {detail.httpStatus > 0 && (
-              <span className="text-[10px] text-[var(--text-placeholder)]">HTTP {detail.httpStatus}</span>
-            )}
-          </div>
-          <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{detail.message}</p>
-          <div className="rounded-md bg-[var(--bg-input)] px-3 py-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[var(--text-placeholder)]">에러 코드</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">{detail.code}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[var(--text-placeholder)]">시각</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-                {new Date(detail.timestamp).toLocaleString('ko-KR')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-[var(--border-default)] px-4 py-3">
-          <button
-            type="button"
-            onClick={() => void handleReport()}
-            disabled={sending || alreadyReported || !SHARED_API_URL}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
-          >
-            {sending ? (
-              <><Loader2 size={12} className="animate-spin" /> 전송 중...</>
-            ) : alreadyReported ? (
-              <><Check size={12} /> 전송 완료</>
-            ) : (
-              <><Send size={12} /> 관리자에게 전송</>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
 // ── AI 요약 섹션 ─────────────────────────────────────────────
 
-function AISummarySection({ content, cardType }: { content: CardContentType; cardType: ItemType }) {
+const AISummarySection = ({ content, cardType }: { content: CardContentType; cardType: ItemType }) => {
   const [summary, setSummary] = useState<SummaryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(true)
-  const [errorDetail, setErrorDetail] = useState<SummaryErrorDetail | null>(null)
+  const [errorDetail, setErrorDetail] = useState<ErrorDetail | null>(null)
   const [errorModalOpen, setErrorModalOpen] = useState(false)
 
   const handleSummarize = useCallback(async () => {
@@ -223,11 +87,7 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
       setSummary(result)
       setExpanded(true)
     } catch (err) {
-      const timestamp = new Date().toISOString()
-      const detail: SummaryErrorDetail = err instanceof AIError
-        ? { code: err.code, httpStatus: err.httpStatus, message: err.message, timestamp, reported: false }
-        : { code: 'unknown', httpStatus: 0, message: err instanceof Error ? err.message : '알 수 없는 오류', timestamp, reported: false }
-      setErrorDetail(detail)
+      setErrorDetail(extractErrorDetail(err))
       setErrorModalOpen(true)
     } finally {
       setLoading(false)
@@ -265,8 +125,8 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
       )}
 
       {errorModalOpen && errorDetail && (
-        <AISummaryErrorModal
-          detail={errorDetail}
+        <AIErrorModal
+          errorDetail={errorDetail}
           cardType={cardType}
           onClose={() => setErrorModalOpen(false)}
           onReported={() => {
@@ -274,6 +134,8 @@ function AISummarySection({ content, cardType }: { content: CardContentType; car
             setErrorDetail(updated)
             setErrorModalOpen(false)
           }}
+          title="AI 요약 오류"
+          elevated
         />
       )}
 
@@ -337,7 +199,7 @@ const CATEGORY_ICONS_VIEW: Record<string, React.ComponentType<{ size?: number; c
 
 // ── 섹션별 읽기 전용 렌더러 ──────────────────────────────────
 
-function ReadOnlyMarkdown({ section }: { section: MarkdownSection }) {
+const ReadOnlyMarkdown = ({ section }: { section: MarkdownSection }) => {
   const [html, setHtml] = useState('')
 
   useEffect(() => {
@@ -358,7 +220,7 @@ function ReadOnlyMarkdown({ section }: { section: MarkdownSection }) {
   )
 }
 
-function ReadOnlyCredentialCard({ entry }: { entry: CredentialEntry }) {
+const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
   const [showPw, setShowPw] = useState(false)
   const CatIcon = CATEGORY_ICONS_VIEW[entry.category] ?? HardDrive
   const addrText = entry.host
@@ -431,7 +293,7 @@ function ReadOnlyCredentialCard({ entry }: { entry: CredentialEntry }) {
   )
 }
 
-function ReadOnlyCredentials({ section }: { section: CredentialSection }) {
+const ReadOnlyCredentials = ({ section }: { section: CredentialSection }) => {
   if (section.items.length === 0) {
     return <p className="text-sm text-[var(--text-placeholder)] italic m-0">항목 없음</p>
   }
@@ -444,7 +306,7 @@ function ReadOnlyCredentials({ section }: { section: CredentialSection }) {
   )
 }
 
-function ReadOnlyUrls({ section }: { section: UrlSection }) {
+const ReadOnlyUrls = ({ section }: { section: UrlSection }) => {
   if (section.items.length === 0) {
     return <p className="text-sm text-[var(--text-placeholder)] italic m-0">URL 없음</p>
   }
@@ -530,7 +392,7 @@ function ReadOnlyUrls({ section }: { section: UrlSection }) {
   )
 }
 
-function ReadOnlyEnvRow({ entry }: { entry: EnvEntry }) {
+const ReadOnlyEnvRow = ({ entry }: { entry: EnvEntry }) => {
   const [showVal, setShowVal] = useState(!entry.secret)
 
   return (
@@ -538,7 +400,7 @@ function ReadOnlyEnvRow({ entry }: { entry: EnvEntry }) {
       <span className="w-32 shrink-0 rounded px-2 py-1 text-xs font-mono font-medium text-[var(--text-primary)] bg-[var(--bg-input)] border border-[var(--border-default)] truncate">
         {entry.key || '(빈 키)'}
       </span>
-      <span className="text-[10px] text-[var(--text-placeholder)]">=</span>
+      <span className="meta-text">=</span>
       <span className="flex-1 min-w-0 rounded px-2 py-1 text-xs font-mono text-[var(--text-secondary)] bg-[var(--bg-input)] border border-[var(--border-default)] truncate">
         {entry.secret && !showVal ? '••••••••' : (entry.value || '(빈 값)')}
       </span>
@@ -562,7 +424,7 @@ function ReadOnlyEnvRow({ entry }: { entry: EnvEntry }) {
   )
 }
 
-function ReadOnlyEnv({ section }: { section: EnvSection }) {
+const ReadOnlyEnv = ({ section }: { section: EnvSection }) => {
   if (section.pairs.length === 0) {
     return <p className="text-sm text-[var(--text-placeholder)] italic m-0">환경변수 없음</p>
   }
@@ -575,7 +437,7 @@ function ReadOnlyEnv({ section }: { section: EnvSection }) {
   )
 }
 
-function ReadOnlyCode({ section }: { section: CodeSection }) {
+const ReadOnlyCode = ({ section }: { section: CodeSection }) => {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -597,7 +459,7 @@ function ReadOnlyCode({ section }: { section: CodeSection }) {
   )
 }
 
-function ReadOnlySectionContent({ section }: { section: AnySection }) {
+const ReadOnlySectionContent = ({ section }: { section: AnySection }) => {
   switch (section.type) {
     case 'markdown':     return <ReadOnlyMarkdown section={section} />
     case 'credentials':  return <ReadOnlyCredentials section={section} />
@@ -611,7 +473,7 @@ function ReadOnlySectionContent({ section }: { section: AnySection }) {
   }
 }
 
-function ReadOnlySectionBlock({ section }: { section: AnySection }) {
+const ReadOnlySectionBlock = ({ section }: { section: AnySection }) => {
   const [collapsed, setCollapsed] = useState(section.collapsed)
   const Icon = SECTION_ICONS_VIEW[section.type]
 
@@ -641,7 +503,7 @@ function ReadOnlySectionBlock({ section }: { section: AnySection }) {
   )
 }
 
-function HybridDocumentView({ content }: { content: HybridContent }) {
+const HybridDocumentView = ({ content }: { content: HybridContent }) => {
   if (content.sections.length === 0) {
     return (
       <div className="flex h-full items-center justify-center py-8">
@@ -661,7 +523,7 @@ function HybridDocumentView({ content }: { content: HybridContent }) {
 
 // ─────────────────────────────────────────────────────────────
 
-export function CardFloatingView() {
+export const CardFloatingView = () => {
   const [cardView, setCardView] = useAtom(cardViewAtom)
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -729,14 +591,12 @@ export function CardFloatingView() {
             </div>
           </div>
 
-          <button
-            type="button"
+          <IconButton
+            icon={<X size={18} />}
             onClick={() => setCardView(null)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none ml-4"
-            aria-label="닫기"
-          >
-            <X size={18} />
-          </button>
+            tooltip="닫기"
+            className="h-8 w-8 rounded-lg hover:text-[var(--text-primary)] ml-4 shrink-0"
+          />
         </div>
 
         {/* ── 본문 (AI 요약 포함) ──────────── */}

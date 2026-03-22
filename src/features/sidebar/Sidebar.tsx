@@ -28,11 +28,13 @@ import {
   dirtyItemsAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
+import { DEFAULT_FOLDER_NAME, DEFAULT_ORDER_GAP } from '../../shared/constants'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
 import { removeItemsFromState } from '../../store/tabHelpers'
+import { IconButton } from '../../shared/components/IconButton'
 
-export function Sidebar() {
+export const Sidebar = () => {
   const setCardForm = useSetAtom(cardFormAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const [selectedFolder, setSelectedFolder] = useAtom(selectedFolderAtom)
@@ -132,14 +134,14 @@ export function Sidebar() {
 
       const targetFolderItems = items.filter((i) => i.folderId === overFolderId)
       const baseOrder = targetFolderItems.length > 0
-        ? Math.max(...targetFolderItems.map((i) => i.order)) + 1000
-        : 1000
+        ? Math.max(...targetFolderItems.map((i) => i.order)) + DEFAULT_ORDER_GAP
+        : DEFAULT_ORDER_GAP
 
       await db.items.bulkPut(
         itemsToMove.map((item, idx) => ({
           ...item,
           folderId: overFolderId,
-          order: baseOrder + idx * 1000,
+          order: baseOrder + idx * DEFAULT_ORDER_GAP,
         })),
       )
       return
@@ -182,7 +184,7 @@ export function Sidebar() {
           newGroup.splice(insertAt, 0, ...movedWithNewFolder)
 
           await db.items.bulkPut(
-            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * 1000 })),
+            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
           )
         })
       } else if (activeItem.folderId === overItem.folderId) {
@@ -197,7 +199,7 @@ export function Sidebar() {
 
         const reordered = arrayMove(group, oldIdx, newIdx)
         await db.items.bulkPut(
-          reordered.map((item, idx) => ({ ...item, order: (idx + 1) * 1000 })),
+          reordered.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
         )
       } else {
         // 단일: 다른 폴더의 항목 위로 드롭 → overItem의 폴더로 이동, 해당 위치에 삽입
@@ -212,7 +214,7 @@ export function Sidebar() {
           newGroup.splice(overIdx, 0, movedItem)
 
           await db.items.bulkPut(
-            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * 1000 })),
+            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
           )
         })
       }
@@ -238,7 +240,7 @@ export function Sidebar() {
 
       const reordered = arrayMove(group, oldIdx, newIdx)
       await db.folders.bulkPut(
-        reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * 1000 })),
+        reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })),
       )
     }
   }
@@ -251,7 +253,7 @@ export function Sidebar() {
   const handleNewFolder = async () => {
     await db.folders.add({
       parentId: null,
-      name: '새 폴더',
+      name: DEFAULT_FOLDER_NAME,
       order: Date.now(),
       createdAt: Date.now(),
     })
@@ -288,14 +290,8 @@ export function Sidebar() {
           </button>
           <div className="flex items-center gap-0.5">
             {/* 테마 토글 버튼 */}
-            <button
-              type="button"
-              onClick={handleThemeToggle}
-              className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
-              title={config?.theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-              aria-label={config?.theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-            >
-              {config?.theme === 'dark' ? (
+            <IconButton
+              icon={config?.theme === 'dark' ? (
                 // 태양 아이콘 (라이트로 전환)
                 <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
                   <circle cx="12" cy="12" r="5" />
@@ -307,86 +303,71 @@ export function Sidebar() {
                   <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
                 </svg>
               )}
-            </button>
+              size="sm"
+              tooltip={config?.theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+              onClick={handleThemeToggle}
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            />
 
             {/* 환경설정 버튼 */}
-            <button
-              type="button"
+            <IconButton
+              icon={
+                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <circle cx="15" cy="6" r="2" fill="currentColor" stroke="none" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <circle cx="9" cy="12" r="2" fill="currentColor" stroke="none" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                  <circle cx="16" cy="18" r="2" fill="currentColor" stroke="none" />
+                </svg>
+              }
+              size="sm"
+              tooltip="환경설정"
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
-              title="환경설정"
-              aria-label="환경설정"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-              >
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <circle cx="15" cy="6" r="2" fill="currentColor" stroke="none" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <circle cx="9" cy="12" r="2" fill="currentColor" stroke="none" />
-                <line x1="4" y1="18" x2="20" y2="18" />
-                <circle cx="16" cy="18" r="2" fill="currentColor" stroke="none" />
-              </svg>
-            </button>
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            />
 
             {/* 사이드바 접기 버튼 */}
-            <button
-              type="button"
+            <IconButton
+              icon={
+                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M15 18l-6-6 6-6" />
+                  <path d="M4 4v16" />
+                </svg>
+              }
+              size="sm"
+              tooltip="사이드바 접기"
               onClick={() => setSidebarCollapsed(true)}
-              className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
-              title="사이드바 접기"
-              aria-label="사이드바 접기"
-            >
-              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M15 18l-6-6 6-6" />
-                <path d="M4 4v16" />
-              </svg>
-            </button>
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            />
           </div>
         </div>
         <div className="flex gap-1">
-          <button
-            type="button"
+          <IconButton
+            icon={
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+            }
+            size="md"
+            tooltip="새 항목"
             onClick={handleNewItem}
-            className="flex items-center justify-center rounded p-1.5 text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
-            title="새 항목"
-            aria-label="새 항목"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="size-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-          <button
-            type="button"
+            className="text-[var(--text-primary)]"
+          />
+          <IconButton
+            icon={
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M3 7v10a1 1 0 001 1h16a1 1 0 001-1V7a1 1 0 00-1-1h-6l-2-2h-6a1 1 0 00-1 1z" />
+                <path d="M12 11v6" />
+                <path d="M9 14h6" />
+              </svg>
+            }
+            size="md"
+            tooltip="새 폴더"
             onClick={handleNewFolder}
-            className="flex items-center justify-center rounded p-1.5 text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
-            title="새 폴더"
-            aria-label="새 폴더"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="size-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path d="M3 7v10a1 1 0 001 1h16a1 1 0 001-1V7a1 1 0 00-1-1h-6l-2-2h-6a1 1 0 00-1 1z" />
-              <path d="M12 11v6" />
-              <path d="M9 14h6" />
-            </svg>
-          </button>
+            className="text-[var(--text-primary)]"
+          />
         </div>
       </header>
 

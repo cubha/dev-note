@@ -30,11 +30,11 @@ const CHECK_KEYS: Partial<Record<ItemType, string>> = {
  * @param excludeId  편집 모드 시 자기 자신 제외
  * @returns 중복 매칭 목록 (빈 배열 = 중복 없음)
  */
-export async function checkDuplicates(
+export const checkDuplicates = async (
   type: ItemType,
   fields: Array<{ key: string; value: string }>,
   excludeId?: number,
-): Promise<DuplicateMatch[]> {
+): Promise<DuplicateMatch[]> => {
   const checkKey = CHECK_KEYS[type]
   if (!checkKey) return []
 
@@ -70,7 +70,7 @@ export async function checkDuplicates(
 }
 
 /** 비교를 위한 값 정규화 */
-function normalizeValue(value: string, key: string): string {
+const normalizeValue = (value: string, key: string): string => {
   let v = value.toLowerCase().trim()
   if (key === 'url') {
     // 프로토콜, 후행 슬래시 제거

@@ -5,7 +5,7 @@
 import { TabBar } from './TabBar'
 import { SearchFilterBar } from './SearchFilterBar'
 
-export function AppHeader() {
+export const AppHeader = () => {
   return (
     <div className="flex items-stretch border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 shrink-0 min-h-[44px]">
       <TabBar />

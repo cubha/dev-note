@@ -27,8 +27,8 @@ import { buildEditorKeymap } from '../../shared/utils/editorKeymap'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
 import { ICON_MAP } from '../../shared/constants'
-import { useClickOutside } from '../../shared/hooks/useClickOutside'
 import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema } from './fieldHelpers'
+import { Dropdown } from '../../shared/components/Dropdown'
 import { DocumentEditor } from './DocumentEditor'
 import type { DocumentEditorHandle } from './DocumentEditor'
 
@@ -36,7 +36,7 @@ const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 
 // ── Main component ──────────────────────────────────
 
-export function CardDetailEditor() {
+export const CardDetailEditor = () => {
   const activeTab = useAtomValue(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
@@ -47,8 +47,6 @@ export function CardDetailEditor() {
   const [tags, setTags] = useState('')
   const [fields, setFields] = useState<CardField[]>([])
   const [editorText, setEditorText] = useState('')
-  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
-  const typeDropdownRef = useRef<HTMLDivElement>(null)
   const docEditorRef = useRef<DocumentEditorHandle>(null)
   const [docDirty, setDocDirty] = useState(false)
 
@@ -141,10 +139,6 @@ export function CardDetailEditor() {
     })
   }, [dirty, activeTab, setDirtyItems])
 
-  // 타입 드롭다운 외부 클릭 닫기
-  const closeTypeDropdown = useCallback(() => setTypeDropdownOpen(false), [])
-  useClickOutside(typeDropdownRef, typeDropdownOpen, closeTypeDropdown)
-
   // 정형 필드 값 변경
   const handleFieldChange = useCallback((key: string, value: string) => {
     setFields(prev => prev.map(f => f.key === key ? { ...f, value } : f))
@@ -158,7 +152,6 @@ export function CardDetailEditor() {
   // 타입 변경 시 필드 리빌드 (기존 값 보존)
   const handleTypeChange = useCallback((newType: ItemType) => {
     setType(newType)
-    setTypeDropdownOpen(false)
 
     const schemas = FIELD_SCHEMAS[newType]
     setFields(prev => {
@@ -309,53 +302,43 @@ export function CardDetailEditor() {
 
         <div className="flex items-center gap-3">
           {/* Type selector */}
-          <div className="relative" ref={typeDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setTypeDropdownOpen(prev => !prev)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border border-[var(--border-default)]"
-              style={{
-                background: `var(--badge-${meta.colorKey}-bg)`,
-                color: `var(--badge-${meta.colorKey}-text)`,
-              }}
-            >
-              <IconComponent size={14} />
-              {meta.label}
-              <ChevronDown size={12} />
-            </button>
-
-            {typeDropdownOpen && (
-              <div className="absolute left-0 top-9 z-50 w-44 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg">
-                {ALL_TYPES.map((t) => {
-                  const m = TYPE_META[t]
-                  const Icon = ICON_MAP[t]
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => handleTypeChange(t)}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer bg-transparent border-none ${
-                        type === t
-                          ? 'text-[var(--text-primary)] bg-[var(--bg-surface-hover)]'
-                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <div
-                        className="flex h-6 w-6 items-center justify-center rounded"
-                        style={{
-                          background: `var(--badge-${m.colorKey}-bg)`,
-                          color: `var(--badge-${m.colorKey}-text)`,
-                        }}
-                      >
-                        <Icon size={12} />
-                      </div>
-                      {m.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          <Dropdown
+            trigger={
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border border-[var(--border-default)]"
+                style={{
+                  background: `var(--badge-${meta.colorKey}-bg)`,
+                  color: `var(--badge-${meta.colorKey}-text)`,
+                }}
+              >
+                <IconComponent size={14} />
+                {meta.label}
+                <ChevronDown size={12} />
+              </button>
+            }
+            items={ALL_TYPES.map((t) => {
+              const m = TYPE_META[t]
+              const Icon = ICON_MAP[t]
+              return {
+                label: m.label,
+                value: t,
+                icon: (
+                  <div
+                    className="flex h-6 w-6 items-center justify-center rounded"
+                    style={{
+                      background: `var(--badge-${m.colorKey}-bg)`,
+                      color: `var(--badge-${m.colorKey}-text)`,
+                    }}
+                  >
+                    <Icon size={12} />
+                  </div>
+                ),
+              }
+            })}
+            value={type}
+            onSelect={(val) => handleTypeChange(val as ItemType)}
+          />
 
           {/* Tags */}
           <input
@@ -423,7 +406,7 @@ export function CardDetailEditor() {
             <div className="flex flex-col flex-1 overflow-hidden">
               {showForm && editorSchema && (
                 <div className="px-6 pt-3 pb-0">
-                  <span className="text-xs font-medium text-[var(--text-tertiary)]">
+                  <span className="label-text">
                     {editorSchema.label}
                   </span>
                 </div>
@@ -443,10 +426,10 @@ export function CardDetailEditor() {
 
 // ── Markdown 에디터 (소스 모드 기본 + 미리보기 토글) ──────────
 
-function MarkdownEditorWithToggle({ value, onChange }: {
+const MarkdownEditorWithToggle = ({ value, onChange }: {
   value: string
   onChange: (val: string) => void
-}) {
+}) => {
   const [showPreview, setShowPreview] = useState(false)
 
   return (
@@ -480,10 +463,10 @@ function MarkdownEditorWithToggle({ value, onChange }: {
 
 // ── 마크다운 Split View ────────────────────────────────────────
 
-function MarkdownSplitView({ value, onChange }: {
+const MarkdownSplitView = ({ value, onChange }: {
   value: string
   onChange: (val: string) => void
-}) {
+}) => {
   const [html, setHtml] = useState('')
   const previewRef = useRef<HTMLDivElement>(null)
 
@@ -546,12 +529,12 @@ const commentHighlight = ViewPlugin.fromClass(
 
 // ── CodeMirror 에디터 ────────────────────────────────
 
-function NoteEditor({ value, placeholderText, onChange, onScroll }: {
+const NoteEditor = ({ value, placeholderText, onChange, onScroll }: {
   value: string
   placeholderText: string
   onChange: (val: string) => void
   onScroll?: (ratio: number) => void
-}) {
+}) => {
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
   const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
   const containerRef = useRef<HTMLDivElement>(null)

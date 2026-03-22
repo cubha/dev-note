@@ -4,29 +4,21 @@
 // 탭: 일반 (테마, 에디터) | 단축키
 
 import { useAtom } from 'jotai'
-import { useEffect, useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { db } from '../../core/db'
 import { appConfigAtom, settingsOpenAtom } from '../../store/atoms'
 import { KeybindingsTab } from './KeybindingsTab'
+import { Modal } from '../../shared/components/Modal'
+import { ModalHeader } from '../../shared/components/ModalHeader'
 
 type SettingsTab = 'general' | 'keybindings'
 
-export function SettingsModal() {
+export const SettingsModal = () => {
   const [isOpen, setIsOpen] = useAtom(settingsOpenAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 
-  // ESC 키로 닫기
   const handleClose = useCallback(() => setIsOpen(false), [setIsOpen])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, handleClose])
 
   // 모달 닫힐 때 탭 초기화
   useEffect(() => {
@@ -59,35 +51,8 @@ export function SettingsModal() {
   }
 
   return (
-    <>
-      {/* 백드롭 */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={handleClose}
-        aria-hidden
-      />
-
-      {/* 모달 */}
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="환경설정"
-        className="fixed left-1/2 top-1/2 z-50 w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl animate-scale-in"
-      >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3">
-          <h2 className="text-sm font-medium text-[var(--text-primary)]">환경설정</h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
-            aria-label="닫기"
-          >
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Modal onClose={handleClose} width="w-[520px]" ariaLabel="환경설정">
+      <ModalHeader title="환경설정" onClose={handleClose} />
 
         {/* 탭 네비게이션 */}
         <div className="flex border-b border-[var(--border-default)] px-5">
@@ -260,9 +225,8 @@ export function SettingsModal() {
 
         {/* 푸터 */}
         <div className="border-t border-[var(--border-default)] px-5 py-3">
-          <p className="text-[10px] text-[var(--text-placeholder)]">변경 사항은 즉시 저장됩니다.</p>
+          <p className="meta-text">변경 사항은 즉시 저장됩니다.</p>
         </div>
-      </div>
-    </>
+    </Modal>
   )
 }

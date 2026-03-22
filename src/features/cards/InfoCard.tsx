@@ -14,12 +14,14 @@ import { highlightByQuery } from '../../shared/utils/highlight'
 import { extractSearchText } from '../../core/content'
 import { cardViewAtom, searchQueryAtom } from '../../store/atoms'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
+import { IconButton } from '../../shared/components/IconButton'
+import { Badge } from '../../shared/components/Badge'
 
 /** Fuse.js indices 기반 <mark> 하이라이트 (제목/태그 전용) */
-function highlightText(
+const highlightText = (
   text: string,
   indices?: ReadonlyArray<[number, number]>,
-): React.ReactNode {
+): React.ReactNode => {
   if (!indices || indices.length === 0) return text
   const result: React.ReactNode[] = []
   let lastIdx = 0
@@ -46,7 +48,7 @@ interface InfoCardProps {
   onTogglePin: (item: Item) => void
 }
 
-export function InfoCard({ item, content, matches, onEdit, onDelete, onTogglePin }: InfoCardProps) {
+export const InfoCard = ({ item, content, matches, onEdit, onDelete, onTogglePin }: InfoCardProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -115,33 +117,24 @@ export function InfoCard({ item, content, matches, onEdit, onDelete, onTogglePin
         <div className="flex items-center gap-0.5 shrink-0">
           {/* 조회 버튼 (hover 시 노출) */}
           {hovered && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setCardView({ item, content })
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer bg-transparent border-none"
-              aria-label="조회"
-              title="조회 (읽기 전용)"
-            >
-              <Eye size={14} />
-            </button>
+            <IconButton
+              icon={<Eye size={14} />}
+              size="md"
+              tooltip="조회 (읽기 전용)"
+              onClick={(e) => { e.stopPropagation(); setCardView({ item, content }) }}
+              className="rounded-md"
+            />
           )}
 
           {/* 메뉴 버튼 */}
           <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setMenuOpen((prev) => !prev)
-              }}
-              className="rounded-md p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer bg-transparent border-none"
-              aria-label="카드 메뉴"
-            >
-              <MoreVertical size={16} />
-            </button>
+            <IconButton
+              icon={<MoreVertical size={16} />}
+              size="md"
+              tooltip="카드 메뉴"
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((prev) => !prev) }}
+              className="rounded-md"
+            />
 
             {menuOpen && (
               <div className="absolute right-0 top-8 z-50 w-40 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg animate-scale-in">
@@ -176,10 +169,10 @@ export function InfoCard({ item, content, matches, onEdit, onDelete, onTogglePin
       {/* 핀 표시 */}
       {item.pinned && (
         <div className="px-4 pb-1">
-          <span className="inline-flex items-center gap-1 text-[10px] text-[var(--text-warning)]">
+          <Badge className="gap-1 text-[var(--text-warning)] px-0 py-0">
             <Pin size={10} />
             고정됨
-          </span>
+          </Badge>
         </div>
       )}
 
@@ -189,16 +182,13 @@ export function InfoCard({ item, content, matches, onEdit, onDelete, onTogglePin
           {item.tags.map((tag) => {
             const tm = tagMatches.find((m) => m.value === tag)
             return (
-              <span
+              <Badge
                 key={tag}
-                className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                  tm
-                    ? 'bg-[var(--accent)] text-white'
-                    : 'bg-[var(--bg-surface-hover)] text-[var(--text-tertiary)]'
-                }`}
+                variant={tm ? 'accent' : 'muted'}
+                className="rounded-md transition-colors"
               >
                 #{tm ? highlightText(tag, tm.indices) : tag}
-              </span>
+              </Badge>
             )
           })}
         </div>
@@ -232,7 +222,7 @@ const SECTION_ICONS: Record<string, string> = {
 }
 
 /** 섹션별 핵심 콘텐츠 1~2줄 요약 생성 */
-function getSectionSummary(section: import('../../core/types').AnySection): string {
+const getSectionSummary = (section: import('../../core/types').AnySection): string => {
   switch (section.type) {
     case 'credentials':
       return section.items
@@ -261,7 +251,7 @@ function getSectionSummary(section: import('../../core/types').AnySection): stri
   }
 }
 
-function DocumentPreview({ content, searchQuery }: { content: HybridContent; searchQuery: string }) {
+const DocumentPreview = ({ content, searchQuery }: { content: HybridContent; searchQuery: string }) => {
   if (content.sections.length === 0) {
     return (
       <div className="px-4 pb-3">
@@ -299,7 +289,7 @@ function DocumentPreview({ content, searchQuery }: { content: HybridContent; sea
 
 // ── Note/Custom 미리보기 ─────────────────
 
-function NotePreview({ content, searchQuery }: { content: CardContentType; searchQuery: string }) {
+const NotePreview = ({ content, searchQuery }: { content: CardContentType; searchQuery: string }) => {
   const text =
     content.format === 'structured'
       ? (content.fields.find((f) => f.key === 'content')?.value ?? '')
@@ -326,12 +316,12 @@ function NotePreview({ content, searchQuery }: { content: CardContentType; searc
 
 // ── 메뉴 버튼 ──────────────────────────
 
-function MenuButton({ icon, label, danger, onClick }: {
+const MenuButton = ({ icon, label, danger, onClick }: {
   icon: React.ReactNode
   label: string
   danger?: boolean
   onClick: (e: React.MouseEvent) => void
-}) {
+}) => {
   return (
     <button
       type="button"

@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { Eye, EyeOff, Copy, ExternalLink } from 'lucide-react'
+import { Copy, ExternalLink } from 'lucide-react'
 import type { FieldType } from '../../core/types'
 import { copyToClipboard } from '../../shared/utils/clipboard'
 import { openUrl } from '../../shared/utils/url'
 import { highlightByQuery } from '../../shared/utils/highlight'
+import { usePasswordReveal } from '../../shared/hooks/usePasswordReveal'
 
 interface FieldRowProps {
   label: string
@@ -12,8 +12,8 @@ interface FieldRowProps {
   searchQuery?: string
 }
 
-export function FieldRow({ label, value, type, searchQuery = '' }: FieldRowProps) {
-  const [revealed, setRevealed] = useState(false)
+export const FieldRow = ({ label, value, type, searchQuery = '' }: FieldRowProps) => {
+  const { revealed, toggle, Icon, ariaLabel } = usePasswordReveal()
 
   if (!value) return null
 
@@ -70,18 +70,18 @@ export function FieldRow({ label, value, type, searchQuery = '' }: FieldRowProps
           {isPassword && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setRevealed((prev) => !prev) }}
-              className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
-              aria-label={revealed ? '비밀번호 숨기기' : '비밀번호 보기'}
+              onClick={(e) => { e.stopPropagation(); toggle() }}
+              className="subtle-btn rounded p-1 hover:bg-[var(--bg-surface-hover)]"
+              aria-label={ariaLabel}
             >
-              {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
+              <Icon size={13} />
             </button>
           )}
           {isUrl && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); void copyToClipboard(value, label) }}
-              className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
+              className="subtle-btn rounded p-1 hover:bg-[var(--bg-surface-hover)]"
               aria-label={`${label} 복사`}
             >
               <Copy size={13} />

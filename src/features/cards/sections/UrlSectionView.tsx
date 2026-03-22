@@ -4,13 +4,14 @@ import { nanoid } from 'nanoid'
 import type { UrlEntry, UrlNoteCard } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
 import { isSafeUrl } from '../../../shared/utils/url'
+import { Badge } from '../../../shared/components/Badge'
 
 interface UrlSectionViewProps {
   items: UrlEntry[]
   onChange: (items: UrlEntry[]) => void
 }
 
-export function UrlSectionView({ items, onChange }: UrlSectionViewProps) {
+export const UrlSectionView = ({ items, onChange }: UrlSectionViewProps) => {
   return (
     <div className="space-y-4">
       {items.map((entry, idx) => (
@@ -29,7 +30,7 @@ export function UrlSectionView({ items, onChange }: UrlSectionViewProps) {
       <button
         type="button"
         onClick={() => onChange([...items, createEmptyUrl()])}
-        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none px-0"
+        className="subtle-btn flex items-center gap-1.5 text-xs px-0"
       >
         <Plus size={12} /> URL 추가
       </button>
@@ -45,7 +46,7 @@ interface UrlEntryRowProps {
   onDelete: () => void
 }
 
-function UrlEntryRow({ entry, onChange, onDelete }: UrlEntryRowProps) {
+const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
   const noteCards = entry.noteCards ?? []
   // 초기 상태: 메모 내용이 있거나 메모카드가 있으면 펼침
   const [noteOpen, setNoteOpen] = useState(
@@ -86,9 +87,9 @@ function UrlEntryRow({ entry, onChange, onDelete }: UrlEntryRowProps) {
           className="min-w-[60px] max-w-[140px] flex-shrink bg-transparent text-xs font-medium text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-none outline-none truncate"
         />
         {entry.method && (
-          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]">
+          <Badge className="font-bold bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]">
             {entry.method}
-          </span>
+          </Badge>
         )}
 
         <div className="flex-1" />
@@ -172,7 +173,7 @@ function UrlEntryRow({ entry, onChange, onDelete }: UrlEntryRowProps) {
           <button
             type="button"
             onClick={handleAddNoteCard}
-            className="flex items-center gap-1 text-[10px] text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none px-0 self-start transition-colors"
+            className="flex items-center gap-1 meta-text hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none px-0 self-start transition-colors"
           >
             <StickyNote size={10} />
             메모카드 추가
@@ -191,7 +192,7 @@ interface NoteCardRowProps {
   onDelete: () => void
 }
 
-function NoteCardRow({ card, onChange, onDelete }: NoteCardRowProps) {
+const NoteCardRow = ({ card, onChange, onDelete }: NoteCardRowProps) => {
   return (
     <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 space-y-1.5 relative group/card">
       {/* 삭제 버튼 */}
@@ -235,13 +236,13 @@ interface AutoResizeTextareaProps {
   className?: string
 }
 
-function AutoResizeTextarea({
+const AutoResizeTextarea = ({
   value,
   placeholder,
   onChange,
   minHeight = 56,
   className = '',
-}: AutoResizeTextareaProps) {
+}: AutoResizeTextareaProps) => {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   const adjust = useCallback(() => {
@@ -268,6 +269,6 @@ function AutoResizeTextarea({
   )
 }
 
-function createEmptyUrl(): UrlEntry {
+const createEmptyUrl = (): UrlEntry => {
   return { id: nanoid(8), label: '', url: '', note: '' }
 }

@@ -135,11 +135,11 @@ type ValidateResult =
   | { status: 'conflict'; message: string; conflictId: string }
   | { status: 'ok' };
 
-export function validateKeybinding(
+export const validateKeybinding = (
   key: string,
   commandId: string,
   currentBindings: Record<string, string>,
-): ValidateResult {
+): ValidateResult => {
   if (BROWSER_RESERVED.has(key)) {
     return {
       status: 'blocked',
@@ -169,10 +169,10 @@ export function validateKeybinding(
 
 // ─── suggestAlternatives ──────────────────────────────────────
 
-export function suggestAlternatives(
+export const suggestAlternatives = (
   key: string,
   currentBindings: Record<string, string>,
-): string[] {
+): string[] => {
   const usedKeys = new Set(Object.values(currentBindings));
 
   // 원본 키에서 기본 키 추출 (마지막 토큰)
@@ -229,9 +229,9 @@ export function suggestAlternatives(
 
 // ─── getEffectiveBindings ─────────────────────────────────────
 
-export function getEffectiveBindings(
+export const getEffectiveBindings = (
   overrides: UserOverrides,
-): Record<CommandId, string> {
+): Record<CommandId, string> => {
   const result = {} as Record<CommandId, string>;
 
   for (const commandId of Object.keys(DEFAULT_KEYBINDINGS) as CommandId[]) {

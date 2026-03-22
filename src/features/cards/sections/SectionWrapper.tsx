@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
+import { useClickOutside } from '../../../shared/hooks/useClickOutside'
 import {
   ChevronDown, ChevronRight, GripVertical, MoreVertical, Trash2, Pencil,
   Shield, Link, Terminal, Code, FileText, Clipboard,
 } from 'lucide-react'
 import type { SectionType } from '../../../core/types'
+import { IconButton } from '../../../shared/components/IconButton'
 
 const SECTION_ICONS: Record<SectionType, React.ComponentType<{ size?: number; className?: string }>> = {
   credentials: Shield,
@@ -33,10 +35,10 @@ interface SectionWrapperProps {
   children: React.ReactNode
 }
 
-export function SectionWrapper({
+export const SectionWrapper = ({
   type, title, collapsed, onToggleCollapse, onDelete, onTitleChange,
   onSmartPaste, dragHandleProps, children,
-}: SectionWrapperProps) {
+}: SectionWrapperProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(title)
@@ -47,16 +49,7 @@ export function SectionWrapper({
 
   const Icon = SECTION_ICONS[type]
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('click', close, { capture: true })
-    return () => document.removeEventListener('click', close, { capture: true })
-  }, [menuOpen])
+  useClickOutside(menuRef, menuOpen, () => setMenuOpen(false))
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -87,7 +80,7 @@ export function SectionWrapper({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="flex items-center justify-center w-5 h-5 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none shrink-0"
+          className="subtle-btn flex items-center justify-center w-5 h-5 shrink-0"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
@@ -133,13 +126,12 @@ export function SectionWrapper({
 
         {/* 메뉴 */}
         <div className="relative" ref={menuRef}>
-          <button
-            type="button"
+          <IconButton
+            icon={<MoreVertical size={13} />}
+            size="sm"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-            className="flex items-center justify-center w-6 h-6 rounded text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)] cursor-pointer bg-transparent border-none shrink-0"
-          >
-            <MoreVertical size={13} />
-          </button>
+            className="text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)] shrink-0"
+          />
 
           {menuOpen && (
             <div className="absolute right-0 top-7 z-50 w-32 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg animate-scale-in">

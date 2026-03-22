@@ -11,12 +11,12 @@ import {
   openTabsAtom, activeTabAtom, dirtyItemsAtom, tabContextMenuAtom,
 } from '../../store/atoms'
 import { closeTab } from '../../store/tabHelpers'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
 
 const OVERFLOW_BTN_W = 44
 
-export function TabBar() {
+export const TabBar = () => {
   const openTabs = useAtomValue(openTabsAtom)
   const [activeTab, setActiveTab] = useAtom(activeTabAtom)
   const dirtyItems = useAtomValue(dirtyItemsAtom)
@@ -132,7 +132,7 @@ export function TabBar() {
                 )}
                 <Icon size={13} className="shrink-0" />
                 <span className="max-w-[100px] truncate">
-                  {item === undefined ? '...' : (item.title || '제목없음')}
+                  {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
                 </span>
                 {isDirty && (
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
@@ -195,7 +195,7 @@ export function TabBar() {
                       >
                         <Icon size={12} className="shrink-0 text-[var(--text-tertiary)]" />
                         <span className="flex-1 text-xs text-left truncate">
-                          {item === undefined ? '...' : (item.title || '제목없음')}
+                          {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
                         </span>
                         {isDirty && (
                           <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
