@@ -59,4 +59,3 @@ test-results/
 
 # ─── Claude Code (local config with secrets) ────────────────
 .claude/
-# credential test Mon Mar 23 18:46:49 KST 2026
