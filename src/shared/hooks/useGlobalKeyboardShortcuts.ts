@@ -25,9 +25,10 @@ import {
   effectiveKeybindingsAtom,
 } from '../../store/atoms'
 import { closeTab, removeItemsFromState } from '../../store/tabHelpers'
+import { DEFAULT_FOLDER_NAME } from '../constants'
 import { toast } from 'sonner'
 
-export function useGlobalKeyboardShortcuts() {
+export const useGlobalKeyboardShortcuts = () => {
   const selectedItems = useAtomValue(selectedItemsAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
   const setCardForm = useSetAtom(cardFormAtom)
@@ -52,7 +53,7 @@ export function useGlobalKeyboardShortcuts() {
     e.preventDefault()
     void db.folders.add({
       parentId: null,
-      name: '새 폴더',
+      name: DEFAULT_FOLDER_NAME,
       order: Date.now(),
       createdAt: Date.now(),
     })

@@ -283,7 +283,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
 
 // ── Sortable 래퍼 ────────────────────────────
 
-function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollapse, onTitleChange, onSmartPaste }: {
+const SortableSectionItem = ({ section, idx, onChange, onDelete, onToggleCollapse, onTitleChange, onSmartPaste }: {
   section: AnySection
   idx: number
   onChange: (idx: number, section: AnySection) => void
@@ -291,7 +291,7 @@ function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollaps
   onToggleCollapse: (idx: number) => void
   onTitleChange: (idx: number, title: string) => void
   onSmartPaste: (idx: number, text: string) => void
-}) {
+}) => {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: section.id })
@@ -325,10 +325,10 @@ function SortableSectionItem({ section, idx, onChange, onDelete, onToggleCollaps
 
 // ── 섹션 타입별 콘텐츠 렌더링 ──────────────────
 
-function SectionContent({ section, onChange }: {
+const SectionContent = ({ section, onChange }: {
   section: AnySection
   onChange: (updated: AnySection) => void
-}) {
+}) => {
   switch (section.type) {
     case 'markdown':
       return (

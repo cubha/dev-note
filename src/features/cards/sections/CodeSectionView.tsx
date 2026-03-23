@@ -44,7 +44,7 @@ interface CodeSectionViewProps {
   onChange: (updated: CodeSection) => void
 }
 
-export function CodeSectionView({ section, onChange }: CodeSectionViewProps) {
+export const CodeSectionView = ({ section, onChange }: CodeSectionViewProps) => {
   return (
     <div className="space-y-2">
       {/* 언어 선택 + 복사 */}
@@ -79,11 +79,11 @@ export function CodeSectionView({ section, onChange }: CodeSectionViewProps) {
 
 // ── 리사이즈 가능한 CodeMirror 래퍼 ──────────────────────────
 
-function ResizableMiniCodeEditor({ value, language, onChange }: {
+const ResizableMiniCodeEditor = ({ value, language, onChange }: {
   value: string
   language: string
   onChange: (val: string) => void
-}) {
+}) => {
   const { height, handleDragStart } = useResizableHeight(60, 160)
 
   return (
@@ -109,12 +109,12 @@ function ResizableMiniCodeEditor({ value, language, onChange }: {
 
 // ── 경량 CodeMirror 에디터 ────────────────────
 
-function MiniCodeEditor({ value, language, onChange, height }: {
+const MiniCodeEditor = ({ value, language, onChange, height }: {
   value: string
   language: string
   onChange: (val: string) => void
   height: number
-}) {
+}) => {
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
   const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
   const containerRef = useRef<HTMLDivElement>(null)

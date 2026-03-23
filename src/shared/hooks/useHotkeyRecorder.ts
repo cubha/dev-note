@@ -12,7 +12,7 @@ export interface HotkeyRecorderState {
 }
 
 /** KeyboardEvent → "Mod+Alt+K" 형태 정규화 */
-function normalizeKey(e: KeyboardEvent): string | null {
+const normalizeKey = (e: KeyboardEvent): string | null => {
   const IGNORE_KEYS = new Set([
     'Control', 'Meta', 'Alt', 'Shift',
     'CapsLock', 'Tab', 'Unidentified',
@@ -28,7 +28,7 @@ function normalizeKey(e: KeyboardEvent): string | null {
   return parts.join('+')
 }
 
-export function useHotkeyRecorder(): HotkeyRecorderState {
+export const useHotkeyRecorder = (): HotkeyRecorderState => {
   const [recording, setRecording] = useState(false)
   const [recordedKey, setRecordedKey] = useState<string | null>(null)
 

@@ -22,6 +22,7 @@ import { exportData } from './export'
 import { importFromFile, importData, parseImportPreview } from './import'
 import type { ImportPreview } from './import'
 import { ImportModeModal } from './ImportModeModal'
+import { Button } from '../../shared/components/Button'
 
 type FeedbackState =
   | { type: 'idle' }
@@ -36,7 +37,7 @@ interface ModalData {
   currentItems: number
 }
 
-export function StorageButtons() {
+export const StorageButtons = () => {
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState>({ type: 'idle' })
@@ -172,30 +173,30 @@ export function StorageButtons() {
       <footer className="border-t border-[var(--border-default)] p-2">
         <div className="flex gap-1">
           {/* 내보내기 버튼 */}
-          <button
-            type="button"
-            onClick={handleExport}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handleExport()}
             disabled={isLoading}
-            className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-            title="JSON으로 내보내기"
+            className="flex-1"
             aria-label="내보내기"
           >
             {exporting ? <SpinnerIcon /> : <UploadIcon />}
-            <span>내보내기</span>
-          </button>
+            내보내기
+          </Button>
 
           {/* 가져오기 버튼 */}
-          <button
-            type="button"
-            onClick={handleImport}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handleImport()}
             disabled={isLoading}
-            className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-            title="JSON에서 가져오기"
+            className="flex-1"
             aria-label="가져오기"
           >
             {importing ? <SpinnerIcon /> : <DownloadIcon />}
-            <span>가져오기</span>
-          </button>
+            가져오기
+          </Button>
         </div>
 
         {/* 인라인 피드백 */}
@@ -211,7 +212,7 @@ export function StorageButtons() {
 
 // ─── 아이콘 ────────────────────────────────────────────────────
 
-function UploadIcon() {
+const UploadIcon = () => {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -227,7 +228,7 @@ function UploadIcon() {
   )
 }
 
-function DownloadIcon() {
+const DownloadIcon = () => {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -243,7 +244,7 @@ function DownloadIcon() {
   )
 }
 
-function SpinnerIcon() {
+const SpinnerIcon = () => {
   return (
     <svg
       viewBox="0 0 24 24"

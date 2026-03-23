@@ -7,7 +7,7 @@ import { CardDetailEditor } from '../cards/CardDetailEditor'
 import { CardFloatingView } from '../cards/CardFloatingView'
 import { TabContextMenu } from './TabContextMenu'
 
-export function Dashboard() {
+export const Dashboard = () => {
   const cardForm = useAtomValue(cardFormAtom)
   const setCardForm = useSetAtom(cardFormAtom)
   const activeTab = useAtomValue(activeTabAtom)

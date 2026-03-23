@@ -49,6 +49,7 @@ docs/
 
 # ─── Playwright MCP artifacts ───────────────────────────────
 .playwright-mcp/
+test-results/
 
 # ─── Cursor IDE ──────────────────────────────────────────────
 .cursor/

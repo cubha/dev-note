@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Eye, EyeOff, Copy, Plus, X, Server, Database, HardDrive } from 'lucide-react'
+import { Copy, Plus, X, Server, Database, HardDrive } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { CredentialEntry } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
+import { usePasswordReveal } from '../../../shared/hooks/usePasswordReveal'
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   server: Server,
@@ -15,7 +15,7 @@ interface CredentialSectionViewProps {
   onChange: (items: CredentialEntry[]) => void
 }
 
-export function CredentialSectionView({ items, onChange }: CredentialSectionViewProps) {
+export const CredentialSectionView = ({ items, onChange }: CredentialSectionViewProps) => {
   return (
     <div className="space-y-3">
       {items.map((entry, idx) => (
@@ -33,7 +33,7 @@ export function CredentialSectionView({ items, onChange }: CredentialSectionView
       <button
         type="button"
         onClick={() => onChange([...items, createEmptyCredential()])}
-        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none px-0"
+        className="subtle-btn flex items-center gap-1.5 text-xs px-0"
       >
         <Plus size={12} /> 항목 추가
       </button>
@@ -41,12 +41,12 @@ export function CredentialSectionView({ items, onChange }: CredentialSectionView
   )
 }
 
-function CredentialRow({ entry, onChange, onDelete }: {
+const CredentialRow = ({ entry, onChange, onDelete }: {
   entry: CredentialEntry
   onChange: (e: CredentialEntry) => void
   onDelete: () => void
-}) {
-  const [showPw, setShowPw] = useState(false)
+}) => {
+  const { inputType, toggle, Icon } = usePasswordReveal()
   const CatIcon = CATEGORY_ICONS[entry.category] ?? HardDrive
 
   const update = (patch: Partial<CredentialEntry>) => onChange({ ...entry, ...patch })
@@ -91,7 +91,7 @@ function CredentialRow({ entry, onChange, onDelete }: {
           <div className="relative flex items-center gap-1">
             <div className="relative flex-1">
               <input
-                type={showPw ? 'text' : 'password'}
+                type={inputType}
                 value={entry.password}
                 onChange={(e) => update({ password: e.target.value })}
                 placeholder="••••••"
@@ -99,10 +99,10 @@ function CredentialRow({ entry, onChange, onDelete }: {
               />
               <button
                 type="button"
-                onClick={() => setShowPw(!showPw)}
+                onClick={toggle}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0 cursor-pointer bg-transparent border-none text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)]"
               >
-                {showPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                <Icon size={12} />
               </button>
             </div>
             <button
@@ -127,9 +127,9 @@ function CredentialRow({ entry, onChange, onDelete }: {
   )
 }
 
-function FieldInput({ label, value, onChange, placeholder }: {
+const FieldInput = ({ label, value, onChange, placeholder }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string
-}) {
+}) => {
   return (
     <div>
       <label className="block text-[10px] text-[var(--text-tertiary)] mb-0.5">{label}</label>
@@ -144,7 +144,7 @@ function FieldInput({ label, value, onChange, placeholder }: {
   )
 }
 
-function createEmptyCredential(): CredentialEntry {
+const createEmptyCredential = (): CredentialEntry => {
   return {
     id: nanoid(8),
     label: '',

@@ -25,7 +25,7 @@ import {
   closeAllTabs,
 } from '../../store/tabHelpers'
 
-export function TabContextMenu() {
+export const TabContextMenu = () => {
   const [menu, setMenu] = useAtom(tabContextMenuAtom)
   const [openTabs, setOpenTabs] = useAtom(openTabsAtom)
   const [activeTab, setActiveTab] = useAtom(activeTabAtom)

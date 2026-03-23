@@ -20,12 +20,13 @@ import {
   selectedItemsAtom,
 } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
+import { DEFAULT_ITEM_TITLE, TREE_DEPTH_INDENT_PX } from '../../shared/constants'
 
 const MENU_WIDTH = 192
 
 // ─── DragHandle (시각 전용 — 리스너 없음) ───────────────────
 
-function DragHandle() {
+const DragHandle = () => {
   return (
     <span
       className="invisible flex shrink-0 cursor-grab items-center justify-center px-0.5 text-[var(--text-placeholder)] group-hover/row:visible"
@@ -51,7 +52,7 @@ interface TreeNodeProps {
   isDragging?: boolean
 }
 
-export function TreeNode({ node, depth, isDragging }: TreeNodeProps) {
+export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
   const expanded = useAtomValue(expandedFoldersAtom)
   const setExpanded = useSetAtom(expandedFoldersAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
@@ -92,7 +93,7 @@ export function TreeNode({ node, depth, isDragging }: TreeNodeProps) {
     <>
       <div
         className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] ${isSelected ? 'bg-[var(--bg-folder-selected)]' : ''} ${isDropTarget ? 'bg-[var(--bg-drop-zone)] outline outline-1 outline-[var(--border-accent)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
-        style={{ paddingLeft: `${depth * 12}px` }}
+        style={{ paddingLeft: `${depth * TREE_DEPTH_INDENT_PX}px` }}
       >
         <DragHandle />
         <div
@@ -226,7 +227,7 @@ export function TreeNode({ node, depth, isDragging }: TreeNodeProps) {
 
 // ─── SortableFolderNode ───────────────────────────────────────
 
-export function SortableFolderNode({ node, depth }: { node: FolderNode; depth: number }) {
+export const SortableFolderNode = ({ node, depth }: { node: FolderNode; depth: number }) => {
   const {
     attributes,
     listeners,
@@ -274,7 +275,7 @@ const TYPE_BADGE: Record<
   document: { label: 'DOC',  className: 'bg-[var(--badge-document-bg)] text-[var(--badge-document-text)]' },
 }
 
-export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
+export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const renamingTarget = useAtomValue(renamingTargetAtom)
@@ -363,7 +364,7 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
         }
       }}
       className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] select-none ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
-      style={{ paddingLeft: `${(depth + 1) * 12}px` }}
+      style={{ paddingLeft: `${(depth + 1) * TREE_DEPTH_INDENT_PX}px` }}
     >
       <DragHandle />
       <span
@@ -404,8 +405,8 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
           className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
         />
       ) : (
-        <span className="min-w-0 truncate" title={item.title || '제목없음'}>
-          {item.title || '제목없음'}
+        <span className="min-w-0 truncate" title={item.title || DEFAULT_ITEM_TITLE}>
+          {item.title || DEFAULT_ITEM_TITLE}
         </span>
       )}
     </div>
@@ -414,7 +415,7 @@ export function ItemRow({ item, depth, isDragging }: ItemRowProps) {
 
 // ─── SortableItemRow ──────────────────────────────────────────
 
-export function SortableItemRow({ item, depth }: { item: Item; depth: number }) {
+export const SortableItemRow = ({ item, depth }: { item: Item; depth: number }) => {
   const {
     attributes,
     listeners,

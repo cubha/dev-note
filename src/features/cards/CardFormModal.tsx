@@ -12,7 +12,11 @@ import { openTabsAtom, activeTabAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { SmartPastePanel } from './SmartPastePanel'
 import type { FieldApplyData, DocumentApplyData } from './SmartPastePanel'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
+import { Input } from '../../shared/components/Input'
+import { TextArea } from '../../shared/components/TextArea'
+import { Button } from '../../shared/components/Button'
+import { ModalHeader } from '../../shared/components/ModalHeader'
 
 const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 
@@ -30,7 +34,7 @@ interface CardFormModalProps {
   onClose: () => void
 }
 
-export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
+export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const [title, setTitle] = useState('')
@@ -118,7 +122,7 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
           item?.id,
         )
         if (duplicates.length > 0) {
-          const names = duplicates.map((d) => d.title || '제목없음').join(', ')
+          const names = duplicates.map((d) => d.title || DEFAULT_ITEM_TITLE).join(', ')
           toast.warning(`동일한 ${duplicates[0].matchField}가 이미 존재합니다: ${names}`)
         }
       }
@@ -182,24 +186,18 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)]">
-          <h2 className="text-base font-semibold text-[var(--text-primary)] m-0">
-            {isEditMode ? '카드 편집' : '새 카드'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <ModalHeader
+          title={isEditMode ? '카드 편집' : '새 카드'}
+          onClose={onClose}
+          className="px-6 py-4"
+          titleClassName="text-base font-semibold m-0"
+        />
 
         {/* 폼 본문 */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* 타입 선택 — 그리드 카드 */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-tertiary)] mb-2">카드 타입</label>
+            <label className="block label-text mb-2">카드 타입</label>
             <div className="grid grid-cols-3 gap-2">
               {ITEM_TYPES.map((t) => {
                 const meta = TYPE_META[t]
@@ -244,25 +242,23 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
 
           {/* 제목 */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-tertiary)] mb-1.5">제목</label>
-            <input
+            <label className="block label-text mb-1.5">제목</label>
+            <Input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="예: Production 서버, AWS Console ..."
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
             />
           </div>
 
           {/* 태그 */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-tertiary)] mb-1.5">태그 (쉼표 구분)</label>
-            <input
+            <label className="block label-text mb-1.5">태그 (쉼표 구분)</label>
+            <Input
               type="text"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="AWS, 운영, 백엔드"
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
             />
           </div>
 
@@ -277,7 +273,7 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-[var(--text-tertiary)]">섹션 선택</label>
+                  <label className="block label-text">섹션 선택</label>
                   <div className="flex flex-wrap gap-1.5">
                     {SECTION_OPTIONS.map(({ type: sType, label, icon: Icon }) => (
                       <button
@@ -305,7 +301,7 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
                             <button
                               type="button"
                               onClick={() => setDocSections(prev => prev ? prev.filter((_, i) => i !== idx) : null)}
-                              className="rounded p-0.5 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] cursor-pointer bg-transparent border-none transition-colors"
+                              className="subtle-btn rounded p-0.5 hover:bg-[var(--bg-surface)]"
                             >
                               <X size={12} />
                             </button>
@@ -324,7 +320,7 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              <label className="block text-xs font-medium text-[var(--text-tertiary)]">필드</label>
+              <label className="block label-text">필드</label>
               {fields.map((field) => {
                 const schema = FIELD_SCHEMAS[type].find((s) => s.key === field.key)
                 return (
@@ -333,20 +329,20 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
                       {field.label}
                     </label>
                     {field.type === 'multiline' ? (
-                      <textarea
+                      <TextArea
                         value={field.value}
                         onChange={(e) => updateField(field.key, e.target.value)}
                         placeholder={schema?.placeholder}
                         rows={4}
-                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none resize-y transition-colors"
+                        className="font-mono resize-y"
                       />
                     ) : (
-                      <input
+                      <Input
                         type={field.type === 'password' ? 'password' : 'text'}
                         value={field.value}
                         onChange={(e) => updateField(field.key, e.target.value)}
                         placeholder={schema?.placeholder}
-                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-2 text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
+                        className="font-mono"
                       />
                     )}
                   </div>
@@ -358,21 +354,10 @@ export function CardFormModal({ item, folderId, onClose }: CardFormModalProps) {
 
         {/* 푸터 */}
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--border-default)]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
-          >
+          <Button variant="ghost" onClick={onClose}>취소</Button>
+          <Button variant="primary" onClick={() => void handleSave()} disabled={saving}>
             {saving ? '저장 중...' : isEditMode ? '수정' : '추가'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

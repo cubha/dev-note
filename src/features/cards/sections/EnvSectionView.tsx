@@ -9,7 +9,7 @@ interface EnvSectionViewProps {
   onChange: (pairs: EnvEntry[]) => void
 }
 
-export function EnvSectionView({ pairs, onChange }: EnvSectionViewProps) {
+export const EnvSectionView = ({ pairs, onChange }: EnvSectionViewProps) => {
   return (
     <div className="space-y-1.5">
       {pairs.map((entry, idx) => (
@@ -27,7 +27,7 @@ export function EnvSectionView({ pairs, onChange }: EnvSectionViewProps) {
       <button
         type="button"
         onClick={() => onChange([...pairs, { id: nanoid(8), key: '', value: '', secret: false }])}
-        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none px-0"
+        className="subtle-btn flex items-center gap-1.5 text-xs px-0"
       >
         <Plus size={12} /> 변수 추가
       </button>
@@ -35,11 +35,11 @@ export function EnvSectionView({ pairs, onChange }: EnvSectionViewProps) {
   )
 }
 
-function EnvRow({ entry, onChange, onDelete }: {
+const EnvRow = ({ entry, onChange, onDelete }: {
   entry: EnvEntry
   onChange: (e: EnvEntry) => void
   onDelete: () => void
-}) {
+}) => {
   const [showVal, setShowVal] = useState(!entry.secret)
 
   return (
@@ -51,7 +51,7 @@ function EnvRow({ entry, onChange, onDelete }: {
         placeholder="KEY"
         className="w-32 shrink-0 bg-[var(--bg-input)] rounded px-2 py-1 text-xs font-mono font-medium text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-default)] focus:border-[var(--border-accent)] outline-none"
       />
-      <span className="text-[10px] text-[var(--text-placeholder)]">=</span>
+      <span className="meta-text">=</span>
       <div className="relative flex-1 min-w-0">
         <input
           type={entry.secret && !showVal ? 'password' : 'text'}

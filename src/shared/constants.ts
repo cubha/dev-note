@@ -9,3 +9,12 @@ export const ICON_MAP: Record<ItemType, React.ComponentType<{ size?: number; cla
   note: FileText,
   document: FileStack,
 }
+
+/** 기본 폴더명 */
+export const DEFAULT_FOLDER_NAME = '새 폴더'
+/** 기본 항목 제목 */
+export const DEFAULT_ITEM_TITLE = '제목없음'
+/** DnD 순서 기본 간격 */
+export const DEFAULT_ORDER_GAP = 1000
+/** 트리 깊이별 들여쓰기 (px) */
+export const TREE_DEPTH_INDENT_PX = 12

@@ -32,7 +32,7 @@ interface DisplayItem extends ParsedItem {
   matches?: readonly FuseResultMatch[]
 }
 
-export function CardGrid() {
+export const CardGrid = () => {
   const searchQuery = useAtomValue(searchQueryAtom)
   const typeFilter = useAtomValue(typeFilterAtom)
   const tagFilter = useAtomValue(tagFilterAtom)

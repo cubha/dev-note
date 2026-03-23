@@ -11,6 +11,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { guideOpenAtom } from '../../store/atoms'
 import { GUIDE_STEPS, type GuideStep } from './guide-steps'
+import { Button } from '../../shared/components/Button'
+import { Modal } from '../../shared/components/Modal'
+import { ModalHeader } from '../../shared/components/ModalHeader'
 
 const ICON_MAP: Record<GuideStep['icon'], LucideIcon> = {
   cards: LayoutGrid,
@@ -30,7 +33,7 @@ const ICON_COLOR: Record<GuideStep['icon'], string> = {
   ai: 'var(--badge-db-text)',
 }
 
-export function GuideModal() {
+export const GuideModal = () => {
   const [isOpen, setIsOpen] = useAtom(guideOpenAtom)
   const [step, setStep] = useState(0)
 
@@ -78,37 +81,13 @@ export function GuideModal() {
   const isLast = step === total - 1
 
   return (
-    <>
-      {/* 백드롭 */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={handleClose}
-        aria-hidden
-      />
-
-      {/* 모달 */}
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="사용 가이드"
-        className="fixed left-1/2 top-1/2 z-50 w-[520px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl animate-scale-in flex flex-col"
-      >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3 shrink-0">
-          <h2 className="text-sm font-medium text-[var(--text-primary)]">
-            사용 가이드
-          </h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex items-center justify-center rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] cursor-pointer bg-transparent border-none"
-            aria-label="닫기"
-          >
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Modal
+      onClose={handleClose}
+      width="w-[520px]"
+      enableEsc={false}
+      ariaLabel="사용 가이드"
+    >
+      <ModalHeader title="사용 가이드" onClose={handleClose} />
 
         {/* 슬라이드 콘텐츠 — 각 영역 고정 높이로 슬라이드 간 위치 일관성 유지 */}
         <div className="px-5 py-6 flex flex-col items-center text-center h-[280px]">
@@ -170,38 +149,22 @@ export function GuideModal() {
 
           {/* 버튼 */}
           <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handlePrev}
-              disabled={step === 0}
-              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none disabled:opacity-30 disabled:cursor-not-allowed"
-            >
+            <Button variant="ghost" size="sm" onClick={handlePrev} disabled={step === 0}>
               <ChevronLeft size={14} />
               이전
-            </button>
+            </Button>
 
             <div className="flex items-center gap-2">
               {!isLast && (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-md px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer bg-transparent border-none"
-                >
-                  건너뛰기
-                </button>
+                <Button variant="ghost" size="sm" onClick={handleClose}>건너뛰기</Button>
               )}
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] transition-colors cursor-pointer border-none"
-              >
+              <Button variant="primary" size="sm" onClick={handleNext}>
                 {isLast ? '완료' : '다음'}
                 {!isLast && <ChevronRight size={14} />}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </Modal>
   )
 }

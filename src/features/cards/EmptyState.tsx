@@ -4,7 +4,7 @@ interface EmptyStateProps {
   onAddCard: () => void
 }
 
-export function EmptyState({ onAddCard }: EmptyStateProps) {
+export const EmptyState = ({ onAddCard }: EmptyStateProps) => {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
       <div className="flex flex-col items-center gap-6 max-w-sm text-center">

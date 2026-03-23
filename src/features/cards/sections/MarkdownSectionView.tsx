@@ -10,7 +10,7 @@ interface MarkdownSectionViewProps {
   onChange: (updated: MarkdownSection) => void
 }
 
-export function MarkdownSectionView({ section, onChange }: MarkdownSectionViewProps) {
+export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewProps) => {
   const { height, handleDragStart } = useResizableHeight(60, 120)
   const [showPreview, setShowPreview] = useState(false)
   const [html, setHtml] = useState('')

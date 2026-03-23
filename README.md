@@ -104,13 +104,24 @@ src/
 │   └── tabHelpers.ts      # openTab(), closeTab() 헬퍼 함수
 └── shared/
     ├── components/
-    │   └── ContextMenu.tsx  # 우클릭 메뉴 (이름 변경, 삭제)
+    │   ├── Modal.tsx          # 공통 모달 (백드롭+ESC+중앙정렬, elevated/width/maxHeight)
+    │   ├── ModalHeader.tsx    # 공통 모달 헤더 (제목+아이콘+X 닫기)
+    │   ├── Button.tsx         # 공통 버튼 (primary/secondary/ghost/danger, sm/md)
+    │   ├── IconButton.tsx     # 아이콘 버튼 (tooltip, sm/md)
+    │   ├── Input.tsx          # 공통 텍스트 입력 (sm/md)
+    │   ├── TextArea.tsx       # 공통 텍스트영역 (autoResize)
+    │   ├── Dropdown.tsx       # 드롭다운 (trigger+items)
+    │   ├── Badge.tsx          # 배지/태그 (xs/sm, default/accent/muted)
+    │   ├── AIErrorModal.tsx   # AI 에러 모달 (에러 유형별 안내)
+    │   └── ContextMenu.tsx    # 우클릭 메뉴 (이름 변경, 삭제)
     ├── hooks/
     │   ├── useGlobalKeyboardShortcuts.ts  # 전역 단축키 핸들러 (@tanstack/react-hotkeys 연동)
     │   ├── useHotkeyRecorder.ts           # 키 녹화 훅 (단축키 설정 UI용)
+    │   ├── usePasswordReveal.ts           # 비밀번호 표시/숨기기 토글 훅
     │   ├── useClickOutside.ts             # 외부 클릭 감지
     │   └── useResizableHeight.ts          # 드래그 리사이즈
     └── utils/
+        ├── cn.ts                  # className 조합 유틸리티 (falsy 자동 제거)
         ├── clipboard.ts           # 클립보드 복사
         ├── editorKeymap.ts        # CodeMirror 에디터 단축키 빌더
         ├── url.ts                 # URL 유효성 검사 (isSafeUrl)
@@ -241,6 +252,17 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.3.1 (2026-03-23)
+
+**코드베이스 리팩토링**
+- 공통 UI 컴포넌트 10종 추출 — Modal, ModalHeader, Button, IconButton, Input, TextArea, Dropdown, Badge, AIErrorModal, ContextMenu
+- `usePasswordReveal` 훅 생성 — 3곳 비밀번호 표시/숨기기 패턴 통합
+- `cn()` 유틸리티 도입 — className 조합 간결화
+- 전체 function 선언 → const 화살표 함수 변환 (42개 파일, 69+ 함수)
+- CSS `@layer components` 등록 — `.label-text`, `.meta-text`, `.subtle-btn` 반복 패턴 공통화
+- 매직넘버 상수화 (`TREE_DEPTH_INDENT_PX`), `useClickOutside` 훅 적용 확대
+- 총 538줄 순감소 (+480 / -1,018)
 
 ### v1.3.0 (2026-03-21)
 

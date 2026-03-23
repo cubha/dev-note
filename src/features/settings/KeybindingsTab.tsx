@@ -31,7 +31,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ['card', 'folder', 'tab', 'search', 'ui', 'editor']
 
-function groupByCategory(): [string, CommandId[]][] {
+const groupByCategory = (): [string, CommandId[]][] => {
   const map = new Map<string, CommandId[]>()
   for (const [id, def] of Object.entries(DEFAULT_KEYBINDINGS) as [CommandId, (typeof DEFAULT_KEYBINDINGS)[CommandId]][]) {
     const cat = def.category
@@ -60,14 +60,14 @@ interface KeybindingRowProps {
   effectiveBindings: Record<CommandId, string>
 }
 
-function KeybindingRow({
+const KeybindingRow = ({
   commandId,
   currentKey,
   isDefault,
   onSave,
   onReset,
   effectiveBindings,
-}: KeybindingRowProps) {
+}: KeybindingRowProps) => {
   const { recording, recordedKey, startRecording } = useHotkeyRecorder()
   const [rowError, setRowError] = useState<RowError | null>(null)
   const [warnMessage, setWarnMessage] = useState<string | null>(null)
@@ -185,7 +185,7 @@ function KeybindingRow({
 
 // ─── KeybindingsTab ────────────────────────────────────────────
 
-export function KeybindingsTab() {
+export const KeybindingsTab = () => {
   const effectiveBindings = useAtomValue(effectiveKeybindingsAtom)
   const setOverrides = useSetAtom(keybindingOverridesWriteAtom)
   const [overrides, setLocalOverrides] = useState<Record<string, { userKey: string | null; enabled: boolean }>>(() => {

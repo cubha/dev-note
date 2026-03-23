@@ -271,7 +271,7 @@ export class AIService {
 
 // ─── 시스템 프롬프트 빌더 ────────────────────────────────────
 
-function buildSummaryPrompt(cardType: ItemType): string {
+const buildSummaryPrompt = (cardType: ItemType): string => {
   return `You are a concise summarizer for a developer's information card.
 The card type is "${cardType}".
 
@@ -285,7 +285,7 @@ Rules:
 - Do not include sensitive data (passwords, tokens) in the summary`
 }
 
-function buildDocumentPastePrompt(): string {
+const buildDocumentPastePrompt = (): string => {
   return `You are a document structuring assistant for a developer's tool.
 Convert free-form text into structured sections for a "Document" card.
 
@@ -308,7 +308,7 @@ Rules:
 - Mark passwords and secrets appropriately (secret: true for env, include in password field for credentials)`
 }
 
-function buildMarkdownPastePrompt(): string {
+const buildMarkdownPastePrompt = (): string => {
   return `You are a content organizer that converts free-form text into well-structured Markdown.
 
 Your job:
@@ -334,7 +334,7 @@ Tag rules:
 - Use lowercase, short keywords (e.g., "devops", "회의록", "api", "설정")`
 }
 
-function buildSmartPastePrompt(targetType?: ItemType): string {
+const buildSmartPastePrompt = (targetType?: ItemType): string => {
   return `You are a structured data extraction assistant for a developer's tool.
 Extract server, database, or API connection information from the given text.
 

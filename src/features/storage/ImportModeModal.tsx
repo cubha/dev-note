@@ -23,7 +23,7 @@ interface Props {
   onCancel: () => void
 }
 
-export function ImportModeModal({ importPreview, currentStats, onConfirm, onCancel }: Props) {
+export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCancel }: Props) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [mode, setMode] = useState<'append' | 'replace'>('append')
 

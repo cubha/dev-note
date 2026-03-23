@@ -7,7 +7,7 @@ interface CardContentProps {
   searchQuery?: string
 }
 
-export function CardContentView({ content, excludeMultiline, searchQuery = '' }: CardContentProps) {
+export const CardContentView = ({ content, excludeMultiline, searchQuery = '' }: CardContentProps) => {
   if (content.format === 'legacy') {
     return (
       <div className="px-4 pb-4">
