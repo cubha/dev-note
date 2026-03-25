@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.3.1',
+    date: '2026-03-25',
+    title: 'Document View 개선 & 카드 DnD 순서 변경',
+    highlights: [
+      'Document View 접속 정보 주소 분리 — 호스트 / 사용자명 별도 행 표시 (각 복사 버튼)',
+      '카드 그리드 DnD 순서 변경 — 드래그앤드롭으로 카드 배치 순서 변경, 새로고침 후에도 유지',
+      '코드베이스 리팩토링 — 공통 컴포넌트 10종 추출, cn() 유틸리티, function → arrow 변환',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.3.0',
     date: '2026-03-21',
     title: '단축키 커스터마이징 & Note 카드',

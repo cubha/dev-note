@@ -167,7 +167,7 @@ interface HybridContent {
 ### 카드 관리
 - **5종 카드 타입**으로 서버, DB, API, 메모, 문서를 체계적으로 관리
 - **폴더 트리** 계층 구조 + **태그** 횡단 분류
-- **드래그 앤 드롭** 정렬 및 폴더 간 이동
+- **드래그 앤 드롭** — 카드 그리드 순서 변경 + 폴더 간 이동
 - **다중 선택** (Ctrl+Click, Shift+Click) 및 일괄 작업
 
 ### 검색 & 필터
@@ -253,7 +253,17 @@ Claude API (Vercel Edge Function 프록시)
 
 ## 🚀 릴리즈 노트
 
-### v1.3.1 (2026-03-23)
+### v1.3.1 (2026-03-25)
+
+**Document View 접속 정보 개선**
+- 주소 단일 행(`username@host:port`) → **호스트** / **사용자명** 두 행으로 분리 표시
+- 각 필드에 개별 복사 버튼 제공
+
+**카드 그리드 DnD 순서 변경**
+- 메인 카드 그리드에서 드래그앤드롭으로 카드 배치 순서 변경
+- hover 시 `GripVertical` 드래그 핸들 표시, 드래그 중 반투명·드롭 대상 ring 하이라이트
+- drop 시 IndexedDB `order` 필드 일괄 갱신 (새로고침 후에도 순서 유지)
+- 검색 중 DnD 자동 비활성화 (Fuse.js 관련도 순 결과에서는 순서 변경 불필요)
 
 **코드베이스 리팩토링**
 - 공통 UI 컴포넌트 10종 추출 — Modal, ModalHeader, Button, IconButton, Input, TextArea, Dropdown, Badge, AIErrorModal, ContextMenu
