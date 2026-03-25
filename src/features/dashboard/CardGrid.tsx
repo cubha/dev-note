@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Fuse from 'fuse.js'
@@ -129,6 +129,62 @@ export const CardGrid = () => {
     setCardForm({ isOpen: true, editItem: null, folderId: selectedFolder })
   }
 
+  // ── Drag & Drop ───────────────────────────────────────────────
+  const [dragItemId, setDragItemId] = useState<number | null>(null)
+  const [dragOverId, setDragOverId] = useState<number | null>(null)
+
+  // 검색 활성 시 DnD 비활성 (Fuse 결과는 관련도 순이라 order 의미 없음)
+  const isDndEnabled = !searchQuery.trim()
+
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, itemId: number) => {
+    e.dataTransfer.effectAllowed = 'move'
+    setDragItemId(itemId)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setDragItemId(null)
+    setDragOverId(null)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, itemId: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverId(itemId)
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>, targetItemId: number) => {
+    e.preventDefault()
+    if (dragItemId === null || dragItemId === targetItemId || !items) {
+      setDragItemId(null)
+      setDragOverId(null)
+      return
+    }
+
+    // items는 DB에서 order 기준 정렬된 전체 목록
+    const allItems = [...items]
+    const fromIndex = allItems.findIndex((it) => it.id === dragItemId)
+    const toIndex = allItems.findIndex((it) => it.id === targetItemId)
+
+    if (fromIndex === -1 || toIndex === -1) {
+      setDragItemId(null)
+      setDragOverId(null)
+      return
+    }
+
+    const [moved] = allItems.splice(fromIndex, 1)
+    allItems.splice(toIndex, 0, moved)
+
+    const updates = allItems.map((it, index) => ({ ...it, order: index }))
+    try {
+      await db.items.bulkPut(updates)
+    } catch (err) {
+      toast.error(`순서 변경 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
+
+    setDragItemId(null)
+    setDragOverId(null)
+  }, [dragItemId, items])
+
   if (!items) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -163,6 +219,13 @@ export const CardGrid = () => {
             onEdit={handleEdit}
             onDelete={(i) => void handleDelete(i)}
             onTogglePin={(i) => void handleTogglePin(i)}
+            draggable={isDndEnabled}
+            isDragging={dragItemId === item.id}
+            isDragOver={dragOverId === item.id && dragItemId !== item.id}
+            onDragStart={(e) => handleDragStart(e, item.id)}
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => handleDragOver(e, item.id)}
+            onDrop={(e) => void handleDrop(e, item.id)}
           />
         ))}
       </div>
