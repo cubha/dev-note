@@ -172,6 +172,7 @@ export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
               type="text"
               defaultValue={folder.name}
               onKeyDown={async (e) => {
+                e.stopPropagation()
                 if (e.key === 'Enter') {
                   e.preventDefault()
                   skipSave.current = true
@@ -379,6 +380,7 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
           type="text"
           defaultValue={item.title}
           onKeyDown={async (e) => {
+            e.stopPropagation()
             if (e.key === 'Enter') {
               e.preventDefault()
               skipSave.current = true
