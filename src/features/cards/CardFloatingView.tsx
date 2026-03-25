@@ -223,9 +223,9 @@ const ReadOnlyMarkdown = ({ section }: { section: MarkdownSection }) => {
 const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
   const [showPw, setShowPw] = useState(false)
   const CatIcon = CATEGORY_ICONS_VIEW[entry.category] ?? HardDrive
-  const addrText = entry.host
-    ? `${entry.username ? entry.username + '@' : ''}${entry.host}${entry.port ? ':' + entry.port : ''}`
-    : entry.label
+  const hostText = entry.host
+    ? `${entry.host}${entry.port ? ':' + entry.port : ''}`
+    : ''
 
   return (
     <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-3 space-y-1.5">
@@ -239,13 +239,27 @@ const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
         </span>
       </div>
 
-      {addrText && (
+      {hostText && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">주소</span>
-          <span className="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{addrText}</span>
+          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">호스트</span>
+          <span className="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{hostText}</span>
           <button
             type="button"
-            onClick={() => void copyToClipboard(addrText, '주소')}
+            onClick={() => void copyToClipboard(hostText, '호스트')}
+            className="p-0.5 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
+          >
+            <Copy size={11} />
+          </button>
+        </div>
+      )}
+
+      {entry.username && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">사용자명</span>
+          <span className="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{entry.username}</span>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard(entry.username, '사용자명')}
             className="p-0.5 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
           >
             <Copy size={11} />

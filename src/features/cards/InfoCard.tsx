@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
-  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, Eye,
+  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, Eye, GripVertical,
 } from 'lucide-react'
 import type { FuseResultMatch } from 'fuse.js'
 import type { Item } from '../../core/db'
@@ -46,9 +46,20 @@ interface InfoCardProps {
   onEdit: (item: Item) => void
   onDelete: (item: Item) => void
   onTogglePin: (item: Item) => void
+  draggable?: boolean
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void
 }
 
-export const InfoCard = ({ item, content, matches, onEdit, onDelete, onTogglePin }: InfoCardProps) => {
+export const InfoCard = ({
+  item, content, matches, onEdit, onDelete, onTogglePin,
+  draggable: isDraggable, isDragging, isDragOver,
+  onDragStart, onDragEnd, onDragOver, onDrop,
+}: InfoCardProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -72,16 +83,30 @@ export const InfoCard = ({ item, content, matches, onEdit, onDelete, onTogglePin
 
   return (
     <div
-      className="card animate-fade-in cursor-pointer relative flex flex-col"
+      className={`card animate-fade-in cursor-pointer relative flex flex-col transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'ring-2 ring-[var(--text-active)] ring-offset-2 ring-offset-[var(--bg-base)]' : ''}`}
       data-type={item.type}
       data-pinned={item.pinned}
+      draggable={isDraggable}
       onClick={() => onEdit(item)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') onEdit(item) }}
     >
+      {/* ── 드래그 핸들 ─────────────────── */}
+      {isDraggable && (
+        <div
+          className={`absolute top-2 left-2 transition-opacity ${hovered ? 'opacity-40' : 'opacity-0'} text-[var(--text-placeholder)] pointer-events-none`}
+        >
+          <GripVertical size={14} />
+        </div>
+      )}
+
       {/* ── 헤더 ────────────────────────── */}
       <div className="flex items-start justify-between px-4 pt-4 pb-2">
         <div className="flex items-center gap-2.5 min-w-0">
