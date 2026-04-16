@@ -231,7 +231,7 @@ export class AIService {
       })
     } catch {
       throw new AIError(
-        'Worker 서버에 연결할 수 없습니다. 네트워크를 확인해주세요.',
+        '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
         'network_error',
       )
     }
