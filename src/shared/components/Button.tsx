@@ -3,14 +3,10 @@
 import React from 'react'
 import { cn } from '../utils/cn'
 
-interface ButtonProps {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
   type?: 'button' | 'submit' | 'reset'
-  disabled?: boolean
-  onClick?: (e: React.MouseEvent) => void
-  className?: string
-  children: React.ReactNode
 }
 
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
@@ -32,22 +28,20 @@ export const Button = ({
   variant = 'primary',
   size = 'md',
   type = 'button',
-  disabled,
-  onClick,
   className,
   children,
+  ...rest
 }: ButtonProps) => {
   return (
     <button
       type={type}
-      disabled={disabled}
-      onClick={onClick}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
         variantStyles[variant],
         sizeStyles[size],
         className,
       )}
+      {...rest}
     >
       {children}
     </button>

@@ -8,7 +8,7 @@ import type { AIErrorCode } from '../../core/ai'
 
 // ─── 에러 코드 → 사용자 메시지 매핑 ─────────────────────────
 
-export const AI_ERROR_LABELS: Record<string, string> = {
+export const AI_ERROR_LABELS: Record<AIErrorCode, string> = {
   auth_error: 'API 키 오류',
   permission_error: 'API 권한 부족',
   credit_exhausted: '크레딧 소진',

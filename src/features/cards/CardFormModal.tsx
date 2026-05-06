@@ -171,6 +171,8 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
         return
       }
       onClose()
+    } catch (err) {
+      toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     } finally {
       setSaving(false)
     }

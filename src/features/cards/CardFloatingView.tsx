@@ -4,8 +4,7 @@ import {
   Terminal, Database, FileText, X, Sparkles, Loader2, ChevronDown, ChevronUp,
   ChevronRight, Shield, Link, Code, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
 } from 'lucide-react'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { useMarkdownHtml } from '../../shared/hooks/useMarkdownHtml'
 import { toast } from 'sonner'
 import { cardViewAtom, SHARED_API_URL } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
@@ -32,8 +31,6 @@ import { IconButton } from '../../shared/components/IconButton'
 // ── 마크다운 렌더링 뷰 (markdown 타입 전용) ──────────────────
 
 const MarkdownView = ({ content }: { content: CardContentType }) => {
-  const [html, setHtml] = useState('')
-
   const rawText =
     content.format === 'structured'
       ? (content.fields.find((f) => f.key === 'content')?.value ?? '')
@@ -41,10 +38,7 @@ const MarkdownView = ({ content }: { content: CardContentType }) => {
         ? content.text
         : ''
 
-  useEffect(() => {
-    const result = marked.parse(rawText) as string
-    setHtml(DOMPurify.sanitize(result))
-  }, [rawText])
+  const html = useMarkdownHtml(rawText)
 
   if (!rawText) {
     return (
@@ -200,13 +194,7 @@ const CATEGORY_ICONS_VIEW: Record<string, React.ComponentType<{ size?: number; c
 // ── 섹션별 읽기 전용 렌더러 ──────────────────────────────────
 
 const ReadOnlyMarkdown = ({ section }: { section: MarkdownSection }) => {
-  const [html, setHtml] = useState('')
-
-  useEffect(() => {
-    if (!section.text) { setHtml(''); return }
-    const result = marked.parse(section.text) as string
-    setHtml(DOMPurify.sanitize(result))
-  }, [section.text])
+  const html = useMarkdownHtml(section.text ?? '')
 
   if (!section.text) {
     return <p className="text-sm text-[var(--text-placeholder)] italic m-0">내용이 없습니다</p>

@@ -15,6 +15,7 @@ import { formatForDisplay } from '@tanstack/hotkeys'
 import {
   keybindingOverridesWriteAtom,
   effectiveKeybindingsAtom,
+  KEYBINDINGS_STORAGE_KEY,
 } from '../../store/atoms'
 import { useHotkeyRecorder } from '../../shared/hooks/useHotkeyRecorder'
 
@@ -190,7 +191,7 @@ export const KeybindingsTab = () => {
   const setOverrides = useSetAtom(keybindingOverridesWriteAtom)
   const [overrides, setLocalOverrides] = useState<Record<string, { userKey: string | null; enabled: boolean }>>(() => {
     try {
-      const raw = localStorage.getItem('dev-note:keybindings')
+      const raw = localStorage.getItem(KEYBINDINGS_STORAGE_KEY)
       return raw ? (JSON.parse(raw) as Record<string, { userKey: string | null; enabled: boolean }>) : {}
     } catch {
       return {}

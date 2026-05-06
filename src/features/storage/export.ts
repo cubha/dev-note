@@ -60,6 +60,22 @@ async function saveToFile(content: string, fileName: string): Promise<void> {
   }
 }
 
+// ─── 아이템 내보내기 포맷 변환 ────────────────────────────────
+
+function toExportItem(item: Item): Omit<Item, 'id'> {
+  return {
+    folderId: item.folderId,
+    title: item.title,
+    type: item.type,
+    tags: item.tags,
+    order: item.order,
+    pinned: item.pinned ?? false,
+    content: item.content,
+    updatedAt: item.updatedAt,
+    createdAt: item.createdAt,
+  }
+}
+
 // ─── 내보내기 진입점 ───────────────────────────────────────────
 
 export async function exportData(): Promise<void> {
@@ -73,17 +89,7 @@ export async function exportData(): Promise<void> {
     version: 2,
     exportedAt,
     folders,
-    items: items.map((item): Omit<Item, 'id'> => ({
-      folderId: item.folderId,
-      title: item.title,
-      type: item.type,
-      tags: item.tags,
-      order: item.order,
-      pinned: item.pinned ?? false,
-      content: item.content,
-      updatedAt: item.updatedAt,
-      createdAt: item.createdAt,
-    })),
+    items: items.map(toExportItem),
   }
 
   const content = JSON.stringify(schema, null, 2)
@@ -124,20 +130,12 @@ export async function exportSelectedItems(itemIds: number[]): Promise<void> {
     version: 2,
     exportedAt,
     folders: exportFolders,
-    items: validItems.map((item): Omit<Item, 'id'> => ({
-      folderId: item.folderId,
-      title: item.title,
-      type: item.type,
-      tags: item.tags,
-      order: item.order,
-      pinned: item.pinned ?? false,
-      content: item.content,
-      updatedAt: item.updatedAt,
-      createdAt: item.createdAt,
-    })),
+    items: validItems.map(toExportItem),
   }
 
   const content = JSON.stringify(schema, null, 2)
   const fileName = `devnote-selected-${formatDateForFilename(exportedAt)}.json`
   await saveToFile(content, fileName)
+
+  await db.config.update(1, { lastExportAt: exportedAt })
 }

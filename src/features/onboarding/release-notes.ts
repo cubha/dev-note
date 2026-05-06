@@ -13,6 +13,15 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.3.2',
+    date: '2026-05-06',
+    title: '파비콘 교체',
+    highlights: [
+      '앱 파비콘을 Vite 기본 아이콘에서 DevNote D 로고로 교체 (브라우저 탭·작업표시줄에 반영)',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.3.1',
     date: '2026-03-25',
     title: 'Document View 개선 & 카드 DnD 순서 변경',

@@ -1,7 +1,8 @@
 // src/shared/components/Dropdown.tsx
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { cn } from '../utils/cn'
+import { useClickOutside } from '../hooks/useClickOutside'
 
 interface DropdownItem {
   label: string
@@ -30,18 +31,7 @@ export const Dropdown = ({
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
+  useClickOutside(containerRef, isOpen, () => setIsOpen(false))
 
   const handleSelect = (itemValue: string) => {
     onSelect(itemValue)
@@ -50,7 +40,12 @@ export const Dropdown = ({
 
   return (
     <div ref={containerRef} className={cn('relative inline-block', className)}>
-      <div onClick={() => setIsOpen((prev) => !prev)}>{trigger}</div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsOpen((prev) => !prev)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen((prev) => !prev) } }}
+      >{trigger}</div>
       {isOpen && (
         <ul
           className={cn(

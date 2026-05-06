@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import type { MarkdownSection } from '../../../core/types'
 import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
+import { useMarkdownHtml } from '../../../shared/hooks/useMarkdownHtml'
 
 interface MarkdownSectionViewProps {
   section: MarkdownSection
@@ -13,13 +12,7 @@ interface MarkdownSectionViewProps {
 export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewProps) => {
   const { height, handleDragStart } = useResizableHeight(60, 120)
   const [showPreview, setShowPreview] = useState(false)
-  const [html, setHtml] = useState('')
-
-  useEffect(() => {
-    if (!showPreview) return
-    const result = marked.parse(section.text) as string
-    setHtml(DOMPurify.sanitize(result))
-  }, [showPreview, section.text])
+  const html = useMarkdownHtml(showPreview ? section.text : '')
 
   return (
     <div className="flex flex-col">
