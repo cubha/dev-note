@@ -80,7 +80,7 @@ function isItemV2(value: unknown): value is Omit<Item, 'id'> {
 }
 
 // v1 아이템 (encryptedContent/iv 필드 — 레거시)
-function isItemV1(value: unknown): boolean {
+function isItemV1(value: unknown): value is Record<string, unknown> {
   if (!isObject(value)) return false
   return (
     isNullOrNumber(value.folderId) &&

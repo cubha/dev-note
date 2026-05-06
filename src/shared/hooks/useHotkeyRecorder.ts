@@ -47,6 +47,10 @@ export const useHotkeyRecorder = (): HotkeyRecorderState => {
     const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      if (e.key === 'Escape') {
+        setRecording(false)
+        return
+      }
       const key = normalizeKey(e)
       if (key) {
         setRecordedKey(key)
@@ -54,20 +58,9 @@ export const useHotkeyRecorder = (): HotkeyRecorderState => {
       }
     }
 
-    // Escape로 녹화 취소
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
-        setRecording(false)
-      }
-    }
-
     window.addEventListener('keydown', handleKeyDown, true)
-    window.addEventListener('keydown', handleEscape, true)
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true)
-      window.removeEventListener('keydown', handleEscape, true)
     }
   }, [recording])
 

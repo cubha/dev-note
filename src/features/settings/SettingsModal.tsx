@@ -34,22 +34,6 @@ export const SettingsModal = () => {
     await db.config.update(1, patch)
   }
 
-  const handleFontSizeChange = (value: number) => {
-    void update({ editorFontSize: value })
-  }
-
-  const handleWordWrapChange = (enabled: boolean) => {
-    void update({ wordWrap: enabled })
-  }
-
-  const handleLineNumbersChange = (enabled: boolean) => {
-    void update({ showLineNumbers: enabled })
-  }
-
-  const handleThemeChange = (theme: 'dark' | 'light') => {
-    void update({ theme })
-  }
-
   return (
     <Modal onClose={handleClose} width="w-[520px]" ariaLabel="환경설정">
       <ModalHeader title="환경설정" onClose={handleClose} />
@@ -102,7 +86,7 @@ export const SettingsModal = () => {
                             name="theme"
                             value={t}
                             checked={config.theme === t}
-                            onChange={() => handleThemeChange(t)}
+                            onChange={() => void update({ theme: t })}
                             className="sr-only"
                           />
                           {t === 'dark' ? (
@@ -147,7 +131,7 @@ export const SettingsModal = () => {
                         max={24}
                         step={1}
                         value={config.editorFontSize}
-                        onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
+                        onChange={(e) => void update({ editorFontSize: parseInt(e.target.value) })}
                         className="flex-1 accent-[var(--accent)]"
                       />
                       <span className="w-8 text-right text-sm tabular-nums text-[var(--text-primary)]">
@@ -169,7 +153,7 @@ export const SettingsModal = () => {
                       type="button"
                       role="switch"
                       aria-checked={config.wordWrap}
-                      onClick={() => handleWordWrapChange(!config.wordWrap)}
+                      onClick={() => void update({ wordWrap: !config.wordWrap })}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--border-accent)] ${
                         config.wordWrap ? 'bg-[var(--accent)]' : 'bg-[var(--text-placeholder)]'
                       }`}
@@ -198,7 +182,7 @@ export const SettingsModal = () => {
                       type="button"
                       role="switch"
                       aria-checked={config.showLineNumbers}
-                      onClick={() => handleLineNumbersChange(!config.showLineNumbers)}
+                      onClick={() => void update({ showLineNumbers: !config.showLineNumbers })}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--border-accent)] ${
                         config.showLineNumbers ? 'bg-[var(--accent)]' : 'bg-[var(--text-placeholder)]'
                       }`}

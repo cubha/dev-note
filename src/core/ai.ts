@@ -152,8 +152,12 @@ export class AIService {
     if (!toolBlock?.input) {
       throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
     }
+    const input = toolBlock.input as Record<string, unknown>
+    if (typeof input.detectedType !== 'string' || typeof input.title !== 'string') {
+      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
+    }
 
-    return toolBlock.input as unknown as SmartPasteResult
+    return input as unknown as SmartPasteResult
   }
 
   /** 카드 콘텐츠 요약 (한글) */
@@ -173,8 +177,12 @@ export class AIService {
     if (!toolBlock?.input) {
       throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
     }
+    const input = toolBlock.input as Record<string, unknown>
+    if (typeof input.summary !== 'string' || !Array.isArray(input.keyPoints)) {
+      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
+    }
 
-    return toolBlock.input as unknown as SummaryResult
+    return input as unknown as SummaryResult
   }
 
   /** Markdown Smart Paste — 자유 텍스트 → 정돈된 마크다운 변환 */
@@ -194,8 +202,12 @@ export class AIService {
     if (!toolBlock?.input) {
       throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
     }
+    const input = toolBlock.input as Record<string, unknown>
+    if (typeof input.title !== 'string' || typeof input.content !== 'string') {
+      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
+    }
 
-    return toolBlock.input as unknown as MarkdownPasteResult
+    return input as unknown as MarkdownPasteResult
   }
 
   /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 (Sonnet: 복잡한 멀티섹션 분류) */
@@ -215,8 +227,12 @@ export class AIService {
     if (!toolBlock?.input) {
       throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
     }
+    const input = toolBlock.input as Record<string, unknown>
+    if (typeof input.title !== 'string' || !Array.isArray(input.sections)) {
+      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
+    }
 
-    return toolBlock.input as unknown as DocumentPasteResult
+    return input as unknown as DocumentPasteResult
   }
 
   private async callClaude(body: Record<string, unknown>): Promise<ClaudeResponse> {
@@ -281,7 +297,7 @@ Rules:
 - List up to 5 key points as short bullet items
 - For server/db cards: focus on connection details, access restrictions
 - For api cards: focus on endpoint purpose, authentication method
-- For note/custom cards: focus on main topic and key takeaways
+- For note cards: focus on main topic and key takeaways
 - Do not include sensitive data (passwords, tokens) in the summary`
 }
 
@@ -342,7 +358,7 @@ Field mappings by type:
 - server: host, port(default 22), username, password, keyPath, note
 - db: host, port(default 3306/5432), dbName, username, password, note
 - api: url, method(default GET), apiKey, token, headers, note
-- markdown: content
+- note: content
 
 Rules:
 - Extract ONLY information explicitly present in the text

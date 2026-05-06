@@ -132,6 +132,10 @@ export async function importData(
       { allKeys: true },
     )) as number[]
 
+    if (newFolderIds.length !== foldersToInsert.length) {
+      throw new Error(`폴더 삽입 수 불일치: 예상 ${foldersToInsert.length}개, 실제 ${newFolderIds.length}개`)
+    }
+
     // 구 ID → 신 ID 매핑 테이블 구성
     const folderIdMap = new Map<number, number>()
     parsed.folders.forEach((f: Folder, i: number) => {

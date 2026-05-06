@@ -4,9 +4,8 @@ import { Copy } from 'lucide-react'
 import {
   EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
   highlightActiveLine, placeholder as cmPlaceholder,
-  MatchDecorator, Decoration, ViewPlugin, type DecorationSet, type ViewUpdate,
 } from '@codemirror/view'
-import { EditorState as CMState, Compartment, type Extension } from '@codemirror/state'
+import { EditorState as CMState, Compartment } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import type { CodeSection } from '../../../core/types'
@@ -15,24 +14,7 @@ import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 import { effectiveKeybindingsAtom } from '../../../store/atoms'
 import { buildEditorKeymap } from '../../../shared/utils/editorKeymap'
 
-/** 언어 모드 미설정 시 기본 주석 토큰 (// 스타일) */
-const defaultCommentTokens: Extension = CMState.languageData.of(
-  () => [{ commentTokens: { line: '//' } }]
-)
-
-/** // 주석 시각적 하이라이팅 */
-const commentDecorator = new MatchDecorator({
-  regexp: /\/\/.*/g,
-  decoration: Decoration.mark({ class: 'cm-comment-highlight' }),
-})
-const commentHighlight = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet
-    constructor(view: EditorView) { this.decorations = commentDecorator.createDeco(view) }
-    update(update: ViewUpdate) { this.decorations = commentDecorator.updateDeco(update, this.decorations) }
-  },
-  { decorations: v => v.decorations }
-)
+import { defaultCommentTokens, commentHighlight } from '../../../shared/utils/editorExtensions'
 
 const LANGUAGES = [
   'text', 'bash', 'sql', 'json',

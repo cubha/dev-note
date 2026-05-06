@@ -5,6 +5,8 @@ export const useResizableHeight = (minHeight: number, defaultHeight: number) => 
   const [height, setHeight] = useState(defaultHeight)
   const dragStartY = useRef<number | null>(null)
   const dragStartH = useRef(defaultHeight)
+  const onMoveRef = useRef<((e: MouseEvent) => void) | null>(null)
+  const onUpRef = useRef<(() => void) | null>(null)
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -21,10 +23,14 @@ export const useResizableHeight = (minHeight: number, defaultHeight: number) => 
       dragStartY.current = null
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
+      onMoveRef.current = null
+      onUpRef.current = null
       document.body.style.userSelect = ''
       document.body.style.cursor = ''
     }
 
+    onMoveRef.current = onMove
+    onUpRef.current = onUp
     document.body.style.userSelect = 'none'
     document.body.style.cursor = 'row-resize'
     document.addEventListener('mousemove', onMove)
@@ -33,6 +39,8 @@ export const useResizableHeight = (minHeight: number, defaultHeight: number) => 
 
   useEffect(() => {
     return () => {
+      if (onMoveRef.current) document.removeEventListener('mousemove', onMoveRef.current)
+      if (onUpRef.current) document.removeEventListener('mouseup', onUpRef.current)
       document.body.style.userSelect = ''
       document.body.style.cursor = ''
     }

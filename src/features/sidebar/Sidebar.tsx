@@ -11,7 +11,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core'
 import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
 import {
   settingsOpenAtom,
@@ -27,8 +27,8 @@ import {
   openTabsAtom,
   dirtyItemsAtom,
 } from '../../store/atoms'
-import { buildTree, getRootItems, getFlatVisibleItemIds } from './treeUtils'
-import { DEFAULT_FOLDER_NAME, DEFAULT_ORDER_GAP } from '../../shared/constants'
+import { buildTree, getRootItems, getFlatVisibleItemIds, moveItemsToFolder, reorderItems, reorderFolders } from './treeUtils'
+import { DEFAULT_FOLDER_NAME } from '../../shared/constants'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
 import { removeItemsFromState } from '../../store/tabHelpers'
@@ -111,137 +111,27 @@ export const Sidebar = () => {
 
     const activeId = active.id as string
     const overId = over.id as string
-
     const activeIsItem = activeId.startsWith('i-')
     const activeIsFolder = activeId.startsWith('f-')
     const overIsItem = overId.startsWith('i-')
     const overIsFolder = overId.startsWith('f-')
 
-    // ── Case 1: 항목 → 폴더로 드롭 (폴더 간 이동) ────────────────
     if (activeIsItem && overIsFolder) {
-      const activeItemId = parseInt(activeId.slice(2))
-      const overFolderId = parseInt(overId.slice(2))
-
-      // 다중 선택 여부: 드래그 항목이 선택 집합에 포함되고 2개 이상 선택
+      const activeItemId = parseInt(activeId.slice(2), 10)
+      const overFolderId = parseInt(overId.slice(2), 10)
       const isMultiDrag = selectedItems.has(activeItemId) && selectedItems.size > 1
       const idsToMove = isMultiDrag ? Array.from(selectedItems) : [activeItemId]
-
-      // 이미 대상 폴더에 있는 항목 제외
-      const itemsToMove = items.filter(
-        (i) => i.id !== undefined && idsToMove.includes(i.id) && i.folderId !== overFolderId,
-      )
-      if (itemsToMove.length === 0) return
-
-      const targetFolderItems = items.filter((i) => i.folderId === overFolderId)
-      const baseOrder = targetFolderItems.length > 0
-        ? Math.max(...targetFolderItems.map((i) => i.order)) + DEFAULT_ORDER_GAP
-        : DEFAULT_ORDER_GAP
-
-      await db.items.bulkPut(
-        itemsToMove.map((item, idx) => ({
-          ...item,
-          folderId: overFolderId,
-          order: baseOrder + idx * DEFAULT_ORDER_GAP,
-        })),
-      )
-      return
-    }
-
-    // ── Case 2: 항목 → 항목으로 드롭 ─────────────────────────────
-    if (activeIsItem && overIsItem) {
-      const activeItemId = parseInt(activeId.slice(2))
-      const overItemId = parseInt(overId.slice(2))
-      const activeItem = items.find((i) => i.id === activeItemId)
-      const overItem = items.find((i) => i.id === overItemId)
-      if (!activeItem || !overItem) return
-
+      await moveItemsToFolder(items, idsToMove, overFolderId)
+    } else if (activeIsItem && overIsItem) {
+      const activeItemId = parseInt(activeId.slice(2), 10)
+      const overItemId = parseInt(overId.slice(2), 10)
       const isMultiDrag = selectedItems.has(activeItemId) && selectedItems.size > 1
-
-      if (isMultiDrag) {
-        // 다중 드래그: 선택된 항목 전체를 overItem의 폴더로 이동, overItem 위치에 삽입
-        const idsToMove = Array.from(selectedItems)
-        const itemsToMove = items.filter(
-          (i) => i.id !== undefined && idsToMove.includes(i.id),
-        )
-
-        await db.transaction('rw', db.items, async () => {
-          // overItem의 폴더 내 항목 목록 (이동 대상 제외)
-          const targetGroup = items
-            .filter(
-              (i) => i.folderId === overItem.folderId && !idsToMove.includes(i.id),
-            )
-            .sort((a, b) => a.order - b.order)
-
-          const overIdx = targetGroup.findIndex((i) => i.id === overItemId)
-          const insertAt = overIdx === -1 ? targetGroup.length : overIdx
-
-          // targetGroup의 overIdx 위치에 이동 항목들을 삽입
-          const newGroup = [...targetGroup]
-          const movedWithNewFolder = itemsToMove.map((i) => ({
-            ...i,
-            folderId: overItem.folderId,
-          }))
-          newGroup.splice(insertAt, 0, ...movedWithNewFolder)
-
-          await db.items.bulkPut(
-            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
-          )
-        })
-      } else if (activeItem.folderId === overItem.folderId) {
-        // 단일: 같은 폴더 내 순서 변경
-        const group = items
-          .filter((i) => i.folderId === activeItem.folderId)
-          .sort((a, b) => a.order - b.order)
-
-        const oldIdx = group.findIndex((i) => i.id === activeItemId)
-        const newIdx = group.findIndex((i) => i.id === overItemId)
-        if (oldIdx === -1 || newIdx === -1) return
-
-        const reordered = arrayMove(group, oldIdx, newIdx)
-        await db.items.bulkPut(
-          reordered.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
-        )
-      } else {
-        // 단일: 다른 폴더의 항목 위로 드롭 → overItem의 폴더로 이동, 해당 위치에 삽입
-        await db.transaction('rw', db.items, async () => {
-          const movedItem = { ...activeItem, folderId: overItem.folderId }
-          const targetGroup = items
-            .filter((i) => i.folderId === overItem.folderId)
-            .sort((a, b) => a.order - b.order)
-
-          const overIdx = targetGroup.findIndex((i) => i.id === overItemId)
-          const newGroup = [...targetGroup]
-          newGroup.splice(overIdx, 0, movedItem)
-
-          await db.items.bulkPut(
-            newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })),
-          )
-        })
-      }
-      return
-    }
-
-    // ── Case 3: 폴더 → 폴더로 드롭 (같은 parent 내 순서 변경) ────
-    if (activeIsFolder && overIsFolder) {
-      const activeFolderId = parseInt(activeId.slice(2))
-      const overFolderId = parseInt(overId.slice(2))
-      const activeFolder = folders.find((f) => f.id === activeFolderId)
-      const overFolder = folders.find((f) => f.id === overFolderId)
-      if (!activeFolder || !overFolder) return
-      if (activeFolder.parentId !== overFolder.parentId) return
-
-      const group = folders
-        .filter((f) => f.parentId === activeFolder.parentId)
-        .sort((a, b) => a.order - b.order)
-
-      const oldIdx = group.findIndex((f) => f.id === activeFolderId)
-      const newIdx = group.findIndex((f) => f.id === overFolderId)
-      if (oldIdx === -1 || newIdx === -1) return
-
-      const reordered = arrayMove(group, oldIdx, newIdx)
-      await db.folders.bulkPut(
-        reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })),
-      )
+      const selectedIds = isMultiDrag ? Array.from(selectedItems) : [activeItemId]
+      await reorderItems(items, activeItemId, overItemId, selectedIds)
+    } else if (activeIsFolder && overIsFolder) {
+      const activeFolderId = parseInt(activeId.slice(2), 10)
+      const overFolderId = parseInt(overId.slice(2), 10)
+      await reorderFolders(folders, activeFolderId, overFolderId)
     }
   }
 

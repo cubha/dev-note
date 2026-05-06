@@ -253,6 +253,27 @@ Claude API (Vercel Edge Function 프록시)
 
 ## 🚀 릴리즈 노트
 
+### v1.3.3 (2026-05-06)
+
+**버그 수정**
+- Smart Paste 타입 스키마 오류 수정 — `detectedType` 열거값에 폐기된 `'markdown'` 잔존 → `'note'`로 정정
+- 단축키 설정에서 Escape 키가 취소 대신 단축키로 등록되는 버그 수정
+- `exportSelectedItems()` 완료 후 `lastExportAt` 미갱신 수정 (백업 알림 기준 불일치 해소)
+- `CardFormModal` 저장 실패 시 토스트 오류 표시 누락 수정
+- `release-notes.ts` v1.3.2 항목 미등록 수정
+
+**코드 품질 개선**
+- `useMarkdownHtml` 훅 추출 — 마크다운 렌더링 패턴 4곳 중복 제거
+- `editorExtensions.ts` 추출 — CodeMirror `//` 주석 하이라이팅 중복 제거
+- `CardDetailEditor.tsx` 분리 → `NoteEditor.tsx`, `MarkdownEditorWithToggle.tsx`
+- `Sidebar.handleDragEnd` → `treeUtils.ts` 순수 함수 3종(`moveItemsToFolder`, `reorderItems`, `reorderFolders`)으로 분리
+- `TreeNode.tsx` 폴더/아이템 리네임 로직 → `RenameInput` 컴포넌트로 통합
+- `Button`, `IconButton` — `ButtonHTMLAttributes` 상속 (aria-*, data-* 속성 전달 지원)
+- `TabBar` 탭 닫기 버튼 HTML 명세 준수 (`<button>` 내 `<span role="button">` 중첩 제거)
+- `Dropdown` 키보드 접근성 추가 (Enter/Space 열기)
+- Claude API 응답 런타임 필드 검증 추가 (4개 메서드)
+- `AI_ERROR_LABELS` 타입 `Record<AIErrorCode, string>`으로 강화
+
 ### v1.3.2 (2026-05-06)
 
 **파비콘 교체**

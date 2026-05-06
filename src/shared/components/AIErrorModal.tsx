@@ -13,6 +13,7 @@ import { isErrorAlreadyReported, markErrorReported } from '../utils/error-report
 import type { ErrorDetail } from '../constants/ai-errors'
 import { AI_ERROR_LABELS } from '../constants/ai-errors'
 import { Modal } from './Modal'
+import { Button } from './Button'
 import { ModalHeader } from './ModalHeader'
 import { Badge } from './Badge'
 
@@ -110,11 +111,11 @@ export const AIErrorModal = ({
 
         {/* 푸터 */}
         <div className="flex items-center gap-2 border-t border-[var(--border-default)] px-4 py-3">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => void handleReport()}
             disabled={sending || alreadyReported || !SHARED_API_URL}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
           >
             {sending ? (
               <><Loader2 size={12} className="animate-spin" /> 전송 중...</>
@@ -123,14 +124,10 @@ export const AIErrorModal = ({
             ) : (
               <><Send size={12} /> 관리자에게 전송</>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
-          >
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             닫기
-          </button>
+          </Button>
         </div>
     </Modal>
   )

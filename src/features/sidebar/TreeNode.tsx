@@ -1,6 +1,6 @@
 // src/features/sidebar/TreeNode.tsx
 
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -21,6 +21,54 @@ import {
 } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { DEFAULT_ITEM_TITLE, TREE_DEPTH_INDENT_PX } from '../../shared/constants'
+
+// ─── RenameInput ──────────────────────────────────────────────
+
+const RenameInput = ({
+  defaultValue,
+  commit,
+  onCancel,
+}: {
+  defaultValue: string
+  commit: (name: string) => Promise<unknown>
+  onCancel: () => void
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const skipSave = useRef(false)
+
+  const handleCommit = useCallback(async () => {
+    const trimmed = (inputRef.current?.value ?? '').trim()
+    if (trimmed) await commit(trimmed)
+    onCancel()
+  }, [commit, onCancel])
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      defaultValue={defaultValue}
+      onKeyDown={async (e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          skipSave.current = true
+          await handleCommit()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          skipSave.current = true
+          onCancel()
+        }
+      }}
+      onBlur={async () => {
+        if (skipSave.current) { skipSave.current = false; return }
+        await handleCommit()
+      }}
+      onClick={(e) => e.stopPropagation()}
+      autoFocus
+      className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
+    />
+  )
+}
 
 const MENU_WIDTH = 192
 
@@ -62,8 +110,6 @@ export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
   const setContextMenu = useSetAtom(contextMenuAtom)
   const dragOverFolderId = useAtomValue(dragOverFolderAtom)
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const skipSave = useRef(false)
   const { folder, children, items } = node
   const isRenaming =
     renamingTarget?.type === 'folder' && renamingTarget?.id === folder.id
@@ -166,37 +212,11 @@ export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
             <path d="M3 7l9-4 9 4" />
           </svg>
           {isRenaming ? (
-            <input
+            <RenameInput
               key={`rename-folder-${folder.id}`}
-              ref={inputRef}
-              type="text"
               defaultValue={folder.name}
-              onKeyDown={async (e) => {
-                e.stopPropagation()
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  skipSave.current = true
-                  const trimmed = (inputRef.current?.value ?? '').trim()
-                  if (trimmed) await db.folders.update(folder.id, { name: trimmed })
-                  setRenamingTarget(null)
-                } else if (e.key === 'Escape') {
-                  e.preventDefault()
-                  skipSave.current = true
-                  setRenamingTarget(null)
-                }
-              }}
-              onBlur={async () => {
-                if (skipSave.current) {
-                  skipSave.current = false
-                  return
-                }
-                const trimmed = (inputRef.current?.value ?? '').trim()
-                if (trimmed) await db.folders.update(folder.id, { name: trimmed })
-                setRenamingTarget(null)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              autoFocus
-              className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
+              commit={(name) => db.folders.update(folder.id, { name })}
+              onCancel={() => setRenamingTarget(null)}
             />
           ) : (
             <span className="min-w-0 truncate" title={folder.name}>
@@ -288,8 +308,6 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
   const setLastSelected = useSetAtom(lastSelectedItemAtom)
   const flatVisibleItemIds = useAtomValue(flatVisibleItemIdsAtom)
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const skipSave = useRef(false)
   const isRenaming =
     renamingTarget?.type === 'item' && renamingTarget?.id === item.id
 
@@ -374,37 +392,11 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
         {badge.label}
       </span>
       {isRenaming ? (
-        <input
+        <RenameInput
           key={`rename-item-${item.id}`}
-          ref={inputRef}
-          type="text"
           defaultValue={item.title}
-          onKeyDown={async (e) => {
-            e.stopPropagation()
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              skipSave.current = true
-              const trimmed = (inputRef.current?.value ?? '').trim()
-              if (trimmed) await db.items.update(item.id, { title: trimmed })
-              setRenamingTarget(null)
-            } else if (e.key === 'Escape') {
-              e.preventDefault()
-              skipSave.current = true
-              setRenamingTarget(null)
-            }
-          }}
-          onBlur={async () => {
-            if (skipSave.current) {
-              skipSave.current = false
-              return
-            }
-            const trimmed = (inputRef.current?.value ?? '').trim()
-            if (trimmed) await db.items.update(item.id, { title: trimmed })
-            setRenamingTarget(null)
-          }}
-          onClick={(e) => e.stopPropagation()}
-          autoFocus
-          className="min-w-0 flex-1 rounded bg-[var(--bg-input)] px-1 text-sm text-[var(--text-editor)] outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
+          commit={(name) => db.items.update(item.id, { title: name })}
+          onCancel={() => setRenamingTarget(null)}
         />
       ) : (
         <span className="min-w-0 truncate" title={item.title || DEFAULT_ITEM_TITLE}>

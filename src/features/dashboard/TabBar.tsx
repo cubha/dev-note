@@ -111,45 +111,50 @@ export const TabBar = () => {
             const Icon = item ? ICON_MAP[item.type] : FileText
 
             return (
-              <button
+              <div
                 key={tabId}
                 ref={(el) => {
                   if (el) tabElsRef.current.set(tabId, el)
                   else tabElsRef.current.delete(tabId)
                 }}
-                type="button"
-                onClick={() => setActiveTab(tabId)}
-                onMouseDown={(e) => handleMiddleClick(e, tabId)}
-                onContextMenu={(e) => handleTabContextMenu(e, tabId)}
-                className={`group/tab relative flex shrink-0 items-center gap-1.5 px-3 text-xs font-medium transition-colors cursor-pointer border-none ${
+                className={`group/tab relative flex shrink-0 items-stretch transition-colors ${
                   isActive
-                    ? 'bg-[var(--bg-app)] text-[var(--text-primary)]'
-                    : 'bg-transparent text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)]'
+                    ? 'bg-[var(--bg-app)]'
+                    : 'bg-transparent hover:bg-[var(--bg-surface-hover)]'
                 }`}
               >
                 {isActive && (
                   <div className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--accent)]" />
                 )}
-                <Icon size={13} className="shrink-0" />
-                <span className="max-w-[100px] truncate">
-                  {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
-                </span>
-                {isDirty && (
-                  <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
-                )}
-                <span
-                  role="button"
-                  tabIndex={-1}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(tabId)}
+                  onMouseDown={(e) => handleMiddleClick(e, tabId)}
+                  onContextMenu={(e) => handleTabContextMenu(e, tabId)}
+                  className={`flex items-center gap-1.5 pl-3 pr-1 text-xs font-medium cursor-pointer border-none bg-transparent ${
+                    isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] group-hover/tab:text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <Icon size={13} className="shrink-0" />
+                  <span className="max-w-[100px] truncate">
+                    {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
+                  </span>
+                  {isDirty && (
+                    <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={(e) => handleCloseTab(e, tabId)}
-                  className={`shrink-0 rounded p-0.5 transition-colors ${
+                  className={`shrink-0 self-center rounded p-0.5 mr-1 transition-colors border-none bg-transparent ${
                     isActive
                       ? 'text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]'
                       : 'text-transparent group-hover/tab:text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <X size={12} />
-                </span>
-              </button>
+                </button>
+              </div>
             )
           })}
 
@@ -178,41 +183,44 @@ export const TabBar = () => {
                     const Icon = item ? ICON_MAP[item.type] : FileText
 
                     return (
-                      <button
+                      <div
                         key={tabId}
-                        type="button"
-                        onClick={() => {
-                          setOpenTabs(prev => [tabId, ...prev.filter(id => id !== tabId)])
-                          setActiveTab(tabId)
-                          setOverflowOpen(false)
-                        }}
-                        onContextMenu={(e) => { setOverflowOpen(false); handleTabContextMenu(e, tabId) }}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 cursor-pointer bg-transparent border-none transition-colors ${
+                        className={`flex w-full items-center transition-colors ${
                           isActive
                             ? 'bg-[var(--bg-surface-hover)] text-[var(--text-primary)]'
                             : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
                         }`}
                       >
-                        <Icon size={12} className="shrink-0 text-[var(--text-tertiary)]" />
-                        <span className="flex-1 text-xs text-left truncate">
-                          {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
-                        </span>
-                        {isDirty && (
-                          <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
-                        )}
-                        <span
-                          role="button"
-                          tabIndex={-1}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenTabs(prev => [tabId, ...prev.filter(id => id !== tabId)])
+                            setActiveTab(tabId)
+                            setOverflowOpen(false)
+                          }}
+                          onContextMenu={(e) => { setOverflowOpen(false); handleTabContextMenu(e, tabId) }}
+                          className="flex flex-1 items-center gap-2 px-3 py-1.5 cursor-pointer bg-transparent border-none text-inherit min-w-0"
+                        >
+                          <Icon size={12} className="shrink-0 text-[var(--text-tertiary)]" />
+                          <span className="flex-1 text-xs text-left truncate">
+                            {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
+                          </span>
+                          {isDirty && (
+                            <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             closeTab(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
                             setOverflowOpen(false)
                           }}
-                          className="shrink-0 rounded p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-colors"
+                          className="shrink-0 rounded p-0.5 mr-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-colors border-none bg-transparent"
                         >
                           <X size={11} />
-                        </span>
-                      </button>
+                        </button>
+                      </div>
                     )
                   })}
                 </div>

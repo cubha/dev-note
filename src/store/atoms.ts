@@ -141,7 +141,7 @@ export const cardViewAtom = atom<CardViewState | null>(null)
 
 // ─── 키바인딩 설정 ─────────────────────────────────────────────
 
-const KEYBINDINGS_STORAGE_KEY = 'dev-note:keybindings'
+export const KEYBINDINGS_STORAGE_KEY = 'dev-note:keybindings'
 
 function loadKeybindingOverrides(): UserOverrides {
   try {
@@ -165,14 +165,13 @@ export const keybindingOverridesWriteAtom = atom<
   void
 >(
   (get) => get(keybindingOverridesAtom),
-  (get, set, newOverrides) => {
+  (_get, set, newOverrides) => {
     set(keybindingOverridesAtom, newOverrides)
     try {
       localStorage.setItem(KEYBINDINGS_STORAGE_KEY, JSON.stringify(newOverrides))
     } catch {
       // localStorage 쓰기 실패 시 무시 (private 모드 등)
     }
-    void get // suppress unused warning
   }
 )
 

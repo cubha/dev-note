@@ -9,7 +9,7 @@ export const SMART_PASTE_SCHEMA = {
   properties: {
     detectedType: {
       type: 'string' as const,
-      enum: ['server', 'db', 'api', 'markdown', 'document'],
+      enum: ['server', 'db', 'api', 'note', 'document'],
       description: '입력 텍스트에서 감지된 카드 타입',
     },
     title: {
