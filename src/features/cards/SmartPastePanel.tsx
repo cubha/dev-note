@@ -358,7 +358,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
             type="button"
             onClick={() => void handleAnalyze()}
             disabled={state.status === 'parsing' || state.status === 'success' || state.status === 'partial' || !inputText.trim()}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer border-none"
+            className="btn-primary"
           >
             {state.status === 'parsing' ? (
               <><Loader2 size={12} className="animate-spin" /> {isDocumentMode ? '구조화 중...' : isMarkdownMode ? '정리 중...' : '분석 중...'}</>
@@ -439,14 +439,14 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 <button
                   type="button"
                   onClick={handleApply}
-                  className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] cursor-pointer border-none transition-colors"
+                  className="btn-primary"
                 >
                   <Check size={12} /> 적용
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+                  className="menu-item-btn"
                 >
                   <X size={12} /> 취소
                 </button>
@@ -508,14 +508,14 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 <button
                   type="button"
                   onClick={handleApply}
-                  className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] cursor-pointer border-none transition-colors"
+                  className="btn-primary"
                 >
                   <Check size={12} /> 모두 적용
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+                  className="menu-item-btn"
                 >
                   <X size={12} /> 취소
                 </button>
@@ -565,14 +565,14 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 <button
                   type="button"
                   onClick={handleApply}
-                  className="flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] cursor-pointer border-none transition-colors"
+                  className="btn-primary"
                 >
                   <Check size={12} /> 모두 적용
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+                  className="menu-item-btn"
                 >
                   <X size={12} /> 취소
                 </button>

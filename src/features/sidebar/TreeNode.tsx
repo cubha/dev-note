@@ -313,7 +313,7 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
 
   const isSelected = selectedItems.has(item.id)
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
       setSelectedItems((prev) => {
@@ -379,7 +379,7 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          handleClick(e as unknown as React.MouseEvent)
+          handleClick(e)
         }
       }}
       className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] select-none ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}

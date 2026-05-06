@@ -3,6 +3,26 @@ import { FIELD_SCHEMAS } from './types'
 import type { ItemType } from './db'
 import { nanoid } from 'nanoid'
 
+const VALID_SECTION_TYPES = new Set<string>(['markdown', 'credentials', 'urls', 'env', 'code'])
+
+const isValidSection = (s: unknown): boolean => {
+  if (typeof s !== 'object' || s === null) return false
+  const sec = s as Record<string, unknown>
+  return typeof sec.id === 'string' &&
+    typeof sec.type === 'string' &&
+    VALID_SECTION_TYPES.has(sec.type) &&
+    typeof sec.title === 'string' &&
+    typeof sec.collapsed === 'boolean'
+}
+
+const isValidField = (f: unknown): boolean => {
+  if (typeof f !== 'object' || f === null) return false
+  const field = f as Record<string, unknown>
+  return typeof field.key === 'string' &&
+    typeof field.value === 'string' &&
+    typeof field.type === 'string'
+}
+
 /**
  * 텍스트를 CardContent로 파싱한다.
  * - format: 'hybrid'  → HybridContent
@@ -24,11 +44,13 @@ export const parseContent = (text: string | null): CardContent => {
 
     // HybridContent 감지
     if (obj.format === 'hybrid' && Array.isArray(obj.sections)) {
+      if (!obj.sections.every(isValidSection)) return { format: 'legacy', text }
       return parsed as HybridContent
     }
 
     // StructuredContent 감지
     if (obj.format === 'structured' && Array.isArray(obj.fields)) {
+      if (!obj.fields.every(isValidField)) return { format: 'legacy', text }
       return parsed as StructuredContent
     }
   } catch {

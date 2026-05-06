@@ -63,7 +63,7 @@ export const SettingsModal = () => {
 
               {/* ── 화면 섹션 ── */}
               <section>
-                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+                <h3 className="section-label">
                   화면
                 </h3>
                 <div className="space-y-4">
@@ -110,7 +110,7 @@ export const SettingsModal = () => {
 
               {/* ── 에디터 섹션 ── */}
               <section>
-                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+                <h3 className="section-label">
                   에디터
                 </h3>
                 <div className="space-y-4">

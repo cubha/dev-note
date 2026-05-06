@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Copy, Plus, X } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { EnvEntry } from '../../../core/types'
@@ -42,6 +42,10 @@ const EnvRow = ({ entry, onChange, onDelete }: {
 }) => {
   const [showVal, setShowVal] = useState(!entry.secret)
 
+  useEffect(() => {
+    if (entry.secret) setShowVal(false)
+  }, [entry.secret])
+
   return (
     <div className="flex items-center gap-1.5">
       <input
@@ -77,7 +81,7 @@ const EnvRow = ({ entry, onChange, onDelete }: {
       <button
         type="button"
         onClick={() => void copyToClipboard(`${entry.key}=${entry.value}`, entry.key)}
-        className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
+        className="subtle-icon-btn"
       >
         <Copy size={12} />
       </button>

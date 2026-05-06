@@ -44,7 +44,7 @@ export const SearchFilterBar = () => {
         {searchQuery && (
           <button
             type="button"
-            onClick={() => { setSearchQuery(''); setTypeFilter(null); setTagFilter(null) }}
+            onClick={() => setSearchQuery('')}
             className="subtle-btn absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5"
           >
             <X size={12} />

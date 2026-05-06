@@ -24,6 +24,60 @@ import { CodeSectionView } from './sections/CodeSectionView'
 import { MarkdownSectionView } from './sections/MarkdownSectionView'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
 
+// ── Smart Paste 파서 ──────────────────────
+
+const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi
+
+const CREDENTIAL_PATTERNS: [string, RegExp][] = [
+  ['host', /(?:host|호스트|ip|서버|address)\s*[:：=]\s*(.+)/i],
+  ['port', /(?:port|포트)\s*[:：=]\s*(.+)/i],
+  ['username', /(?:user(?:name)?|사용자|아이디|id)\s*[:：=]\s*(.+)/i],
+  ['password', /(?:pass(?:word)?|비밀번호|pw)\s*[:：=]\s*(.+)/i],
+  ['database', /(?:database|db(?:name)?|데이터베이스)\s*[:：=]\s*(.+)/i],
+]
+
+const parseSectionPaste = (section: AnySection, text: string): AnySection => {
+  switch (section.type) {
+    case 'markdown':
+      return { ...section, text: section.text ? section.text + '\n' + text : text }
+    case 'env': {
+      const newPairs = text.split('\n').filter(l => l.trim()).map(line => {
+        const eqIdx = line.indexOf('=')
+        return eqIdx > 0
+          ? { id: nanoid(8), key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1).trim(), secret: false }
+          : { id: nanoid(8), key: line.trim(), value: '', secret: false }
+      })
+      return { ...section, pairs: [...section.pairs, ...newPairs] }
+    }
+    case 'urls': {
+      const found = text.match(URL_REGEX)
+      const urls = found ?? text.split('\n').filter(l => l.trim()).map(l => l.trim())
+      const newItems = urls.map(url => ({ id: nanoid(8), label: '', url, note: '' }))
+      return { ...section, items: [...section.items, ...newItems] }
+    }
+    case 'credentials': {
+      const entry: Record<string, string> = {}
+      for (const [key, pattern] of CREDENTIAL_PATTERNS) {
+        const match = text.match(pattern)
+        if (match) entry[key] = match[1].trim()
+      }
+      const newItem = {
+        id: nanoid(8),
+        label: entry.host ? `${entry.host}${entry.port ? ':' + entry.port : ''}` : '',
+        category: (entry.database ? 'database' : 'server') as 'server' | 'database' | 'other',
+        host: entry.host ?? '', port: entry.port ?? '',
+        username: entry.username ?? '', password: entry.password ?? '',
+        database: entry.database, extra: '',
+      }
+      return { ...section, items: [...section.items, newItem] }
+    }
+    case 'code': {
+      const cleaned = text.replace(/^```\w*\n?/, '').replace(/\n?```$/, '')
+      return { ...section, code: section.code ? section.code + '\n' + cleaned : cleaned }
+    }
+  }
+}
+
 // ── 섹션 추가 메뉴 설정 ──────────────────
 
 const ADD_SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
@@ -138,75 +192,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
   const handleSectionSmartPaste = useCallback((idx: number, text: string) => {
     setSections(prev => {
       const next = [...prev]
-      const section = next[idx]
-      switch (section.type) {
-        case 'markdown':
-          // 기존 텍스트에 추가
-          next[idx] = { ...section, text: section.text ? section.text + '\n' + text : text }
-          break
-        case 'env': {
-          // KEY=VALUE 줄 파싱
-          const newPairs = text.split('\n').filter(l => l.trim()).map(line => {
-            const eqIdx = line.indexOf('=')
-            return eqIdx > 0
-              ? { id: nanoid(8), key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1).trim(), secret: false }
-              : { id: nanoid(8), key: line.trim(), value: '', secret: false }
-          })
-          next[idx] = { ...section, pairs: [...section.pairs, ...newPairs] }
-          break
-        }
-        case 'urls': {
-          // URL 추출
-          const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi
-          const found = text.match(urlRegex)
-          if (found) {
-            const newItems = found.map(url => ({
-              id: nanoid(8), label: '', url, note: '',
-            }))
-            next[idx] = { ...section, items: [...section.items, ...newItems] }
-          } else {
-            // URL 못 찾으면 각 줄을 URL로
-            const lines = text.split('\n').filter(l => l.trim())
-            const newItems = lines.map(line => ({
-              id: nanoid(8), label: '', url: line.trim(), note: '',
-            }))
-            next[idx] = { ...section, items: [...section.items, ...newItems] }
-          }
-          break
-        }
-        case 'credentials': {
-          // 간단한 라벨 기반 파싱
-          const entry: Record<string, string> = {}
-          const labelPatterns: [string, RegExp][] = [
-            ['host', /(?:host|호스트|ip|서버|address)\s*[:：=]\s*(.+)/i],
-            ['port', /(?:port|포트)\s*[:：=]\s*(.+)/i],
-            ['username', /(?:user(?:name)?|사용자|아이디|id)\s*[:：=]\s*(.+)/i],
-            ['password', /(?:pass(?:word)?|비밀번호|pw)\s*[:：=]\s*(.+)/i],
-            ['database', /(?:database|db(?:name)?|데이터베이스)\s*[:：=]\s*(.+)/i],
-          ]
-          for (const [key, pattern] of labelPatterns) {
-            const match = text.match(pattern)
-            if (match) entry[key] = match[1].trim()
-          }
-          const newItem = {
-            id: nanoid(8),
-            label: entry.host ? `${entry.host}${entry.port ? ':' + entry.port : ''}` : '',
-            category: (entry.database ? 'database' : 'server') as 'server' | 'database' | 'other',
-            host: entry.host ?? '', port: entry.port ?? '',
-            username: entry.username ?? '', password: entry.password ?? '',
-            database: entry.database, extra: '',
-          }
-          next[idx] = { ...section, items: [...section.items, newItem] }
-          break
-        }
-        case 'code':
-          // 코드 블록 마커 제거 후 설정
-          {
-            const cleaned = text.replace(/^```\w*\n?/, '').replace(/\n?```$/, '')
-            next[idx] = { ...section, code: section.code ? section.code + '\n' + cleaned : cleaned }
-          }
-          break
-      }
+      next[idx] = parseSectionPaste(next[idx], text)
       return next
     })
     toast.success('붙여넣기 적용됨', { duration: 1500 })
