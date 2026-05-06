@@ -64,6 +64,8 @@ src/
 │   │   ├── CardDetailEditor.tsx    # 탭 편집 (제목·타입·태그·CodeMirror, document→DocumentEditor 위임)
 │   │   ├── CardFormModal.tsx       # 카드 생성 모달 (5종 타입, document Smart Paste)
 │   │   ├── DocumentEditor.tsx      # document 전용 에디터 (DnD 섹션 정렬, Ctrl+S)
+│   │   ├── NoteEditor.tsx          # Note 카드 CodeMirror 에디터 (주석 하이라이팅)
+│   │   ├── MarkdownEditorWithToggle.tsx # Note 카드 소스/미리보기 토글 래퍼
 │   │   ├── SmartPastePanel.tsx     # Smart Paste UI (Claude AI 단일 호출)
 │   │   ├── CardFloatingView.tsx    # 카드 플로팅 뷰 (AI 요약, HybridDocumentView)
 │   │   ├── InfoCard.tsx            # 카드 그리드 단위 (DocumentPreview 포함)
@@ -117,12 +119,14 @@ src/
     ├── hooks/
     │   ├── useGlobalKeyboardShortcuts.ts  # 전역 단축키 핸들러 (@tanstack/react-hotkeys 연동)
     │   ├── useHotkeyRecorder.ts           # 키 녹화 훅 (단축키 설정 UI용)
+    │   ├── useMarkdownHtml.ts             # 마크다운 → HTML 변환 훅 (marked + DOMPurify)
     │   ├── usePasswordReveal.ts           # 비밀번호 표시/숨기기 토글 훅
     │   ├── useClickOutside.ts             # 외부 클릭 감지
     │   └── useResizableHeight.ts          # 드래그 리사이즈
     └── utils/
         ├── cn.ts                  # className 조합 유틸리티 (falsy 자동 제거)
         ├── clipboard.ts           # 클립보드 복사
+        ├── editorExtensions.ts    # CodeMirror 주석 하이라이팅 확장 (MatchDecorator)
         ├── editorKeymap.ts        # CodeMirror 에디터 단축키 빌더
         ├── url.ts                 # URL 유효성 검사 (isSafeUrl)
         ├── highlight.tsx          # 검색 키워드 하이라이트
@@ -252,6 +256,16 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.3.4 (2026-05-06)
+
+**코드 품질 개선**
+- `parseContent` 방어 검증 강화 — sections/fields 배열 내부 필드 타입 검사 추가, 손상 JSON 입력 시 legacy 안전 fallback
+- `EnvSectionView` `showVal` 동기화 — `useEffect`로 `entry.secret` 외부 변경 시 표시 상태 자동 반영
+- `TreeNode` 이중 캐스팅 제거 — `handleClick` 시그니처를 `MouseEvent | KeyboardEvent` 유니온으로 확장
+- `SearchFilterBar` X버튼 UX 수정 — 검색어 지우기 버튼이 typeFilter/tagFilter까지 초기화하던 문제 수정 (searchQuery만 초기화)
+- `DocumentEditor` Smart Paste 파서 분리 — 75행 인라인 switch-case를 `parseSectionPaste` 순수 함수로 추출 (`URL_REGEX`, `CREDENTIAL_PATTERNS` 상수화)
+- CSS 유틸 클래스 4종 추가 — `.subtle-icon-btn`, `.menu-item-btn`, `.btn-primary`, `.section-label` (9개 파일 반복 패턴 공통화)
 
 ### v1.3.3 (2026-05-06)
 

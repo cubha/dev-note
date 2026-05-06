@@ -43,7 +43,7 @@ export const CodeSectionView = ({ section, onChange }: CodeSectionViewProps) => 
         <button
           type="button"
           onClick={() => void copyToClipboard(section.code, '코드')}
-          className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
+          className="subtle-icon-btn"
         >
           <Copy size={12} />
         </button>

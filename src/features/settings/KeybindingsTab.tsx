@@ -225,7 +225,7 @@ export const KeybindingsTab = () => {
     <div className="space-y-6">
       {grouped.map(([category, commands]) => (
         <section key={category}>
-          <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+          <h3 className="section-label">
             {CATEGORY_LABELS[category] ?? category}
           </h3>
           <div className="space-y-3">

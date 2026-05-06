@@ -125,7 +125,7 @@ const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
         <button
           type="button"
           onClick={() => void copyToClipboard(entry.url, 'URL')}
-          className="p-1 text-[var(--text-placeholder)] hover:text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none"
+          className="subtle-icon-btn"
         >
           <Copy size={12} />
         </button>
