@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
+import { nanoid } from 'nanoid'
 import { useSetAtom } from 'jotai'
-import { X, Shield, Link, Terminal, Code, FileText } from 'lucide-react'
+import { X, Shield, Link, Terminal, Code, FileText, Server, Globe, BookOpen, FileStack } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '../../core/db'
 import type { Item, ItemType } from '../../core/db'
 import type { CardField, StructuredContent, AnySection, HybridContent, SectionType } from '../../core/types'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
-import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection } from '../../core/content'
+import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS } from '../../core/content'
 import { checkDuplicates } from '../../core/duplicate-check'
 import { openTabsAtom, activeTabAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
@@ -19,6 +20,13 @@ import { Button } from '../../shared/components/Button'
 import { ModalHeader } from '../../shared/components/ModalHeader'
 
 const ITEM_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
+
+const PRESET_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+  empty: FileStack,
+  server: Server,
+  api: Globe,
+  repo: BookOpen,
+}
 
 const SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { type: 'credentials', label: '접속 정보', icon: Shield },
@@ -43,6 +51,7 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
   const [fields, setFields] = useState<CardField[]>([])
   const [saving, setSaving] = useState(false)
   const [docSections, setDocSections] = useState<AnySection[] | null>(null)
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const isEditMode = item !== null
 
   // 편집 모드: 기존 데이터 로드
@@ -85,7 +94,18 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
     if (!isEditMode) {
       setFields(createEmptyStructuredContent(newType).fields)
       setDocSections(null)
+      setSelectedPresetId(null)
     }
+  }
+
+  const handlePresetSelect = (presetId: string) => {
+    const preset = DOCUMENT_PRESETS.find(p => p.id === presetId)
+    if (!preset) return
+    setDocSections(preset.sections.length > 0
+      ? preset.sections.map(s => ({ ...s, id: nanoid(12) }))
+      : null
+    )
+    setSelectedPresetId(presetId)
   }
 
   const updateField = (key: string, value: string) => {
@@ -274,8 +294,46 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <label className="block label-text">섹션 선택</label>
+                <div className="space-y-3">
+                  {/* 프리셋 선택 */}
+                  <div>
+                    <label className="block label-text mb-2">시작 방식</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {DOCUMENT_PRESETS.map((preset) => {
+                        const Icon = PRESET_ICONS[preset.id] ?? FileStack
+                        const isSelected = selectedPresetId === preset.id
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handlePresetSelect(preset.id)}
+                            className={`flex flex-col items-start gap-1 rounded-lg p-3 text-xs font-medium transition-all cursor-pointer border text-left ${
+                              isSelected
+                                ? 'border-[var(--border-accent)] text-[var(--text-primary)]'
+                                : 'border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--border-subtle)] hover:text-[var(--text-secondary)]'
+                            }`}
+                            style={isSelected ? { background: 'var(--badge-document-bg)' } : { background: 'transparent' }}
+                          >
+                            <div
+                              className="flex h-7 w-7 items-center justify-center rounded-md mb-0.5"
+                              style={{
+                                background: isSelected ? 'transparent' : 'var(--badge-document-bg)',
+                                color: 'var(--badge-document-text)',
+                              }}
+                            >
+                              <Icon size={14} />
+                            </div>
+                            <span className="font-medium">{preset.label}</span>
+                            <span className="text-[10px] text-[var(--text-placeholder)] font-normal">{preset.description}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 섹션 수동 추가 (프리셋 선택 후에도 조정 가능) */}
+                  <div className="space-y-2">
+                  <label className="block label-text">섹션 추가</label>
                   <div className="flex flex-wrap gap-1.5">
                     {SECTION_OPTIONS.map(({ type: sType, label, icon: Icon }) => (
                       <button
@@ -317,6 +375,7 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
                       섹션을 선택하거나 Smart Paste로 내용을 붙여넣으세요
                     </p>
                   )}
+                  </div>
                 </div>
               )}
             </div>
