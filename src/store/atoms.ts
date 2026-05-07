@@ -119,6 +119,12 @@ export const typeFilterAtom = atom<ItemType | null>(null)
 /** 대시보드 태그 필터 */
 export const tagFilterAtom = atom<string | null>(null)
 
+/** 대시보드 정렬 기준 (default = 핀 고정 우선 + order 순, updatedAt = 최근 수정 순, title = 제목 가나다 순) */
+export type SortOrder = 'default' | 'updatedAt' | 'title'
+
+/** 대시보드 정렬 기준 */
+export const sortOrderAtom = atom<SortOrder>('default')
+
 // ─── AI — Vercel Edge Function 프록시 ────────────────────────
 
 /** 빌드 타임 API URL (.env.local, gitignore) — trailing slash 방어 */

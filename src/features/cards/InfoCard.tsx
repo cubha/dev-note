@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
-  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, Eye, GripVertical,
+  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, CopyPlus, Eye, GripVertical,
 } from 'lucide-react'
 import type { FuseResultMatch } from 'fuse.js'
 import type { Item } from '../../core/db'
@@ -46,6 +46,7 @@ interface InfoCardProps {
   onEdit: (item: Item) => void
   onDelete: (item: Item) => void
   onTogglePin: (item: Item) => void
+  onDuplicate?: (item: Item) => void
   draggable?: boolean
   isDragging?: boolean
   isDragOver?: boolean
@@ -56,7 +57,7 @@ interface InfoCardProps {
 }
 
 export const InfoCard = ({
-  item, content, matches, onEdit, onDelete, onTogglePin,
+  item, content, matches, onEdit, onDelete, onTogglePin, onDuplicate,
   draggable: isDraggable, isDragging, isDragOver,
   onDragStart, onDragEnd, onDragOver, onDrop,
 }: InfoCardProps) => {
@@ -178,6 +179,13 @@ export const InfoCard = ({
                   label="전체 복사"
                   onClick={handleCopyAll}
                 />
+                {onDuplicate && (
+                  <MenuButton
+                    icon={<CopyPlus size={14} />}
+                    label="복제"
+                    onClick={() => { onDuplicate(item); setMenuOpen(false) }}
+                  />
+                )}
                 <div className="my-1 h-px bg-[var(--border-default)]" />
                 <MenuButton
                   icon={<Trash2 size={14} />}

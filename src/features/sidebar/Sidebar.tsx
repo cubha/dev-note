@@ -33,6 +33,7 @@ import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { IconButton } from '../../shared/components/IconButton'
+import { MoveToFolderModal } from './MoveToFolderModal'
 
 export const Sidebar = () => {
   const setCardForm = useSetAtom(cardFormAtom)
@@ -49,6 +50,7 @@ export const Sidebar = () => {
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
 
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [movingFolder, setMovingFolder] = useState(false)
 
   const handleThemeToggle = async () => {
     if (!config) return
@@ -345,18 +347,32 @@ export const Sidebar = () => {
               <span className="text-xs text-[var(--text-secondary)]">
                 {selectedItems.size}개 선택됨
               </span>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(true)}
-                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white transition-colors cursor-pointer bg-transparent border-none"
-              >
-                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M19 6l-1 14H6L5 6" />
-                </svg>
-                일괄 삭제
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMovingFolder(true)}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                    <path d="M12 11v6" />
+                    <path d="M9 14l3-3 3 3" />
+                  </svg>
+                  이동
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                  </svg>
+                  일괄 삭제
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -378,6 +394,17 @@ export const Sidebar = () => {
       </div>
 
       <StorageButtons />
+
+      {movingFolder && (
+        <MoveToFolderModal
+          selectedIds={Array.from(selectedItems)}
+          onClose={() => setMovingFolder(false)}
+          onMoved={() => {
+            setSelectedItems(new Set<number>())
+            setMovingFolder(false)
+          }}
+        />
+      )}
     </aside>
   )
 }
