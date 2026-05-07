@@ -16,6 +16,7 @@ import {
   openTabsAtom,
   activeTabAtom,
   dirtyItemsAtom,
+  sortOrderAtom,
 } from '../../store/atoms'
 import { openTab, removeItemsFromState } from '../../store/tabHelpers'
 import { InfoCard } from '../cards/InfoCard'
@@ -41,6 +42,7 @@ export const CardGrid = () => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
+  const sortOrder = useAtomValue(sortOrderAtom)
 
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
 
@@ -68,13 +70,22 @@ export const CardGrid = () => {
     }
 
     result = [...result].sort((a, b) => {
+      // 핀 고정 항상 우선
       if (a.item.pinned && !b.item.pinned) return -1
       if (!a.item.pinned && b.item.pinned) return 1
-      return a.item.order - b.item.order
+      // sortOrder에 따른 세부 정렬
+      switch (sortOrder) {
+        case 'updatedAt':
+          return b.item.updatedAt - a.item.updatedAt
+        case 'title':
+          return a.item.title.localeCompare(b.item.title, 'ko')
+        default:
+          return a.item.order - b.item.order
+      }
     })
 
     return result
-  }, [parsedItems, selectedFolder, typeFilter, tagFilter])
+  }, [parsedItems, selectedFolder, typeFilter, tagFilter, sortOrder])
 
   // Fuse.js 인스턴스 (filteredItems 변경 시에만 재생성)
   const fuse = useMemo(
@@ -122,6 +133,26 @@ export const CardGrid = () => {
       toast.success(newPinned ? '핀 고정됨' : '핀 해제됨', { duration: 2000 })
     } catch (err) {
       toast.error(`핀 변경 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
+  }
+
+  const handleDuplicate = async (item: Item) => {
+    try {
+      const duplicate: Omit<Item, 'id'> = {
+        folderId: item.folderId,
+        title: `${item.title} (복사본)`,
+        type: item.type,
+        tags: [...item.tags],
+        order: Date.now(),
+        pinned: false,
+        content: item.content,
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      }
+      await db.items.add(duplicate as Item)
+      toast.success(`"${item.title}" 복제됨`, { duration: 2000 })
+    } catch (err) {
+      toast.error(`복제 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
     }
   }
 
@@ -219,6 +250,7 @@ export const CardGrid = () => {
             onEdit={handleEdit}
             onDelete={(i) => void handleDelete(i)}
             onTogglePin={(i) => void handleTogglePin(i)}
+            onDuplicate={(i) => void handleDuplicate(i)}
             draggable={isDndEnabled}
             isDragging={dragItemId === item.id}
             isDragOver={dragOverId === item.id && dragItemId !== item.id}

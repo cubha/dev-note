@@ -4,13 +4,15 @@
 
 import { useAtom, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Search, Filter, Tag, Bell, X } from 'lucide-react'
+import { Search, Filter, Tag, Bell, X, ArrowUpDown } from 'lucide-react'
 import { db } from '../../core/db'
 import type { ItemType } from '../../core/db'
 import { TYPE_META } from '../../core/types'
 import {
   searchQueryAtom, typeFilterAtom, tagFilterAtom, announcementOpenAtom,
+  sortOrderAtom,
 } from '../../store/atoms'
+import type { SortOrder } from '../../store/atoms'
 import { Dropdown } from '../../shared/components/Dropdown'
 import { IconButton } from '../../shared/components/IconButton'
 
@@ -20,6 +22,7 @@ export const SearchFilterBar = () => {
   const [searchQuery, setSearchQuery] = useAtom(searchQueryAtom)
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom)
   const [tagFilter, setTagFilter] = useAtom(tagFilterAtom)
+  const [sortOrder, setSortOrder] = useAtom(sortOrderAtom)
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
 
   const allTags = useLiveQuery(async () => {
@@ -111,6 +114,31 @@ export const SearchFilterBar = () => {
           align="right"
         />
       )}
+
+      {/* 정렬 드롭다운 */}
+      <Dropdown
+        trigger={
+          <button
+            type="button"
+            className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
+              sortOrder !== 'default'
+                ? 'bg-[var(--bg-surface-hover)] text-[var(--text-primary)]'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+            }`}
+          >
+            <ArrowUpDown size={11} />
+            {sortOrder === 'default' ? '정렬' : sortOrder === 'updatedAt' ? '수정일순' : '제목순'}
+          </button>
+        }
+        items={[
+          { label: '기본순', value: 'default' },
+          { label: '수정일순', value: 'updatedAt' },
+          { label: '제목순', value: 'title' },
+        ]}
+        value={sortOrder}
+        onSelect={(val) => setSortOrder(val as SortOrder)}
+        align="right"
+      />
 
       {/* 구분선 */}
       <div className="w-px h-5 bg-[var(--border-default)] shrink-0" />
