@@ -69,6 +69,7 @@ export const SearchFilterBar = () => {
             <button
               key={ft ?? 'all'}
               type="button"
+              aria-pressed={isActive}
               onClick={() => setTypeFilter(ft)}
               className={`rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
                 isActive

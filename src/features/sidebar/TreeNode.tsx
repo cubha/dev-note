@@ -382,6 +382,7 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
           handleClick(e)
         }
       }}
+      aria-selected={isSelected}
       className={`group/row flex h-7 cursor-pointer items-center gap-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] select-none ${isSelected ? 'bg-[var(--bg-item-selected)] text-[var(--text-active)]' : ''} ${isDragging ? 'opacity-40' : ''}`}
       style={{ paddingLeft: `${(depth + 1) * TREE_DEPTH_INDENT_PX}px` }}
     >

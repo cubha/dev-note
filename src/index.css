@@ -373,13 +373,8 @@
     :root {
       --card-min-width: 280px;
       --card-gap: 12px;
-      --sidebar-width: 200px;
-    }
-  }
-
-  @media (max-width: 640px) {
-    :root {
-      --sidebar-width: 0px;
+      /* 모바일에서 사이드바는 오버레이 드로어로 처리 — JS(App.tsx)가 담당 */
+      --sidebar-width: 240px;
     }
   }
 }
