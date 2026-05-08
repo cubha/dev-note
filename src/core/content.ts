@@ -185,6 +185,42 @@ export const createSection = (type: SectionType): AnySection => {
   }
 }
 
+// ─── Document 섹션 프리셋 ──────────────────────────────
+
+export interface DocumentPreset {
+  id: string
+  label: string
+  description: string
+  sections: AnySection[]
+}
+
+export const DOCUMENT_PRESETS: DocumentPreset[] = [
+  {
+    id: 'empty',
+    label: '빈 문서',
+    description: '섹션을 직접 구성',
+    sections: [],
+  },
+  {
+    id: 'server',
+    label: '서버 접속 정보',
+    description: '접속 정보 + 메모',
+    sections: [createSection('credentials'), createSection('markdown')],
+  },
+  {
+    id: 'api',
+    label: 'API 문서',
+    description: 'URL + 환경변수 + 메모',
+    sections: [createSection('urls'), createSection('env'), createSection('markdown')],
+  },
+  {
+    id: 'repo',
+    label: '레포 관리',
+    description: '메모 + 명령어 + 링크 + 환경변수',
+    sections: [createSection('markdown'), createSection('code'), createSection('urls'), createSection('env')],
+  },
+]
+
 /**
  * StructuredContent의 특정 필드 값을 가져온다.
  */

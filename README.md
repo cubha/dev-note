@@ -25,7 +25,8 @@
 | Language | TypeScript Strict Mode | 5.9.3 |
 | Data | Dexie.js (IndexedDB 래퍼) | 4.3 |
 | State | Jotai (전역 UI 상태) + `useLiveQuery` (DB 반응형) | 2.18 / dexie-react-hooks 4.2 |
-| Editor | CodeMirror 6 (`lang-json`, `lang-sql`) | 6.x |
+| Editor | CodeMirror 6 (json, sql, js/ts, python, yaml, html, css) | 6.x |
+| Test | Vitest | 4.1 |
 | Keybindings | @tanstack/react-hotkeys (단축키 시스템) | - |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
@@ -179,7 +180,7 @@ interface HybridContent {
 - **타입/태그 필터** 조합
 
 ### 에디터
-- **CodeMirror 6** 기반 코드 에디터 (JSON, SQL 언어 모드)
+- **CodeMirror 6** 기반 코드 에디터 (JSON, SQL, JavaScript, TypeScript, Python, YAML, HTML, CSS, Dockerfile)
 - **`//` 주석 하이라이팅** — MatchDecorator로 언어 모드 무관 시각적 강조 (Note 에디터 + Document 코드 섹션)
 - **Note 카드 미리보기** 토글 (소스/스플릿, 마크다운 렌더링)
 - **Document 섹션 편집** — DnD 정렬, 섹션별 접기/펼치기, 리사이즈, 섹션별 Smart Paste, 메모(markdown) 섹션 소스/미리보기 토글
@@ -227,13 +228,13 @@ Claude API (Vercel Edge Function 프록시)
 
 | # | 항목 | 요약 | 우선순위 |
 |---|------|------|---------|
-| 1 | Document 섹션 프리셋 | 카드 생성 모달에서 템플릿 선택 (빈 문서 / 서버 접속정보 / API 문서 / 레포 관리). Repository/계정 정보 관리는 CredentialSection+UrlSection 조합 프리셋으로 커버 | P1 |
-| 2 | Code 섹션 언어 확장 | `LANGUAGES` 배열 4종 → yaml/python/js/ts/html/css/dockerfile 추가 + CodeMirror lang 패키지 동적 import | P2 |
+| ~~1~~ | ~~Document 섹션 프리셋~~ | ~~카드 생성 모달에서 템플릿 선택 (빈 문서 / 서버 접속정보 / API 문서 / 레포 관리)~~ ✅ | ~~P1~~ |
+| ~~2~~ | ~~Code 섹션 언어 확장~~ | ~~yaml/python/js/ts/html/css/dockerfile 추가 + CodeMirror lang 패키지 동적 import~~ ✅ | ~~P2~~ |
 | ~~3~~ | ~~AppHeader 리팩토링~~ | ~~387줄 단일 컴포넌트 → `TabBar`, `SearchFilterBar` 서브 컴포넌트 분리~~ ✅ | ~~P2~~ |
-| 4 | 테스트 코드 | Vitest 단위 테스트 (smart-paste, content 직렬화) + Playwright E2E | P2 |
-| 9 | 카드 복제 기능 | `InfoCard` 메뉴에 "복제" 옵션 추가 → 제목 `(복사)` 접미, Document 타입은 섹션 deep copy + nanoid 재발급 | P2 |
-| 10 | 다중 선택 일괄 이동/태그 | 다중 선택 후 "폴더로 이동" 모달 + "태그 일괄 추가/제거" 액션. 사이드바 컨텍스트 메뉴 또는 Ctrl+M 단축키 | P2 |
-| 11 | 정렬 옵션 확장 | `SearchFilterBar` 우측에 정렬 드롭다운 추가 — 기본(order) / 수정일 / 생성일 / 제목 가나다순. `updatedAt` 인덱스 활용 | P2 |
+| ~~4~~ | ~~테스트 코드 (단위)~~ | ~~Vitest 단위 테스트 21개 (content.ts) 완료~~ ✅ — Playwright E2E 잔여 | ~~P2~~ |
+| ~~9~~ | ~~카드 복제 기능~~ | ~~`InfoCard` 메뉴 > 복제, Document 타입 섹션 deep copy + nanoid 재발급~~ ✅ | ~~P2~~ |
+| ~~10~~ | ~~다중 선택 폴더 이동~~ | ~~다중 선택 후 "폴더로 이동" 모달~~ ✅ — 태그 일괄 추가/제거 잔여 | ~~P2~~ |
+| ~~11~~ | ~~정렬 옵션 확장~~ | ~~최신순 / 오래된순 / 이름순 드롭다운~~ ✅ | ~~P2~~ |
 | 5 | 사이드바 리사이즈 | 사이드바 우측 경계 drag으로 `--sidebar-width` CSS 변수 동적 조절 | P3 |
 | 6 | 반응형 지원 | 모바일/태블릿 레이아웃 (사이드바 오버레이, 햄버거 메뉴) | P3 |
 | 7 | 섹션 복제 기능 | `SectionWrapper` 메뉴에 "복제" 옵션 추가 (deep copy + nanoid 재발급) | P3 |
@@ -256,6 +257,16 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.3.5 (2026-05-08)
+
+**Document 프리셋 & 코드 언어 확장 & 카드 복제/정렬**
+- Document 섹션 프리셋 4종 — 카드 생성 시 빈 문서 / 서버 접속 / API 문서 / 레포 관리 템플릿 선택
+- Code 섹션 언어 7종 추가 — yaml, python, javascript, typescript, html, css, dockerfile (동적 import)
+- 카드 복제 — 컨텍스트 메뉴 > 복제로 카드 deep copy (Document 타입은 섹션 ID 재발급)
+- 정렬 드롭다운 — 최신순 / 오래된순 / 이름순 전환
+- 다중 선택 폴더 이동 — 선택한 카드를 다른 폴더로 일괄 이동 모달
+- Vitest 단위 테스트 21개 추가 (content.ts 핵심 로직)
 
 ### v1.3.4 (2026-05-06)
 

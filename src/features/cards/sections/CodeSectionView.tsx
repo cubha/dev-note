@@ -18,6 +18,7 @@ import { defaultCommentTokens, commentHighlight } from '../../../shared/utils/ed
 
 const LANGUAGES = [
   'text', 'bash', 'sql', 'json',
+  'yaml', 'python', 'javascript', 'typescript', 'html', 'css', 'dockerfile',
 ]
 
 
@@ -206,6 +207,24 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
             break
           case 'sql':
             langExt = (await import('@codemirror/lang-sql')).sql()
+            break
+          case 'yaml':
+            langExt = (await import('@codemirror/lang-yaml')).yaml()
+            break
+          case 'python':
+            langExt = (await import('@codemirror/lang-python')).python()
+            break
+          case 'javascript':
+            langExt = (await import('@codemirror/lang-javascript')).javascript()
+            break
+          case 'typescript':
+            langExt = (await import('@codemirror/lang-javascript')).javascript({ typescript: true })
+            break
+          case 'html':
+            langExt = (await import('@codemirror/lang-html')).html()
+            break
+          case 'css':
+            langExt = (await import('@codemirror/lang-css')).css()
             break
           default:
             langExt = null
