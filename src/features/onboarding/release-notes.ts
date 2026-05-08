@@ -13,6 +13,44 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.3.5',
+    date: '2026-05-08',
+    title: 'Document 프리셋 & 코드 언어 확장 & 카드 복제/정렬',
+    highlights: [
+      'Document 섹션 프리셋 4종 — 카드 생성 시 빈 문서 / 서버 접속 / API 문서 / 레포 관리 템플릿 선택',
+      'Code 섹션 언어 7종 추가 — yaml, python, javascript, typescript, html, css, dockerfile',
+      '카드 복제 — 컨텍스트 메뉴 > 복제로 카드 deep copy (Document 섹션 ID 재발급)',
+      '정렬 드롭다운 — 최신순 / 오래된순 / 이름순 전환',
+      '다중 선택 폴더 이동 — 선택한 카드를 다른 폴더로 일괄 이동',
+      'Vitest 단위 테스트 21개 추가 (content.ts 핵심 로직)',
+    ],
+    type: 'minor',
+  },
+  {
+    version: 'v1.3.4',
+    date: '2026-05-06',
+    title: '코드 품질 개선 & CSS 유틸 클래스',
+    highlights: [
+      'parseContent 방어 검증 강화 — 손상 JSON 입력 시 안전 fallback',
+      'SearchFilterBar X버튼 UX 수정 — 검색어만 초기화, 타입/태그 필터 유지',
+      'DocumentEditor Smart Paste 파서 순수 함수 분리',
+      'CSS 유틸 클래스 4종 추가 — .subtle-icon-btn, .menu-item-btn, .btn-primary, .section-label',
+    ],
+    type: 'patch',
+  },
+  {
+    version: 'v1.3.3',
+    date: '2026-05-06',
+    title: '버그 수정 & 리팩토링',
+    highlights: [
+      'Smart Paste 타입 스키마 오류 수정 — detectedType에서 폐기된 markdown 제거',
+      '단축키 설정에서 Escape 키가 단축키로 등록되는 버그 수정',
+      'exportSelectedItems() 완료 후 lastExportAt 미갱신 수정',
+      'useMarkdownHtml 훅 추출, editorExtensions.ts 분리, NoteEditor/MarkdownEditorWithToggle 분리',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.3.2',
     date: '2026-05-06',
     title: '파비콘 교체',
