@@ -26,6 +26,9 @@ export const expandedFoldersAtom = atom<Set<number>>(new Set<number>())
 /** 사이드바 접기/펼치기 */
 export const sidebarCollapsedAtom = atom<boolean>(false)
 
+/** 모바일에서 사이드바 오버레이 열기/닫기 */
+export const sidebarMobileOpenAtom = atom<boolean>(false)
+
 // ─── 검색 ─────────────────────────────────────────────────────
 
 export const searchOpenAtom  = atom<boolean>(false)

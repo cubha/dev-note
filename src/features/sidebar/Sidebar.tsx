@@ -34,6 +34,7 @@ import { StorageButtons } from '../storage/StorageButtons'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { IconButton } from '../../shared/components/IconButton'
 import { MoveToFolderModal } from './MoveToFolderModal'
+import { SidebarResizeHandle } from './SidebarResizeHandle'
 
 export const Sidebar = () => {
   const setCardForm = useSetAtom(cardFormAtom)
@@ -164,7 +165,7 @@ export const Sidebar = () => {
   }
 
   return (
-    <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]">
+    <aside id="sidebar" className="relative flex w-[var(--sidebar-width)] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-[var(--border-default)] bg-[var(--bg-sidebar)] p-3">
         <div className="flex items-center justify-between">
           <button
@@ -197,6 +198,8 @@ export const Sidebar = () => {
               )}
               size="sm"
               tooltip={config?.theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+              aria-pressed={config?.theme === 'dark'}
+              aria-label={config?.theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
               onClick={handleThemeToggle}
               className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             />
@@ -229,6 +232,8 @@ export const Sidebar = () => {
               }
               size="sm"
               tooltip="사이드바 접기"
+              aria-pressed={false}
+              aria-label="사이드바 접기"
               onClick={() => setSidebarCollapsed(true)}
               className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             />
@@ -265,6 +270,8 @@ export const Sidebar = () => {
 
       {/* 전체 보기 + 폴더 트리 */}
       <div
+        role="tree"
+        aria-label="폴더 트리"
         className="flex-1 overflow-y-auto"
         onClick={(e) => {
           if (e.target === e.currentTarget) {
@@ -274,7 +281,8 @@ export const Sidebar = () => {
       >
         {/* 전체 보기 */}
         <div
-          role="button"
+          role="treeitem"
+          aria-selected={selectedFolder === null}
           tabIndex={0}
           onClick={() => setSelectedFolder(null)}
           onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolder(null) }}
@@ -405,6 +413,8 @@ export const Sidebar = () => {
           }}
         />
       )}
+
+      <SidebarResizeHandle />
     </aside>
   )
 }

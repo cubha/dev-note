@@ -13,7 +13,18 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    version: 'v1.3.5',
+    version: 'v1.4.1',
+    date: '2026-05-08',
+    title: '사이드바 리사이즈 & 반응형 레이아웃 & 접근성 강화',
+    highlights: [
+      '사이드바 드래그 리사이즈 — 오른쪽 가장자리 드래그로 너비 조절 (180~480px), 새로고침 후에도 유지',
+      '반응형 모바일 레이아웃 — 768px 이하에서 햄버거 버튼 + 사이드바 오버레이 드로어',
+      '접근성 강화 — role="tree", aria-pressed, aria-selected, aria-expanded 적용',
+    ],
+    type: 'patch',
+  },
+  {
+    version: 'v1.4.0',
     date: '2026-05-08',
     title: 'Document 프리셋 & 코드 언어 확장 & 카드 복제/정렬',
     highlights: [
@@ -28,6 +39,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
   },
   {
     version: 'v1.3.4',
+
     date: '2026-05-06',
     title: '코드 품질 개선 & CSS 유틸 클래스',
     highlights: [
