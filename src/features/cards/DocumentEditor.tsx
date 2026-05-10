@@ -6,13 +6,12 @@ import {
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import {
-  Plus, Shield, Link, Terminal, Code, FileText,
-} from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { Item } from '../../core/db'
 import type {
   AnySection, SectionType, HybridContent,
 } from '../../core/types'
+import { SECTION_OPTIONS } from '../../shared/constants'
 import { parseContent, serializeContent, createSection } from '../../core/content'
 import { db } from '../../core/db'
 import { toast } from 'sonner'
@@ -77,16 +76,6 @@ const parseSectionPaste = (section: AnySection, text: string): AnySection => {
     }
   }
 }
-
-// ── 섹션 추가 메뉴 설정 ──────────────────
-
-const ADD_SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { type: 'credentials', label: '접속 정보', icon: Shield },
-  { type: 'urls', label: 'URL', icon: Link },
-  { type: 'env', label: '환경변수', icon: Terminal },
-  { type: 'code', label: '코드', icon: Code },
-  { type: 'markdown', label: '메모', icon: FileText },
-]
 
 // ── 메인 컴포넌트 ──────────────────────────
 
@@ -249,7 +238,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
 
         {addMenuOpen && (
           <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-48 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg animate-scale-in">
-            {ADD_SECTION_OPTIONS.map(({ type, label, icon: Icon }) => (
+            {SECTION_OPTIONS.map(({ type, label, icon: Icon }) => (
               <button
                 key={type}
                 type="button"

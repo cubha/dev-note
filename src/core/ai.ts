@@ -119,6 +119,19 @@ export async function reportError(workerUrl: string, data: ErrorReportData): Pro
   }
 }
 
+// ─── 내부 헬퍼 ───────────────────────────────────────────────
+
+function parseAIResult<T>(
+  response: ClaudeResponse,
+  validator: (input: Record<string, unknown>) => boolean,
+): T {
+  const toolBlock = response.content.find((b: ClaudeContentBlock) => b.type === 'tool_use')
+  if (!toolBlock?.input) throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
+  const input = toolBlock.input as Record<string, unknown>
+  if (!validator(input)) throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
+  return input as unknown as T
+}
+
 // ─── AI Service ──────────────────────────────────────────────
 
 // smartPaste/summarize: 정형 추출 → 속도·비용 우선
@@ -148,16 +161,10 @@ export class AIService {
       tool_choice: { type: 'tool', name: 'extract_card_data' },
     })
 
-    const toolBlock = response.content.find((b: ClaudeContentBlock) => b.type === 'tool_use')
-    if (!toolBlock?.input) {
-      throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
-    }
-    const input = toolBlock.input as Record<string, unknown>
-    if (typeof input.detectedType !== 'string' || typeof input.title !== 'string') {
-      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
-    }
-
-    return input as unknown as SmartPasteResult
+    return parseAIResult<SmartPasteResult>(
+      response,
+      (i) => typeof i.detectedType === 'string' && typeof i.title === 'string',
+    )
   }
 
   /** 카드 콘텐츠 요약 (한글) */
@@ -173,16 +180,10 @@ export class AIService {
       tool_choice: { type: 'tool', name: 'summarize_content' },
     })
 
-    const toolBlock = response.content.find((b: ClaudeContentBlock) => b.type === 'tool_use')
-    if (!toolBlock?.input) {
-      throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
-    }
-    const input = toolBlock.input as Record<string, unknown>
-    if (typeof input.summary !== 'string' || !Array.isArray(input.keyPoints)) {
-      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
-    }
-
-    return input as unknown as SummaryResult
+    return parseAIResult<SummaryResult>(
+      response,
+      (i) => typeof i.summary === 'string' && Array.isArray(i.keyPoints),
+    )
   }
 
   /** Markdown Smart Paste — 자유 텍스트 → 정돈된 마크다운 변환 */
@@ -198,16 +199,10 @@ export class AIService {
       tool_choice: { type: 'tool', name: 'convert_to_markdown' },
     })
 
-    const toolBlock = response.content.find((b: ClaudeContentBlock) => b.type === 'tool_use')
-    if (!toolBlock?.input) {
-      throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
-    }
-    const input = toolBlock.input as Record<string, unknown>
-    if (typeof input.title !== 'string' || typeof input.content !== 'string') {
-      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
-    }
-
-    return input as unknown as MarkdownPasteResult
+    return parseAIResult<MarkdownPasteResult>(
+      response,
+      (i) => typeof i.title === 'string' && typeof i.content === 'string',
+    )
   }
 
   /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 (Sonnet: 복잡한 멀티섹션 분류) */
@@ -223,16 +218,10 @@ export class AIService {
       tool_choice: { type: 'tool', name: 'structure_document' },
     })
 
-    const toolBlock = response.content.find((b: ClaudeContentBlock) => b.type === 'tool_use')
-    if (!toolBlock?.input) {
-      throw new AIError('Claude 응답에 구조화 데이터가 없습니다.')
-    }
-    const input = toolBlock.input as Record<string, unknown>
-    if (typeof input.title !== 'string' || !Array.isArray(input.sections)) {
-      throw new AIError('Claude 응답 형식이 올바르지 않습니다.')
-    }
-
-    return input as unknown as DocumentPasteResult
+    return parseAIResult<DocumentPasteResult>(
+      response,
+      (i) => typeof i.title === 'string' && Array.isArray(i.sections),
+    )
   }
 
   private async callClaude(body: Record<string, unknown>): Promise<ClaudeResponse> {

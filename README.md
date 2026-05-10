@@ -84,7 +84,7 @@ src/
 │   ├── dashboard/
 │   │   ├── Dashboard.tsx        # 대시보드 뷰 (AppHeader + CardGrid/Editor 분기)
 │   │   ├── AppHeader.tsx        # 헤더 조합 래퍼 (TabBar + SearchFilterBar)
-│   │   ├── TabBar.tsx           # 탭 목록 + 오버플로우 메뉴
+│   │   ├── TabBar.tsx           # 탭 목록 + 오버플로우 메뉴 + 드래그 순서 변경 (@dnd-kit)
 │   │   ├── SearchFilterBar.tsx  # 키워드 검색 + 타입/태그 필터 + 공지 버튼
 │   │   └── CardGrid.tsx         # 카드 그리드 레이아웃
 │   ├── onboarding/
@@ -235,11 +235,11 @@ Claude API (Vercel Edge Function 프록시)
 | ~~9~~ | ~~카드 복제 기능~~ | ~~`InfoCard` 메뉴 > 복제, Document 타입 섹션 deep copy + nanoid 재발급~~ ✅ | ~~P2~~ |
 | ~~10~~ | ~~다중 선택 폴더 이동~~ | ~~다중 선택 후 "폴더로 이동" 모달~~ ✅ — 태그 일괄 추가/제거 잔여 | ~~P2~~ |
 | ~~11~~ | ~~정렬 옵션 확장~~ | ~~최신순 / 오래된순 / 이름순 드롭다운~~ ✅ | ~~P2~~ |
-| 5 | 사이드바 리사이즈 | 사이드바 우측 경계 drag으로 `--sidebar-width` CSS 변수 동적 조절 | P3 |
-| 6 | 반응형 지원 | 모바일/태블릿 레이아웃 (사이드바 오버레이, 햄버거 메뉴) | P3 |
+| ~~5~~ | ~~사이드바 리사이즈~~ | ~~사이드바 우측 경계 drag으로 `--sidebar-width` CSS 변수 동적 조절~~ ✅ | ~~P3~~ |
+| ~~6~~ | ~~반응형 지원~~ | ~~모바일/태블릿 레이아웃 (사이드바 오버레이, 햄버거 메뉴)~~ ✅ | ~~P3~~ |
 | 7 | 섹션 복제 기능 | `SectionWrapper` 메뉴에 "복제" 옵션 추가 (deep copy + nanoid 재발급) | P3 |
 | 8 | Credential extra → textarea | `extra` 필드를 `textarea`로 교체 (SSH 키 등 멀티라인 데이터 지원) | P3 |
-| 12 | 접근성(a11y) 강화 | 필터 버튼 `aria-pressed`, 태그 드롭다운 `role="listbox"`, 모달 `role="dialog" aria-modal` 추가 | P3 |
+| ~~12~~ | ~~접근성(a11y) 강화~~ | ~~필터 버튼 `aria-pressed`, 태그 드롭다운 `role="listbox"`, 모달 `role="dialog" aria-modal` 추가~~ ✅ | ~~P3~~ |
 | 13 | 클립보드 자동 지우기 | 비밀번호·토큰 복사 후 10초 타이머로 `navigator.clipboard.writeText('')` 자동 호출 (보안 강화) | P3 |
 | 14 | 내보내기 민감 필드 제외 | JSON 내보내기 시 password / apiKey / token 필드 제외 체크박스 옵션 추가 | P3 |
 | 15 | DB 쿼리 성능 최적화 | `CardGrid` 전체 items 로드 → 타입 인덱스(`where('type')`) 활용 필터링, 태그 추출 쿼리 최적화 (대규모 데이터 10K+ 대응) | P3 |
@@ -257,6 +257,18 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.4.2 (2026-05-10)
+
+**탭 드래그 순서 변경 & 폴더 이동 개선 & 코드 품질 개선**
+- 탭 드래그 순서 변경 — TabBar에서 @dnd-kit으로 탭을 드래그하여 순서 재배치 가능
+- 폴더 cross-parent 이동 — 폴더를 다른 부모 폴더 영역으로 드래그하면 계층 이동 (순환 참조 방지)
+- InfoCard 컨텍스트 메뉴 버블링 방지 — 메뉴 항목 클릭이 카드 클릭으로 전파되던 버그 수정
+- card.save 단축키 동적화 — 하드코딩된 Ctrl+S를 effectiveKeys 기반 useHotkey로 교체 (사용자 재맵핑 반영)
+- 일괄 삭제 / 폴더 이동 에러 처리 보강 — DB 실패 시 toast.error 표시
+- SECTION_META 상수 통합 — 섹션 아이콘·레이블·이모지 5파일 중복 정의를 shared/constants에 단일화
+- parseAIResult\<T\> 헬퍼 추출 — ai.ts 4개 메서드의 반복 캐스팅 패턴 제거
+- dirty 계산 IIFE → useMemo — CardDetailEditor 렌더 최적화
 
 ### v1.4.1 (2026-05-08)
 

@@ -2,6 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Folder, FolderOpen } from 'lucide-react'
+import { toast } from 'sonner'
 import { db } from '../../core/db'
 import { moveItemsToFolder } from './treeUtils'
 import { Modal } from '../../shared/components/Modal'
@@ -23,15 +24,23 @@ export const MoveToFolderModal = ({
 
   const handleMoveToFolder = async (targetFolderId: number) => {
     if (!items) return
-    await moveItemsToFolder(items, selectedIds, targetFolderId)
-    onMoved()
-    onClose()
+    try {
+      await moveItemsToFolder(items, selectedIds, targetFolderId)
+      onMoved()
+      onClose()
+    } catch (err) {
+      toast.error(`이동 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
   }
 
   const handleMoveToRoot = async () => {
-    await db.items.where('id').anyOf(selectedIds).modify({ folderId: null })
-    onMoved()
-    onClose()
+    try {
+      await db.items.where('id').anyOf(selectedIds).modify({ folderId: null })
+      onMoved()
+      onClose()
+    } catch (err) {
+      toast.error(`이동 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
   }
 
   return (

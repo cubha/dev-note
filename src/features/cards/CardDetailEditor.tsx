@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { formatForDisplay } from '@tanstack/hotkeys'
+import { useHotkey } from '@tanstack/react-hotkeys'
+import type { RegisterableHotkey } from '@tanstack/react-hotkeys'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ChevronDown, Download, Save,
@@ -20,8 +22,16 @@ import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema 
 import { Dropdown } from '../../shared/components/Dropdown'
 import { DocumentEditor } from './DocumentEditor'
 import type { DocumentEditorHandle } from './DocumentEditor'
+import { NoteEditor } from './NoteEditor'
+import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
 
 const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
+
+type FSAAWindow = Window & {
+  showSaveFilePicker: (opts: unknown) => Promise<{
+    createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }>
+  }>
+}
 
 // ── Main component ──────────────────────────────────
 
@@ -29,6 +39,7 @@ export const CardDetailEditor = () => {
   const activeTab = useAtomValue(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
+  const keys = effectiveKeys as Record<string, RegisterableHotkey>
   const saveKeyLabel = formatForDisplay(effectiveKeys['card.save'])
 
   const [title, setTitle] = useState('')
@@ -106,7 +117,7 @@ export const CardDetailEditor = () => {
   }, [item])
 
   // dirty 상태 — 원본 스냅샷과 현재 값 비교
-  const dirty = (() => {
+  const dirty = useMemo(() => {
     if (!original) return false
     const o = original
     if (o.title !== title || o.type !== type || o.tags !== tags) return true
@@ -115,7 +126,7 @@ export const CardDetailEditor = () => {
     if (o.editorText !== editorText) return true
     const currentFieldsStr = JSON.stringify(fields.map(f => [f.key, f.value]))
     return o.fields !== currentFieldsStr
-  })()
+  }, [original, title, type, tags, docDirty, editorText, fields])
 
   // dirty 상태를 dirtyItemsAtom에 동기화
   useEffect(() => {
@@ -206,14 +217,6 @@ export const CardDetailEditor = () => {
     const blob = new Blob([editorText], { type: 'text/markdown;charset=utf-8' })
 
     if ('showSaveFilePicker' in window) {
-      type FSAAWindow = Window & {
-        showSaveFilePicker: (opts: unknown) => Promise<{
-          createWritable: () => Promise<{
-            write: (b: Blob) => Promise<void>
-            close: () => Promise<void>
-          }>
-        }>
-      }
       void (async () => {
         try {
           const handle = await (window as FSAAWindow).showSaveFilePicker({
@@ -239,17 +242,10 @@ export const CardDetailEditor = () => {
     }
   }, [title, editorText])
 
-  // Ctrl+S
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault()
-        void handleSave()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [handleSave])
+  useHotkey(keys['card.save'], (e) => {
+    e.preventDefault()
+    void handleSave()
+  })
 
   // 로딩 중
   if (item === undefined) {
@@ -412,6 +408,3 @@ export const CardDetailEditor = () => {
     </div>
   )
 }
-
-import { NoteEditor } from './NoteEditor'
-import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'

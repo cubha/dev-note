@@ -146,7 +146,7 @@ export async function reorderItems(
   }
 }
 
-/** Case 3: 폴더→폴더 드롭 — 같은 parent 내 순서 변경 */
+/** Case 3: 폴더→폴더 드롭 — 같은 parent 내 순서 변경 또는 cross-parent 이동 */
 export async function reorderFolders(
   folders: Folder[],
   activeFolderId: number,
@@ -155,15 +155,31 @@ export async function reorderFolders(
   const activeFolder = folders.find((f) => f.id === activeFolderId)
   const overFolder = folders.find((f) => f.id === overFolderId)
   if (!activeFolder || !overFolder) return
-  if (activeFolder.parentId !== overFolder.parentId) return
 
-  const group = folders.filter((f) => f.parentId === activeFolder.parentId).sort((a, b) => a.order - b.order)
-  const oldIdx = group.findIndex((f) => f.id === activeFolderId)
-  const newIdx = group.findIndex((f) => f.id === overFolderId)
-  if (oldIdx === -1 || newIdx === -1) return
-
-  const reordered = arrayMove(group, oldIdx, newIdx)
-  await db.folders.bulkPut(reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+  if (activeFolder.parentId === overFolder.parentId) {
+    const group = folders.filter((f) => f.parentId === activeFolder.parentId).sort((a, b) => a.order - b.order)
+    const oldIdx = group.findIndex((f) => f.id === activeFolderId)
+    const newIdx = group.findIndex((f) => f.id === overFolderId)
+    if (oldIdx === -1 || newIdx === -1) return
+    const reordered = arrayMove(group, oldIdx, newIdx)
+    await db.folders.bulkPut(reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+  } else {
+    const newParentId = overFolder.parentId
+    // 순환 참조 방지: activeFolder의 자손에 newParentId가 포함되면 이동 불가
+    if (newParentId !== null) {
+      const { folderIds } = collectDescendants(folders, [], activeFolderId)
+      if (folderIds.includes(newParentId)) return
+    }
+    const movedFolder = { ...activeFolder, parentId: newParentId }
+    const targetGroup = folders
+      .filter((f) => f.parentId === newParentId && f.id !== activeFolderId)
+      .sort((a, b) => a.order - b.order)
+    const overIdx = targetGroup.findIndex((f) => f.id === overFolderId)
+    const insertAt = overIdx === -1 ? targetGroup.length : overIdx
+    const newGroup = [...targetGroup]
+    newGroup.splice(insertAt, 0, movedFolder)
+    await db.folders.bulkPut(newGroup.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+  }
 }
 
 /**

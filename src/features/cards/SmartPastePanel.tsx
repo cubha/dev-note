@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import type { ItemType } from '../../core/db'
 import type { CardField, AnySection } from '../../core/types'
 import { FIELD_SCHEMAS } from '../../core/types'
+import { SECTION_META } from '../../shared/constants'
 import { AIService } from '../../core/ai'
 import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult } from '../../core/ai'
 import { SHARED_API_URL } from '../../store/atoms'
@@ -140,16 +141,6 @@ const convertAIResultToSections = (result: DocumentPasteResult): AnySection[] =>
         return { ...base, type: 'markdown' as const, text: s.content }
     }
   })
-}
-
-// ─── 섹션 아이콘 ────────────────────────────────────────────
-
-const SECTION_ICON: Record<string, string> = {
-  markdown: '\uD83D\uDCDD',
-  credentials: '\uD83D\uDD11',
-  urls: '\uD83D\uDD17',
-  env: '\u2699\uFE0F',
-  code: '\uD83D\uDCBB',
 }
 
 // ─── 컴포넌트 ────────────────────────────────────────────────
@@ -547,7 +538,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 </p>
                 {state.sections.map((s) => (
                   <div key={s.id} className="text-[11px] text-[var(--text-tertiary)]">
-                    {SECTION_ICON[s.type] ?? ''} {s.title || s.type}
+                    {SECTION_META[s.type as keyof typeof SECTION_META]?.emoji ?? ''} {s.title || s.type}
                   </div>
                 ))}
 
