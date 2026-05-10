@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { nanoid } from 'nanoid'
 import { useSetAtom } from 'jotai'
-import { X, Shield, Link, Terminal, Code, FileText, Server, Globe, BookOpen, FileStack } from 'lucide-react'
+import { X, FileText, Server, Globe, BookOpen, FileStack } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '../../core/db'
 import type { Item, ItemType } from '../../core/db'
-import type { CardField, StructuredContent, AnySection, HybridContent, SectionType } from '../../core/types'
+import type { CardField, StructuredContent, AnySection, HybridContent } from '../../core/types'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS } from '../../core/content'
 import { checkDuplicates } from '../../core/duplicate-check'
@@ -13,7 +13,7 @@ import { openTabsAtom, activeTabAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { SmartPastePanel } from './SmartPastePanel'
 import type { FieldApplyData, DocumentApplyData } from './SmartPastePanel'
-import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
+import { ICON_MAP, DEFAULT_ITEM_TITLE, SECTION_OPTIONS } from '../../shared/constants'
 import { Input } from '../../shared/components/Input'
 import { TextArea } from '../../shared/components/TextArea'
 import { Button } from '../../shared/components/Button'
@@ -27,14 +27,6 @@ const PRESET_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   api: Globe,
   repo: BookOpen,
 }
-
-const SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { type: 'credentials', label: '접속 정보', icon: Shield },
-  { type: 'urls', label: 'URL', icon: Link },
-  { type: 'env', label: '환경변수', icon: Terminal },
-  { type: 'code', label: '코드', icon: Code },
-  { type: 'markdown', label: '메모', icon: FileText },
-]
 
 interface CardFormModalProps {
   item: Item | null          // null = 새 카드 생성 모드

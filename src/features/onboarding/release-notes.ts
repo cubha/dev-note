@@ -13,6 +13,20 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.4.2',
+    date: '2026-05-10',
+    title: '탭 드래그 순서 변경 & 폴더 이동 개선 & 코드 품질 개선',
+    highlights: [
+      '탭 드래그 순서 변경 — TabBar에서 @dnd-kit으로 탭 순서 재배치 가능',
+      '폴더 cross-parent 이동 — 폴더를 다른 부모 폴더 영역으로 드래그하면 계층 이동 (순환 참조 방지)',
+      'InfoCard 컨텍스트 메뉴 버그 수정 — 메뉴 클릭이 카드 클릭으로 전파되던 문제 해결',
+      'card.save 단축키 동적화 — 사용자 재맵핑 설정이 실제 저장에 반영되지 않던 문제 수정',
+      'SECTION_META 상수 통합 — 섹션 아이콘·레이블·이모지 5파일 중복 정의 단일화',
+      '일괄 삭제 / 폴더 이동 에러 처리 보강',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.4.1',
     date: '2026-05-08',
     title: '사이드바 리사이즈 & 반응형 레이아웃 & 접근성 강화',

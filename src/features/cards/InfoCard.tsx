@@ -5,11 +5,11 @@ import {
 } from 'lucide-react'
 import type { FuseResultMatch } from 'fuse.js'
 import type { Item } from '../../core/db'
-import type { CardContent as CardContentType, HybridContent } from '../../core/types'
+import type { CardContent as CardContentType, HybridContent, AnySection } from '../../core/types'
 import { TYPE_META } from '../../core/types'
 import { CardContentView } from './CardContent'
 import { copyToClipboard } from '../../shared/utils/clipboard'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, SECTION_META } from '../../shared/constants'
 import { highlightByQuery } from '../../shared/utils/highlight'
 import { extractSearchText } from '../../core/content'
 import { cardViewAtom, searchQueryAtom } from '../../store/atoms'
@@ -163,7 +163,7 @@ export const InfoCard = ({
             />
 
             {menuOpen && (
-              <div className="absolute right-0 top-8 z-50 w-40 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg animate-scale-in">
+              <div className="absolute right-0 top-8 z-50 w-40 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg animate-scale-in" onClick={(e) => e.stopPropagation()}>
                 <MenuButton
                   icon={<Pencil size={14} />}
                   label="편집"
@@ -246,16 +246,8 @@ export const InfoCard = ({
 
 // ── Document 미리보기 (섹션 요약) ────────────
 
-const SECTION_ICONS: Record<string, string> = {
-  credentials: '🔑',
-  urls: '🔗',
-  env: '⚙️',
-  code: '💻',
-  markdown: '📝',
-}
-
 /** 섹션별 핵심 콘텐츠 1~2줄 요약 생성 */
-const getSectionSummary = (section: import('../../core/types').AnySection): string => {
+const getSectionSummary = (section: AnySection): string => {
   switch (section.type) {
     case 'credentials':
       return section.items
@@ -300,7 +292,7 @@ const DocumentPreview = ({ content, searchQuery }: { content: HybridContent; sea
         return (
           <div key={section.id} className="min-w-0">
             <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-              <span className="shrink-0">{SECTION_ICONS[section.type] ?? '📄'}</span>
+              <span className="shrink-0">{SECTION_META[section.type]?.emoji ?? '📄'}</span>
               <span className="font-medium truncate">{section.title || section.type}</span>
             </div>
             {summary && (

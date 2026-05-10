@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { toast } from 'sonner'
 import {
   DndContext,
   PointerSensor,
@@ -158,10 +159,14 @@ export const Sidebar = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedItems)
-    removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
     setSelectedItems(new Set<number>())
     setConfirmingDelete(false)
-    await db.items.bulkDelete(ids)
+    try {
+      await db.items.bulkDelete(ids)
+      removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
+    } catch (err) {
+      toast.error(`삭제 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
   }
 
   return (

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAtom } from 'jotai'
 import {
-  Terminal, Database, FileText, X, Sparkles, Loader2, ChevronDown, ChevronUp,
-  ChevronRight, Shield, Link, Code, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
+  Database, X, Sparkles, Loader2, ChevronDown, ChevronUp,
+  ChevronRight, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
 } from 'lucide-react'
 import { useMarkdownHtml } from '../../shared/hooks/useMarkdownHtml'
 import { toast } from 'sonner'
@@ -10,7 +10,7 @@ import { cardViewAtom, SHARED_API_URL } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
-  HybridContent, AnySection, SectionType,
+  HybridContent, AnySection,
   MarkdownSection, CredentialSection, UrlSection, EnvSection, CodeSection,
   CredentialEntry, EnvEntry,
 } from '../../core/types'
@@ -21,7 +21,7 @@ import type { SummaryResult } from '../../core/ai'
 import { CardContentView } from './CardContent'
 import { hasFormFields } from './fieldHelpers'
 import { copyToClipboard } from '../../shared/utils/clipboard'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, SECTION_META } from '../../shared/constants'
 import { isSafeUrl } from '../../shared/utils/url'
 import { AIErrorModal } from '../../shared/components/AIErrorModal'
 import type { ErrorDetail } from '../../shared/constants/ai-errors'
@@ -168,22 +168,6 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
 }
 
 // ── HybridDocumentView — Document 타입 읽기 전용 렌더러 ──────
-
-const SECTION_ICONS_VIEW: Record<SectionType, React.ComponentType<{ size?: number; className?: string }>> = {
-  credentials: Shield,
-  urls: Link,
-  env: Terminal,
-  code: Code,
-  markdown: FileText,
-}
-
-const SECTION_LABELS_VIEW: Record<SectionType, string> = {
-  credentials: '접속 정보',
-  urls: 'URL',
-  env: '환경변수',
-  code: '코드',
-  markdown: '메모',
-}
 
 const CATEGORY_ICONS_VIEW: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   server: Server,
@@ -477,7 +461,8 @@ const ReadOnlySectionContent = ({ section }: { section: AnySection }) => {
 
 const ReadOnlySectionBlock = ({ section }: { section: AnySection }) => {
   const [collapsed, setCollapsed] = useState(section.collapsed)
-  const Icon = SECTION_ICONS_VIEW[section.type]
+  const sectionMeta = SECTION_META[section.type]
+  const Icon = sectionMeta.icon
 
   return (
     <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
@@ -488,7 +473,7 @@ const ReadOnlySectionBlock = ({ section }: { section: AnySection }) => {
       >
         <Icon size={14} className="text-[var(--text-tertiary)] shrink-0" />
         <span className="flex-1 text-xs font-medium text-[var(--text-secondary)] truncate">
-          {section.title || SECTION_LABELS_VIEW[section.type]}
+          {section.title || sectionMeta.label}
         </span>
         {collapsed
           ? <ChevronRight size={14} className="text-[var(--text-tertiary)] shrink-0" />

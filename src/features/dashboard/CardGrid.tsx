@@ -149,7 +149,7 @@ export const CardGrid = () => {
         updatedAt: Date.now(),
         createdAt: Date.now(),
       }
-      await db.items.add(duplicate as Item)
+      await db.items.add(duplicate)
       toast.success(`"${item.title}" 복제됨`, { duration: 2000 })
     } catch (err) {
       toast.error(`복제 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
