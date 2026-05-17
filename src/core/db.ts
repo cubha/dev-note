@@ -25,6 +25,8 @@ export interface Item {
   createdAt: number
 }
 
+export type AIProvider = 'anthropic' | 'google' | 'openai'
+
 export interface AppConfig {
   id: 1                   // 단일 레코드
   theme: 'dark' | 'light'
@@ -32,6 +34,8 @@ export interface AppConfig {
   wordWrap: boolean        // 자동 줄바꿈
   showLineNumbers: boolean // 줄 번호 표시
   lastExportAt: number | null
+  selectedProvider: AIProvider  // 기본: 'anthropic'
+  userApiKey: string            // 빈 문자열 = 공유 키 모드
 }
 
 // ─── Dexie v4 클래스 ──────────────────────────────────────────
@@ -210,6 +214,17 @@ class DevNoteDB extends Dexie {
         }
       })
     })
+    // v14: AI provider 설정 필드 추가
+    this.version(14).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(tx =>
+      tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        c.selectedProvider = 'anthropic'
+        c.userApiKey = ''
+      })
+    )
   }
 }
 
@@ -228,6 +243,8 @@ export async function ensureConfig(): Promise<AppConfig> {
     wordWrap: false,
     showLineNumbers: false,
     lastExportAt: null,
+    selectedProvider: 'anthropic',
+    userApiKey: '',
   }
   await db.config.add(defaults)
   return defaults

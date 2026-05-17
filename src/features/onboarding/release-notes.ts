@@ -13,6 +13,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.5.0',
+    date: '2026-05-17',
+    title: 'LLM 멀티 프로바이더 BYOK 확장',
+    highlights: [
+      'BYOK 지원 — 설정 > AI 탭에서 Anthropic·Google Gemini·OpenAI API 키 직접 입력, 일일 제한 없이 사용',
+      '공유 키 품질 상향 — 일일 한도 50→20회, 모든 기능 모델 Haiku → Sonnet으로 업그레이드',
+      '잔여 횟수 실시간 표시 — SmartPaste·요약 패널 상단 배너 (남은 횟수 + 진행 바)',
+      'AI 설정 탭 신설 — 환경설정에 AI 탭 추가 (Provider 선택, API Key 저장/지우기)',
+      'DB v14 마이그레이션 — selectedProvider, userApiKey 필드 자동 추가',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.4.2',
     date: '2026-05-10',
     title: '탭 드래그 순서 변경 & 폴더 이동 개선 & 코드 품질 개선',

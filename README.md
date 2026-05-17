@@ -11,7 +11,7 @@
 **카드 기반 대시보드 + 탭 편집** 방식으로 접속 정보·노트·API 정보를 타입별로 구조화 관리합니다.
 
 - **완전 로컬**: 모든 데이터는 브라우저 IndexedDB에만 저장
-- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — Vercel Edge Function 공유 키 (IP당 50회/일)
+- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — 공유 키(IP당 20회/일) 또는 본인 API 키(Anthropic · Google · OpenAI) 직접 입력 선택
 - **무설치**: 빌드 결과물을 브라우저에서 바로 실행 (GitHub Pages 배포)
 - **5종 카드 타입**: Server, DB, API, Note (마크다운+코드), Document (다중 섹션 문서)
 
@@ -30,7 +30,7 @@
 | Keybindings | @tanstack/react-hotkeys (단축키 시스템) | - |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
-| AI | Claude API (Vercel Edge Function 프록시, IP당 50회/일) | - |
+| AI | Claude / Gemini / GPT-4o (Vercel Edge Function 프록시, 공유 키 IP당 20회/일 또는 BYOK) | - |
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite` 플러그인) | 4.2 |
 | DnD | @dnd-kit/core + @dnd-kit/sortable | 6.3 / 10.0 |
 | Markdown | marked + DOMPurify | 17.0 / 3.3 |
@@ -42,14 +42,14 @@
 ## 📁 프로젝트 구조
 
 ```
-api/                       # Vercel Edge Function 프록시 (공유 키 모드)
+api/                       # Vercel Edge Function 프록시
 │   └── v1/
-│       ├── messages.ts    # Claude API 프록시 (지수 백오프 재시도)
+│       ├── messages.ts    # 멀티 프로바이더 프록시 (Anthropic/Google/OpenAI BYOK 분기, rate limit 헤더)
 │       └── error-report.ts # Discord webhook 에러 리포트
 vercel.json                # Vercel 프로젝트 설정 (rewrites, framework null)
 src/
 ├── core/
-│   ├── db.ts              # Dexie v4 스키마 v13 + 마이그레이션
+│   ├── db.ts              # Dexie v4 스키마 v14 + 마이그레이션 (selectedProvider, userApiKey)
 │   ├── types.ts           # CardField, StructuredContent, HybridContent, FIELD_SCHEMAS, TYPE_META
 │   ├── content.ts         # parseContent, serializeContent, extractSearchText
 │   ├── ai.ts              # Claude API 래퍼 (smartPaste, markdownSmartPaste, summarize, documentSmartPaste)
@@ -100,13 +100,15 @@ src/
 │   │   ├── ImportModeModal.tsx # 가져오기 모드 선택 모달
 │   │   └── StorageButtons.tsx  # 내보내기/가져오기 UI 버튼
 │   ├── settings/
-│   │   ├── SettingsModal.tsx   # 환경설정 모달 (에디터 + AI + 단축키 탭)
+│   │   ├── SettingsModal.tsx   # 환경설정 모달 (일반 + AI + 단축키 3탭)
+│   │   ├── AISettingsTab.tsx   # AI 탭 — Provider 드롭다운, API Key 입력/저장, 잔여 횟수 표시
 │   │   └── KeybindingsTab.tsx  # 단축키 커스터마이징 탭 (카테고리별 그룹, 키 녹화, 충돌 감지)
 ├── store/
-│   ├── atoms.ts           # Jotai atoms (탭, AI, 검색, 대시보드, 온보딩)
+│   ├── atoms.ts           # Jotai atoms (탭, AI usage/provider/key, 검색, 대시보드, 온보딩)
 │   └── tabHelpers.ts      # openTab(), closeTab() 헬퍼 함수
 └── shared/
     ├── components/
+    │   ├── AIUsageBanner.tsx  # 공유 키 잔여 횟수 배너 (SmartPaste·요약 패널 상단)
     │   ├── Modal.tsx          # 공통 모달 (백드롭+ESC+중앙정렬, elevated/width/maxHeight)
     │   ├── ModalHeader.tsx    # 공통 모달 헤더 (제목+아이콘+X 닫기)
     │   ├── Button.tsx         # 공통 버튼 (primary/secondary/ghost/danger, sm/md)
@@ -136,12 +138,14 @@ src/
 
 ---
 
-## 🗄 데이터 스키마 (DB v13)
+## 🗄 데이터 스키마 (DB v14)
 
 ```
 folders:    ++id, parentId, name, order
 items:      ++id, folderId, title, *tags, type, order, pinned, updatedAt
 config:     id (단일 레코드, id=1 고정)
+            → selectedProvider: 'anthropic' | 'google' | 'openai'
+            → userApiKey: string  (빈 문자열 = 공유 키 모드)
 ```
 
 **카드 타입 5종**
@@ -204,23 +208,33 @@ interface HybridContent {
 
 ## 🤖 AI 기능
 
-Vercel Edge Function 공유 키 단일 체제 — 별도 API 키 설정 없이 사용 가능 (IP당 50회/일)
+**공유 키 모드** (기본) — 별도 설정 없이 사용 가능, IP당 20회/일
+**BYOK 모드** — 설정 > AI 탭에서 본인 API 키 입력 시 무제한 사용 (Anthropic · Google Gemini · OpenAI)
 
 ### AI 아키텍처
 
 ```
-Claude API (Vercel Edge Function 프록시)
-  ├── Smart Paste / 요약  → claude-haiku-4-5  (속도·비용 우선)
-  └── Document Smart Paste → claude-sonnet-4-6 (복잡 섹션 분류, 품질 우선)
+Vercel Edge Function 프록시 (api/v1/messages.ts)
+  ├── 공유 키 모드:  Anthropic Claude (Sonnet) — IP당 20회/일, X-RateLimit 헤더 응답
+  └── BYOK 모드:    X-User-Api-Key + X-Provider 헤더 → provider별 분기
+        ├── anthropic → Claude API 직접 전달
+        ├── google    → Gemini generateContent API (요청/응답 형식 정규화)
+        └── openai    → ChatCompletions API (요청/응답 형식 정규화)
+
+클라이언트 모델 매핑:
+  anthropic: Sonnet 4.6 (fast + quality)
+  google:    Gemini 2.5 Flash (fast + quality)
+  openai:    GPT-4o-mini (fast) / GPT-4o (quality)
 ```
 
 | 기능 | 설명 |
 |------|------|
-| Smart Paste | 자유 텍스트 붙여넣기 → 카드 필드 자동 매핑 (Claude AI) |
-| MD Smart Paste | 자유 텍스트 → 마크다운 자동 변환 (헤더, 리스트, 표, 코드블록 등, Claude AI) |
-| Document Smart Paste | 자유 텍스트 → Section[] 구조화 (document 타입, Claude AI) |
+| Smart Paste | 자유 텍스트 붙여넣기 → 카드 필드 자동 매핑 |
+| MD Smart Paste | 자유 텍스트 → 마크다운 자동 변환 (헤더, 리스트, 표, 코드블록 등) |
+| Document Smart Paste | 자유 텍스트 → Section[] 구조화 (document 타입) |
 | 섹션별 Smart Paste | 각 섹션 타입에 맞는 텍스트 파싱 (env=KEY=VALUE, urls=URL추출 등) |
-| 콘텐츠 요약 | 카드 내용 → 핵심 요약 + 키포인트 (Claude AI) |
+| 콘텐츠 요약 | 카드 내용 → 핵심 요약 + 키포인트 |
+| 잔여 횟수 표시 | SmartPaste/요약 패널 상단 배너 — 공유 키 모드에서 오늘 남은 횟수 + 진행 바 |
 
 ---
 
@@ -257,6 +271,18 @@ Claude API (Vercel Edge Function 프록시)
 ---
 
 ## 🚀 릴리즈 노트
+
+### v1.5.0 (2026-05-17)
+
+**LLM 멀티 프로바이더 BYOK 확장**
+
+- **BYOK (Bring Your Own Key)** — 설정 > AI 탭에서 Anthropic·Google Gemini·OpenAI API 키 직접 입력, 일일 제한 없이 본인 quota 사용
+- **멀티 프로바이더 라우팅** — Vercel Edge Function이 `X-Provider` 헤더 기반으로 provider별 API 분기 호출 및 응답 형식 정규화 (클라이언트 코드 무변경)
+- **공유 키 일일 한도 조정** — IP당 50회/일 → **20회/일**, 모든 기능 모델을 Haiku → **Sonnet**으로 품질 상향
+- **잔여 횟수 실시간 표시** — SmartPaste·요약 패널 상단 배너에 오늘 남은 횟수 + 진행 바 + "내 키 사용 →" 버튼
+- **AI 설정 탭 신설** — 환경설정 2탭(일반·단축키) → 3탭(일반·**AI**·단축키), Provider 드롭다운 + API Key 저장/지우기 + 잔여 횟수 표시
+- **DB v14 마이그레이션** — AppConfig에 `selectedProvider`, `userApiKey` 필드 추가 (기존 데이터 자동 업그레이드)
+- **BYOK 에러 코드** — `byok_auth_error`(잘못된 키), `byok_quota_exceeded`(사용자 한도 초과) 분리
 
 ### v1.4.2 (2026-05-10)
 

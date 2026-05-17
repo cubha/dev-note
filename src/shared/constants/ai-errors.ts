@@ -20,6 +20,8 @@ export const AI_ERROR_LABELS: Record<AIErrorCode, string> = {
   invalid_model: '지원하지 않는 모델',
   parse_error: '요청 파싱 오류',
   network_error: '네트워크 연결 실패',
+  byok_auth_error: '입력한 API 키가 올바르지 않습니다',
+  byok_quota_exceeded: '입력한 키의 사용량 한도를 초과했습니다',
   unknown: '알 수 없는 오류',
 }
 

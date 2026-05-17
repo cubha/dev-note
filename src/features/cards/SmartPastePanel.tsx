@@ -7,6 +7,7 @@
 // - AI 에러 발생 시 에러 모달 + Discord 관리자 문의
 
 import { useState, useCallback } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { nanoid } from 'nanoid'
 import { Clipboard, Sparkles, ChevronDown, ChevronUp, Check, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,8 +17,9 @@ import { FIELD_SCHEMAS } from '../../core/types'
 import { SECTION_META } from '../../shared/constants'
 import { AIService } from '../../core/ai'
 import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult } from '../../core/ai'
-import { SHARED_API_URL } from '../../store/atoms'
+import { SHARED_API_URL, userApiKeyAtom, selectedProviderAtom, aiUsageAtom } from '../../store/atoms'
 import { AIErrorModal } from '../../shared/components/AIErrorModal'
+import { AIUsageBanner } from '../../shared/components/AIUsageBanner'
 import { TextArea } from '../../shared/components/TextArea'
 import type { ErrorDetail } from '../../shared/constants/ai-errors'
 import { extractErrorDetail } from '../../shared/constants/ai-errors'
@@ -152,6 +154,16 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
   const [errorModalDetail, setErrorModalDetail] = useState<ErrorDetail | null>(null)
   const isDocumentMode = currentType === 'document'
 
+  const userApiKey = useAtomValue(userApiKeyAtom)
+  const selectedProvider = useAtomValue(selectedProviderAtom)
+  const setAiUsage = useSetAtom(aiUsageAtom)
+
+  const createService = useCallback(() => {
+    const svc = new AIService(SHARED_API_URL!, userApiKey, selectedProvider)
+    svc.onUsageUpdate = setAiUsage
+    return svc
+  }, [userApiKey, selectedProvider, setAiUsage])
+
   // ── 에러 처리 공통 ─────────────────────────────────────────
 
   const handleError = useCallback((err: unknown) => {
@@ -169,7 +181,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
 
   const handleAnalyzeMarkdown = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_API_URL!)
+      const service = createService()
       const result: MarkdownPasteResult = await service.markdownSmartPaste(text)
 
       setState({
@@ -185,13 +197,13 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
     } catch (err) {
       handleError(err)
     }
-  }, [handleError])
+  }, [handleError, createService])
 
   // ── 분석: 정형 카드 (server/db/api) ──────────────────────
 
   const handleAnalyzeFields = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_API_URL!)
+      const service = createService()
       const aiResult: SmartPasteResult = await service.smartPaste(text, currentType)
 
       setState({
@@ -207,13 +219,13 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
     } catch (err) {
       handleError(err)
     }
-  }, [currentType, handleError])
+  }, [currentType, handleError, createService])
 
   // ── 분석: document 카드 ───────────────────────────────────
 
   const handleAnalyzeDocument = useCallback(async (text: string) => {
     try {
-      const service = new AIService(SHARED_API_URL!)
+      const service = createService()
       const result: DocumentPasteResult = await service.documentSmartPaste(text)
       const sections = convertAIResultToSections(result)
 
@@ -231,7 +243,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
     } catch (err) {
       handleError(err)
     }
-  }, [handleError])
+  }, [handleError, createService])
 
   // ── 분석 실행 (통합 엔트리포인트) ────────────────────────
 
@@ -329,6 +341,8 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
       {/* 펼침 영역 */}
       {expanded && (
         <div className="border-t border-[var(--border-default)] px-3 py-3 space-y-3">
+          {/* 잔여 횟수 배너 */}
+          <AIUsageBanner />
           {/* 텍스트 입력 */}
           <TextArea
             value={inputText}

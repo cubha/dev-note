@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   Database, X, Sparkles, Loader2, ChevronDown, ChevronUp,
   ChevronRight, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
 } from 'lucide-react'
 import { useMarkdownHtml } from '../../shared/hooks/useMarkdownHtml'
 import { toast } from 'sonner'
-import { cardViewAtom, SHARED_API_URL } from '../../store/atoms'
+import { cardViewAtom, SHARED_API_URL, userApiKeyAtom, selectedProviderAtom, aiUsageAtom } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
@@ -18,6 +18,7 @@ import type { ItemType } from '../../core/db'
 import { extractSearchText } from '../../core/content'
 import { AIService } from '../../core/ai'
 import type { SummaryResult } from '../../core/ai'
+import { AIUsageBanner } from '../../shared/components/AIUsageBanner'
 import { CardContentView } from './CardContent'
 import { hasFormFields } from './fieldHelpers'
 import { copyToClipboard } from '../../shared/utils/clipboard'
@@ -67,11 +68,16 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
   const [errorDetail, setErrorDetail] = useState<ErrorDetail | null>(null)
   const [errorModalOpen, setErrorModalOpen] = useState(false)
 
+  const userApiKey = useAtomValue(userApiKeyAtom)
+  const selectedProvider = useAtomValue(selectedProviderAtom)
+  const setAiUsage = useSetAtom(aiUsageAtom)
+
   const handleSummarize = useCallback(async () => {
     setLoading(true)
     setErrorDetail(null)
     try {
-      const service = new AIService(SHARED_API_URL!)
+      const service = new AIService(SHARED_API_URL!, userApiKey, selectedProvider)
+      service.onUsageUpdate = setAiUsage
       const text = extractSearchText(content)
       if (!text.trim()) {
         toast.error('요약할 콘텐츠가 없습니다.')
@@ -86,12 +92,13 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
     } finally {
       setLoading(false)
     }
-  }, [content, cardType])
+  }, [content, cardType, userApiKey, selectedProvider, setAiUsage])
 
   return (
     <div className="shrink-0">
       {!summary && (
         <div className="px-6 py-2 border-b border-[var(--border-default)] space-y-1.5">
+          <AIUsageBanner />
           <button
             type="button"
             onClick={() => void handleSummarize()}
