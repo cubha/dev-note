@@ -1,12 +1,12 @@
 // src/core/ai.ts
 //
-// Claude API fetch 래퍼 (Vercel Edge Function 공유 키 체제)
-// - Vercel Edge Function 프록시를 통해 호출 (API 키 클라이언트 미보유)
-// - Structured Outputs: output_config.format.json_schema로 100% 유효 JSON 보장
-// - 호출 간격 제한 (500ms 쿨다운)
+// Claude API fetch 래퍼 (멀티 프로바이더 BYOK 지원)
+// - 공유 키 모드: Vercel Edge Function 프록시 경유
+// - BYOK 모드: X-User-Api-Key + X-Provider 헤더로 사용자 키 전달
 // - SDK 불필요 — fetch 직접 호출로 번들 크기 0 추가
 
 import type { ItemType } from './db'
+import type { AIProvider } from './db'
 import { SMART_PASTE_SCHEMA, SUMMARY_SCHEMA, DOCUMENT_PASTE_SCHEMA, MARKDOWN_PASTE_SCHEMA } from './ai-schemas'
 
 // ─── 타입 ────────────────────────────────────────────────────
@@ -69,6 +69,8 @@ export type AIErrorCode =
   | 'invalid_model'
   | 'parse_error'
   | 'network_error'
+  | 'byok_auth_error'
+  | 'byok_quota_exceeded'
   | 'unknown'
 
 // ─── 에러 클래스 ─────────────────────────────────────────────
@@ -132,28 +134,50 @@ function parseAIResult<T>(
   return input as unknown as T
 }
 
+// ─── 모델 매핑 ───────────────────────────────────────────────
+
+export type { AIProvider }
+
+const DEFAULT_MODELS: Record<AIProvider, { fast: string; quality: string }> = {
+  anthropic: { fast: 'claude-sonnet-4-6',  quality: 'claude-sonnet-4-6' },
+  google:    { fast: 'gemini-2.5-flash',    quality: 'gemini-2.5-flash' },
+  openai:    { fast: 'gpt-4o-mini',         quality: 'gpt-4o' },
+}
+
+// ─── AI 사용량 타입 ──────────────────────────────────────────
+
+export interface AIUsage {
+  remaining: number | null  // null = BYOK 모드
+  resetAt: string | null    // ISO8601 UTC 다음 자정
+  limit: number
+}
+
 // ─── AI Service ──────────────────────────────────────────────
 
-// smartPaste/summarize: 정형 추출 → 속도·비용 우선
-const FAST_MODEL = 'claude-haiku-4-5-20251001'
-// documentSmartPaste: 복잡한 섹션 분류·구조화 → 품질 우선
-const QUALITY_MODEL = 'claude-sonnet-4-6'
 const MIN_INTERVAL_MS = 500
 
 export class AIService {
   private workerUrl: string
+  private userApiKey: string
+  private provider: AIProvider
   private lastCallTime = 0
 
-  constructor(workerUrl: string) {
+  /** 공유 키 모드에서 API 응답 헤더 수신 시 호출 */
+  onUsageUpdate?: (usage: AIUsage) => void
+
+  constructor(workerUrl: string, userApiKey = '', provider: AIProvider = 'anthropic') {
     this.workerUrl = workerUrl
+    this.userApiKey = userApiKey
+    this.provider = provider
   }
 
   /** Smart Paste — 비정형 텍스트에서 구조화 데이터 추출 */
   async smartPaste(text: string, targetType?: ItemType): Promise<SmartPasteResult> {
     await this.enforceRateLimit()
 
+    const model = DEFAULT_MODELS[this.provider].fast
     const response = await this.callClaude({
-      model: FAST_MODEL,
+      model,
       max_tokens: 1024,
       system: buildSmartPastePrompt(targetType),
       messages: [{ role: 'user', content: text }],
@@ -171,8 +195,9 @@ export class AIService {
   async summarize(text: string, cardType: ItemType): Promise<SummaryResult> {
     await this.enforceRateLimit()
 
+    const model = DEFAULT_MODELS[this.provider].fast
     const response = await this.callClaude({
-      model: FAST_MODEL,
+      model,
       max_tokens: 1024,
       system: buildSummaryPrompt(cardType),
       messages: [{ role: 'user', content: text }],
@@ -190,8 +215,9 @@ export class AIService {
   async markdownSmartPaste(text: string): Promise<MarkdownPasteResult> {
     await this.enforceRateLimit()
 
+    const model = DEFAULT_MODELS[this.provider].fast
     const response = await this.callClaude({
-      model: FAST_MODEL,
+      model,
       max_tokens: 4096,
       system: buildMarkdownPastePrompt(),
       messages: [{ role: 'user', content: text }],
@@ -205,12 +231,13 @@ export class AIService {
     )
   }
 
-  /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 (Sonnet: 복잡한 멀티섹션 분류) */
+  /** Document Smart Paste — 자유형 텍스트 → 섹션 구조화 */
   async documentSmartPaste(text: string): Promise<DocumentPasteResult> {
     await this.enforceRateLimit()
 
+    const model = DEFAULT_MODELS[this.provider].quality
     const response = await this.callClaude({
-      model: QUALITY_MODEL,
+      model,
       max_tokens: 4096,
       system: buildDocumentPastePrompt(),
       messages: [{ role: 'user', content: text }],
@@ -227,11 +254,18 @@ export class AIService {
   private async callClaude(body: Record<string, unknown>): Promise<ClaudeResponse> {
     const url = `${this.workerUrl}/v1/messages`
 
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+
+    if (this.userApiKey) {
+      headers['X-User-Api-Key'] = this.userApiKey
+      headers['X-Provider'] = this.provider
+    }
+
     let res: Response
     try {
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       })
     } catch {
@@ -241,10 +275,24 @@ export class AIService {
       )
     }
 
+    // 공유 키 모드에서 잔여 횟수 헤더 파싱
+    if (!this.userApiKey) {
+      const remaining = res.headers.get('X-RateLimit-Remaining')
+      const resetAt = res.headers.get('X-RateLimit-Reset')
+      const limit = res.headers.get('X-RateLimit-Limit')
+      if (remaining !== null && this.onUsageUpdate) {
+        this.onUsageUpdate({
+          remaining: parseInt(remaining, 10),
+          resetAt: resetAt,
+          limit: limit ? parseInt(limit, 10) : 20,
+        })
+      }
+    }
+
     if (!res.ok) {
       const errorBody = await res.text().catch(() => '')
       let code: AIErrorCode = 'unknown'
-      let message = `Claude API 오류 (${res.status})`
+      let message = `API 오류 (${res.status})`
 
       try {
         const parsed = JSON.parse(errorBody) as { error?: string; code?: string }

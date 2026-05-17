@@ -12,6 +12,8 @@ import {
   sidebarMobileOpenAtom,
   activeTabAtom,
   selectedFolderAtom,
+  selectedProviderAtom,
+  userApiKeyAtom,
 } from './store/atoms'
 import { ContextMenu } from './shared/components/ContextMenu'
 import { Sidebar } from './features/sidebar/Sidebar'
@@ -48,6 +50,8 @@ const MOBILE_BREAKPOINT = 768
 export default function App() {
   const config = useAtomValue(appConfigAtom)
   const setConfig = useSetAtom(appConfigAtom)
+  const setSelectedProvider = useSetAtom(selectedProviderAtom)
+  const setUserApiKey = useSetAtom(userApiKeyAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
@@ -64,13 +68,17 @@ export default function App() {
   useGlobalKeyboardShortcuts()
 
   useEffect(() => {
-    ensureConfig().then(setConfig)
+    ensureConfig().then((cfg) => {
+      setConfig(cfg)
+      setSelectedProvider(cfg.selectedProvider)
+      setUserApiKey(cfg.userApiKey)
+    })
     void requestPersistentStorage()
     const savedSidebarWidth = localStorage.getItem('sidebar-width')
     if (savedSidebarWidth) {
       document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth)
     }
-  }, [setConfig])
+  }, [setConfig, setSelectedProvider, setUserApiKey])
 
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)

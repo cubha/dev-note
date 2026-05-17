@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import type { AppConfig, Item, ItemType } from '../core/db'
+import type { AppConfig, AIProvider, Item, ItemType } from '../core/db'
 import type { CardContent as CardContentType } from '../core/types'
 import type { UserOverrides, CommandId } from '../core/keybindings'
 import { getEffectiveBindings } from '../core/keybindings'
@@ -76,6 +76,9 @@ export const tabContextMenuAtom = atom<TabContextMenuState>({
 
 export const settingsOpenAtom = atom<boolean>(false)
 
+/** 환경설정 모달 초기 탭 (외부에서 특정 탭으로 열 때 사용) */
+export const settingsInitialTabAtom = atom<'general' | 'ai' | 'keybindings'>('general')
+
 // ─── 인라인 이름 변경 ─────────────────────────────────────────
 
 export interface RenamingTarget {
@@ -132,6 +135,19 @@ export const sortOrderAtom = atom<SortOrder>('default')
 
 /** 빌드 타임 API URL (.env.local, gitignore) — trailing slash 방어 */
 export const SHARED_API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '')
+
+/** 공유 키 모드 사용량 (API 응답 헤더로 갱신, BYOK 모드에서는 null) */
+export const aiUsageAtom = atom<{
+  remaining: number | null
+  resetAt: string | null
+  limit: number
+}>({ remaining: null, resetAt: null, limit: 20 })
+
+/** 선택된 AI 프로바이더 (AppConfig에서 앱 시작 시 로드) */
+export const selectedProviderAtom = atom<AIProvider>('anthropic')
+
+/** 사용자 API 키 (빈 문자열 = 공유 키 모드) */
+export const userApiKeyAtom = atom<string>('')
 
 // ─── 공지사항 & 가이드 ──────────────────────────────────────────
 

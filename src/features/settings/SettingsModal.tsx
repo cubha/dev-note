@@ -1,29 +1,27 @@
 // src/features/settings/SettingsModal.tsx
 //
 // 환경설정 모달
-// 탭: 일반 (테마, 에디터) | 단축키
+// 탭: 일반 (테마, 에디터) | AI | 단축키
 
 import { useAtom } from 'jotai'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { db } from '../../core/db'
-import { appConfigAtom, settingsOpenAtom } from '../../store/atoms'
+import { appConfigAtom, settingsOpenAtom, settingsInitialTabAtom } from '../../store/atoms'
 import { KeybindingsTab } from './KeybindingsTab'
+import { AISettingsTab } from './AISettingsTab'
 import { Modal } from '../../shared/components/Modal'
 import { ModalHeader } from '../../shared/components/ModalHeader'
-
-type SettingsTab = 'general' | 'keybindings'
 
 export const SettingsModal = () => {
   const [isOpen, setIsOpen] = useAtom(settingsOpenAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  // settingsInitialTabAtom을 activeTab으로 직접 사용 — 외부(AIUsageBanner)에서 직접 제어
+  const [activeTab, setActiveTab] = useAtom(settingsInitialTabAtom)
 
-  const handleClose = useCallback(() => setIsOpen(false), [setIsOpen])
-
-  // 모달 닫힐 때 탭 초기화
-  useEffect(() => {
-    if (!isOpen) setActiveTab('general')
-  }, [isOpen])
+  const handleClose = useCallback(() => {
+    setIsOpen(false)
+    setActiveTab('general')  // 닫힐 때 탭 초기화
+  }, [setIsOpen, setActiveTab])
 
   if (!isOpen || !config) return null
 
@@ -40,7 +38,7 @@ export const SettingsModal = () => {
 
         {/* 탭 네비게이션 */}
         <div className="flex border-b border-[var(--border-default)] px-5">
-          {(['general', 'keybindings'] as const).map((tab) => (
+          {(['general', 'ai', 'keybindings'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -51,14 +49,16 @@ export const SettingsModal = () => {
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              {tab === 'general' ? '일반' : '단축키'}
+              {tab === 'general' ? '일반' : tab === 'ai' ? 'AI' : '단축키'}
             </button>
           ))}
         </div>
 
         {/* 탭 콘텐츠 */}
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-          {activeTab === 'general' ? (
+          {activeTab === 'ai' ? (
+            <AISettingsTab />
+          ) : activeTab === 'general' ? (
             <div className="space-y-6">
 
               {/* ── 화면 섹션 ── */}
@@ -205,6 +205,7 @@ export const SettingsModal = () => {
           ) : (
             <KeybindingsTab />
           )}
+
         </div>
 
         {/* 푸터 */}
