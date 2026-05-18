@@ -74,14 +74,14 @@ function jsonError(message: string, status: number, origin: string, code?: strin
   return jsonResponse({ error: message, ...(code ? { code } : {}) }, status, origin)
 }
 
-// ── Rate Limit (Vercel KV / Upstash Redis) ─────────────────
+// ── Rate Limit (Upstash Redis) ──────────────────────────────
 
 async function checkAndIncrementRateLimit(
   ip: string,
   dailyLimit: number,
 ): Promise<{ allowed: boolean; remaining: number }> {
-  const url = process.env.KV_REST_API_URL
-  const token = process.env.KV_REST_API_TOKEN
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
   if (!url || !token) return { allowed: true, remaining: dailyLimit }
 
   const today = new Date().toISOString().slice(0, 10)
