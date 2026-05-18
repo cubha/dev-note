@@ -127,7 +127,18 @@ export function AISettingsTab() {
             </select>
           </div>
 
-          {/* Google 무료 키 안내 */}
+          {/* Provider별 키 발급 링크 */}
+          {selectedProvider === 'anthropic' && (
+            <a
+              href="https://console.anthropic.com/settings/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-[var(--text-active)] hover:underline"
+            >
+              <ExternalLink className="size-3" />
+              API 키 발급 → console.anthropic.com
+            </a>
+          )}
           {selectedProvider === 'google' && (
             <a
               href="https://aistudio.google.com"
@@ -137,6 +148,17 @@ export function AISettingsTab() {
             >
               <ExternalLink className="size-3" />
               무료 API 키 발급 → aistudio.google.com
+            </a>
+          )}
+          {selectedProvider === 'openai' && (
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-[var(--text-active)] hover:underline"
+            >
+              <ExternalLink className="size-3" />
+              API 키 발급 → platform.openai.com
             </a>
           )}
 
