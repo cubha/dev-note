@@ -80,8 +80,8 @@ async function checkAndIncrementRateLimit(
   ip: string,
   dailyLimit: number,
 ): Promise<{ allowed: boolean; remaining: number }> {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const url = process.env.KV_REST_API_URL
+  const token = process.env.KV_REST_API_TOKEN
   if (!url || !token) return { allowed: true, remaining: dailyLimit }
 
   const today = new Date().toISOString().slice(0, 10)
