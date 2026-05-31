@@ -8,6 +8,7 @@
 import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { ExportSchema } from './schema'
+import { isEncryptedContent } from '../../core/content'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
 
@@ -79,17 +80,23 @@ function toExportItem(item: Item): Omit<Item, 'id'> {
 // ─── 내보내기 진입점 ───────────────────────────────────────────
 
 export async function exportData(): Promise<void> {
-  const [folders, items] = await Promise.all([
+  const [folders, items, config] = await Promise.all([
     db.folders.toArray(),
     db.items.toArray(),
+    db.config.get(1),
   ])
 
   const exportedAt = Date.now()
+  const hasEncryptedItems = items.some((item) => isEncryptedContent(item.content))
   const schema: ExportSchema = {
     version: 2,
     exportedAt,
     folders,
     items: items.map(toExportItem),
+    ...(hasEncryptedItems && {
+      encrypted: true,
+      encryptionSalt: config?.encryptionSalt ?? undefined,
+    }),
   }
 
   const content = JSON.stringify(schema, null, 2)
@@ -106,6 +113,7 @@ export async function exportSelectedItems(itemIds: number[]): Promise<void> {
 
   const selectedItemsData = await db.items.bulkGet(itemIds)
   const validItems = selectedItemsData.filter((i): i is Item => i !== undefined)
+  const config = await db.config.get(1)
 
   // 항목이 참조하는 폴더 및 그 조상 폴더 ID 수집
   const neededFolderIds = new Set<number>()
@@ -126,11 +134,16 @@ export async function exportSelectedItems(itemIds: number[]): Promise<void> {
   const exportFolders = allFolders.filter((f) => neededFolderIds.has(f.id))
 
   const exportedAt = Date.now()
+  const hasEncryptedItems = validItems.some((item) => isEncryptedContent(item.content))
   const schema: ExportSchema = {
     version: 2,
     exportedAt,
     folders: exportFolders,
     items: validItems.map(toExportItem),
+    ...(hasEncryptedItems && {
+      encrypted: true,
+      encryptionSalt: config?.encryptionSalt ?? undefined,
+    }),
   }
 
   const content = JSON.stringify(schema, null, 2)

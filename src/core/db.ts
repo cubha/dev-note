@@ -36,6 +36,8 @@ export interface AppConfig {
   lastExportAt: number | null
   selectedProvider: AIProvider  // 기본: 'anthropic'
   userApiKey: string            // 빈 문자열 = 공유 키 모드
+  encryptionEnabled: boolean    // at-rest 암호화 활성화 여부
+  encryptionSalt: string | null // PBKDF2 salt hex 문자열
 }
 
 // ─── Dexie v4 클래스 ──────────────────────────────────────────
@@ -225,6 +227,17 @@ class DevNoteDB extends Dexie {
         c.userApiKey = ''
       })
     )
+    // v15: at-rest 암호화 설정 필드 추가
+    this.version(15).stores({
+      folders: '++id, parentId, name, order',
+      items:   '++id, folderId, title, *tags, type, order, pinned, updatedAt',
+      config:  'id',
+    }).upgrade(tx =>
+      tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        c.encryptionEnabled = false
+        c.encryptionSalt = null
+      })
+    )
   }
 }
 
@@ -245,6 +258,8 @@ export async function ensureConfig(): Promise<AppConfig> {
     lastExportAt: null,
     selectedProvider: 'anthropic',
     userApiKey: '',
+    encryptionEnabled: false,
+    encryptionSalt: null,
   }
   await db.config.add(defaults)
   return defaults

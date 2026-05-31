@@ -13,6 +13,8 @@ export interface ExportSchema {
   exportedAt: number
   folders: Folder[]           // id 포함
   items: Omit<Item, 'id'>[]   // id 제외
+  encrypted?: boolean         // true: content 필드가 AES-GCM 암호화 상태
+  encryptionSalt?: string     // PBKDF2 salt hex — encrypted:true 시 포함
 }
 
 // ─── 기본 타입가드 유틸 ────────────────────────────────────────

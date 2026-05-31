@@ -21,6 +21,7 @@ import { Dashboard } from './features/dashboard/Dashboard'
 import { SettingsModal } from './features/settings/SettingsModal'
 import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
 import { GuideModal } from './features/onboarding/GuideModal'
+import { CommandPalette } from './shared/components/CommandPalette'
 import { shouldShowAnnouncement } from './features/onboarding/announcement-utils'
 import { useGlobalKeyboardShortcuts } from './shared/hooks/useGlobalKeyboardShortcuts'
 
@@ -174,6 +175,7 @@ export default function App() {
       <Dashboard />
       <ContextMenu />
       <SettingsModal />
+      <CommandPalette />
       <AnnouncementModal />
       <GuideModal />
       <Toaster

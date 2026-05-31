@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 export interface ImportPreviewData {
   folders: number
   items: number
+  encrypted?: boolean
 }
 
 export interface CurrentStatsData {
@@ -116,6 +117,15 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
             </div>
           </label>
         </div>
+
+        {/* 암호화 파일 안내 */}
+        {importPreview.encrypted && (
+          <div className="mt-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-yellow-500">
+              이 백업 파일에는 암호화된 콘텐츠가 포함되어 있습니다. 가져온 후 보안 탭에서 패스프레이즈를 입력하면 콘텐츠를 볼 수 있습니다.
+            </p>
+          </div>
+        )}
 
         {/* Replace 경고 */}
         {mode === 'replace' && hasExistingData && (

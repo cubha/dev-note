@@ -13,6 +13,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.6.0',
+    date: '2026-05-31',
+    title: 'IndexedDB 암호화 & 커맨드 팔레트',
+    highlights: [
+      'at-rest 암호화 — 카드 콘텐츠를 AES-256-GCM으로 암호화 저장, PBKDF2(100,000회) 키 파생, 패스프레이즈는 브라우저 메모리에만 유지',
+      '보안 탭 신설 — 환경설정 > 보안에서 암호화 활성화·비활성화·패스프레이즈 변경 가능',
+      '커맨드 팔레트 — Mod+Shift+P로 명령 퀵 실행, Fuse.js 퍼지 검색 + 단축키 힌트 표시',
+      'DB v15 마이그레이션 — encryptionEnabled, encryptionSalt 필드 자동 추가',
+      '암호화 백업 지원 — 내보내기 시 암호화 상태 그대로 보존, 가져오기 시 안내 표시',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.5.0',
     date: '2026-05-17',
     title: 'LLM 멀티 프로바이더 BYOK 확장',

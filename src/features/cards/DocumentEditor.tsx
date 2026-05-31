@@ -12,8 +12,10 @@ import type {
   AnySection, SectionType, HybridContent,
 } from '../../core/types'
 import { SECTION_OPTIONS } from '../../shared/constants'
-import { parseContent, serializeContent, createSection } from '../../core/content'
+import { parseContent, serializeContent, createSection, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { db } from '../../core/db'
+import { useAtomValue } from 'jotai'
+import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { toast } from 'sonner'
 import { SectionWrapper } from './sections/SectionWrapper'
 import { CredentialSectionView } from './sections/CredentialSectionView'
@@ -93,24 +95,38 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef<HTMLDivElement>(null)
   const originalRef = useRef<string>('')
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
+  const config = useAtomValue(appConfigAtom)
+  const encryptionEnabled = config?.encryptionEnabled ?? false
 
   // @dnd-kit
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
-  // 아이템 로드 → sections 초기화
+  // 아이템 로드 → sections 초기화 (암호화된 content는 복호화 후 파싱)
   useEffect(() => {
-    const content = parseContent(item.content)
-    if (content.format === 'hybrid') {
-      setSections(content.sections)
-      originalRef.current = JSON.stringify(content.sections)
-    } else {
-      // document 타입이지만 아직 hybrid 아닌 경우 (초기 생성 직후)
-      setSections([])
-      originalRef.current = JSON.stringify([])
-    }
-  }, [item.id, item.content])
+    void (async () => {
+      let rawContent = item.content
+      if (isEncryptedContent(rawContent)) {
+        if (!encryptionKey) {
+          setSections([])
+          originalRef.current = JSON.stringify([])
+          return
+        }
+        rawContent = await decryptContent(rawContent, encryptionKey)
+      }
+      const content = parseContent(rawContent)
+      if (content.format === 'hybrid') {
+        setSections(content.sections)
+        originalRef.current = JSON.stringify(content.sections)
+      } else {
+        // document 타입이지만 아직 hybrid 아닌 경우 (초기 생성 직후)
+        setSections([])
+        originalRef.current = JSON.stringify([])
+      }
+    })()
+  }, [item.id, item.content, encryptionKey])
 
   // dirty 감지
   useEffect(() => {
@@ -118,11 +134,14 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
     onDirtyChange(current !== originalRef.current)
   }, [sections, onDirtyChange])
 
-  // 저장
+  // 저장 (암호화 활성 시 content 암호화 후 DB 저장)
   const handleSave = useCallback(async () => {
     try {
       const hybrid: HybridContent = { format: 'hybrid', sections }
-      const content = serializeContent(hybrid)
+      let content = serializeContent(hybrid)
+      if (encryptionEnabled && encryptionKey) {
+        content = await encryptContent(content, encryptionKey)
+      }
       await db.items.update(item.id, { content, updatedAt: Date.now() })
       originalRef.current = JSON.stringify(sections)
       onDirtyChange(false)
@@ -130,7 +149,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     }
-  }, [item.id, sections, onDirtyChange])
+  }, [item.id, sections, onDirtyChange, encryptionKey, encryptionEnabled])
 
   // ref를 통해 외부에서 save 호출 가능
   useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave])

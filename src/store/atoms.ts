@@ -77,7 +77,7 @@ export const tabContextMenuAtom = atom<TabContextMenuState>({
 export const settingsOpenAtom = atom<boolean>(false)
 
 /** 환경설정 모달 초기 탭 (외부에서 특정 탭으로 열 때 사용) */
-export const settingsInitialTabAtom = atom<'general' | 'ai' | 'keybindings'>('general')
+export const settingsInitialTabAtom = atom<'general' | 'ai' | 'keybindings' | 'security'>('general')
 
 // ─── 인라인 이름 변경 ─────────────────────────────────────────
 
@@ -154,6 +154,10 @@ export const userApiKeyAtom = atom<string>('')
 export const announcementOpenAtom = atom<boolean>(false)
 export const guideOpenAtom = atom<boolean>(false)
 
+// ─── 커맨드 팔레트 ──────────────────────────────────────────────
+
+export const commandPaletteOpenAtom = atom<boolean>(false)
+
 // ─── 카드 플로팅 뷰 ────────────────────────────────────────────
 
 /** 조회 전용 플로팅 뷰에 표시할 카드 (null = 닫힘) */
@@ -163,6 +167,11 @@ export interface CardViewState {
 }
 
 export const cardViewAtom = atom<CardViewState | null>(null)
+
+// ─── 암호화 키 (세션 메모리 전용 — localStorage/IndexedDB 저장 금지) ──────
+
+/** 패스프레이즈에서 파생된 AES-GCM CryptoKey. 앱 닫으면 소멸. */
+export const encryptionKeyAtom = atom<CryptoKey | null>(null)
 
 // ─── 키바인딩 설정 ─────────────────────────────────────────────
 
