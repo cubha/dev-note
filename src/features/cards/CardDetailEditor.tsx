@@ -11,9 +11,9 @@ import { db } from '../../core/db'
 import type { ItemType } from '../../core/db'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
-import { parseContent, serializeContent } from '../../core/content'
+import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import {
-  activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom,
+  activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
@@ -41,6 +41,9 @@ export const CardDetailEditor = () => {
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
   const keys = effectiveKeys as Record<string, RegisterableHotkey>
   const saveKeyLabel = formatForDisplay(effectiveKeys['card.save'])
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
+  const config = useAtomValue(appConfigAtom)
+  const encryptionEnabled = config?.encryptionEnabled ?? false
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState<ItemType>('server')
@@ -72,7 +75,7 @@ export const CardDetailEditor = () => {
     setOriginal(null)
   }, [activeTab])
 
-  // 아이템 로드 (useLiveQuery 완료 후)
+  // 아이템 로드 (useLiveQuery 완료 후, 암호화된 content는 복호화 후 파싱)
   useEffect(() => {
     if (!item) return
     const tagsStr = item.tags.join(', ')
@@ -80,7 +83,13 @@ export const CardDetailEditor = () => {
     setType(item.type)
     setTags(tagsStr)
 
-    const content = parseContent(item.content)
+    void (async () => {
+      let rawContent = item.content
+      if (isEncryptedContent(rawContent)) {
+        if (!encryptionKey) return
+        rawContent = await decryptContent(rawContent, encryptionKey)
+      }
+    const content = parseContent(rawContent)
     const editorKey = getEditorFieldKey(item.type)
 
     let loadedFields: CardField[]
@@ -114,7 +123,8 @@ export const CardDetailEditor = () => {
       fields: JSON.stringify(loadedFields.map(f => [f.key, f.value])),
       editorText: loadedEditorText,
     })
-  }, [item])
+    })()
+  }, [item, encryptionKey])
 
   // dirty 상태 — 원본 스냅샷과 현재 값 비교
   const dirty = useMemo(() => {
@@ -192,7 +202,10 @@ export const CardDetailEditor = () => {
       })
 
       const structured: StructuredContent = { format: 'structured', fields: allFields }
-      const content = serializeContent(structured)
+      let content = serializeContent(structured)
+      if (encryptionEnabled && encryptionKey) {
+        content = await encryptContent(content, encryptionKey)
+      }
 
       await db.items.update(item.id, {
         title, type, tags: parsedTags,
@@ -209,7 +222,7 @@ export const CardDetailEditor = () => {
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     }
-  }, [item, fields, editorText, title, type, tags])
+  }, [item, fields, editorText, title, type, tags, encryptionKey, encryptionEnabled])
 
   // .md 다운로드 (Custom 타입)
   const handleDownloadMd = useCallback(() => {

@@ -2,6 +2,30 @@ import type { CardContent, StructuredContent, HybridContent, CardField, AnySecti
 import { FIELD_SCHEMAS } from './types'
 import type { ItemType } from './db'
 import { nanoid } from 'nanoid'
+import { encrypt, decrypt } from './crypto'
+
+// ─── at-rest 암호화 유틸 ──────────────────────────────────────
+
+const ENCRYPTED_MARKER = '"enc":1'
+
+/** DB에 저장된 content가 암호화된 형식인지 확인 */
+export function isEncryptedContent(content: string): boolean {
+  return content.includes(ENCRYPTED_MARKER)
+}
+
+/** content를 AES-GCM으로 암호화 → {"enc":1,"ct":"<base64>"} 형식으로 저장 */
+export async function encryptContent(content: string, key: CryptoKey): Promise<string> {
+  const ct = await encrypt(content, key)
+  return JSON.stringify({ enc: 1, ct })
+}
+
+/** {"enc":1,"ct":"..."} 형식을 복호화 → 원본 content 문자열 반환 */
+export async function decryptContent(encrypted: string, key: CryptoKey): Promise<string> {
+  const parsed: unknown = JSON.parse(encrypted)
+  if (typeof parsed !== 'object' || parsed === null) throw new Error('invalid encrypted content')
+  const { ct } = parsed as { ct: string }
+  return decrypt(ct, key)
+}
 
 const VALID_SECTION_TYPES = new Set<string>(['markdown', 'credentials', 'urls', 'env', 'code'])
 

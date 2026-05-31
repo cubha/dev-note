@@ -72,6 +72,7 @@ export async function importFromFile(): Promise<string> {
 export interface ImportPreview {
   folders: number
   items: number
+  encrypted?: boolean   // true: 가져올 파일에 암호화된 content가 있음
 }
 
 export async function parseImportPreview(rawText: string): Promise<ImportPreview> {
@@ -89,6 +90,7 @@ export async function parseImportPreview(rawText: string): Promise<ImportPreview
   return {
     folders: parsed.folders.length,
     items: parsed.items.length,
+    encrypted: parsed.encrypted === true,
   }
 }
 

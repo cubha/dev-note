@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { nanoid } from 'nanoid'
-import { useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { X, FileText, Server, Globe, BookOpen, FileStack } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '../../core/db'
 import type { Item, ItemType } from '../../core/db'
 import type { CardField, StructuredContent, AnySection, HybridContent } from '../../core/types'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
-import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS } from '../../core/content'
+import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { checkDuplicates } from '../../core/duplicate-check'
-import { openTabsAtom, activeTabAtom } from '../../store/atoms'
+import { openTabsAtom, activeTabAtom, encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { SmartPastePanel } from './SmartPastePanel'
 import type { FieldApplyData, DocumentApplyData } from './SmartPastePanel'
@@ -37,6 +37,9 @@ interface CardFormModalProps {
 export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
+  const config = useAtomValue(appConfigAtom)
+  const encryptionEnabled = config?.encryptionEnabled ?? false
   const [title, setTitle] = useState('')
   const [type, setType] = useState<ItemType>('server')
   const [tags, setTags] = useState('')
@@ -60,25 +63,32 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
     setType(item.type)
     setTags(item.tags.join(', '))
 
-    const content = parseContent(item.content)
-    if (content.format === 'structured') {
-      const schemas = FIELD_SCHEMAS[item.type]
-      const merged: CardField[] = schemas.map((schema) => {
-        const existing = content.fields.find((f) => f.key === schema.key)
-        return existing ?? { key: schema.key, label: schema.label, value: '', type: schema.type }
-      })
-      setFields(merged)
-    } else if (content.format === 'legacy') {
-      const noteFields = createEmptyStructuredContent(item.type).fields
-      if (noteFields.length > 0) {
-        noteFields[0] = { ...noteFields[0], value: content.text }
+    void (async () => {
+      let rawContent = item.content
+      if (isEncryptedContent(rawContent)) {
+        if (!encryptionKey) return
+        rawContent = await decryptContent(rawContent, encryptionKey)
       }
-      setFields(noteFields)
-    } else {
-      // HybridContent — document 편집은 CardDetailEditor에서 처리
-      setFields([])
-    }
-  }, [item])
+      const content = parseContent(rawContent)
+      if (content.format === 'structured') {
+        const schemas = FIELD_SCHEMAS[item.type]
+        const merged: CardField[] = schemas.map((schema) => {
+          const existing = content.fields.find((f) => f.key === schema.key)
+          return existing ?? { key: schema.key, label: schema.label, value: '', type: schema.type }
+        })
+        setFields(merged)
+      } else if (content.format === 'legacy') {
+        const noteFields = createEmptyStructuredContent(item.type).fields
+        if (noteFields.length > 0) {
+          noteFields[0] = { ...noteFields[0], value: content.text }
+        }
+        setFields(noteFields)
+      } else {
+        // HybridContent — document 편집은 CardDetailEditor에서 처리
+        setFields([])
+      }
+    })()
+  }, [item, encryptionKey])
 
   // 타입 변경 시 필드 초기화 (생성 모드만)
   const handleTypeChange = (newType: ItemType) => {
@@ -149,6 +159,9 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
         }
       } else {
         content = serializeContent({ format: 'structured', fields } as StructuredContent)
+      }
+      if (encryptionEnabled && encryptionKey) {
+        content = await encryptContent(content, encryptionKey)
       }
       const parsedTags = tags
         .split(',')

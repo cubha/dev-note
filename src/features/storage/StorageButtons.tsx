@@ -160,6 +160,7 @@ export const StorageButtons = () => {
           importPreview={{
             folders: modalData.preview.folders,
             items: modalData.preview.items,
+            encrypted: modalData.preview.encrypted,
           }}
           currentStats={{
             folders: modalData.currentFolders,

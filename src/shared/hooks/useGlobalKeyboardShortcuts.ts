@@ -23,6 +23,7 @@ import {
   activeTabAtom,
   dirtyItemsAtom,
   effectiveKeybindingsAtom,
+  commandPaletteOpenAtom,
 } from '../../store/atoms'
 import { closeTab, removeItemsFromState } from '../../store/tabHelpers'
 import { DEFAULT_FOLDER_NAME } from '../constants'
@@ -39,6 +40,7 @@ export const useGlobalKeyboardShortcuts = () => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
+  const setCommandPaletteOpen = useSetAtom(commandPaletteOpenAtom)
   const keysRaw = useAtomValue(effectiveKeybindingsAtom)
   const keys = keysRaw as Record<string, RegisterableHotkey>
 
@@ -65,6 +67,12 @@ export const useGlobalKeyboardShortcuts = () => {
     if (activeTab !== null) {
       closeTab(activeTab, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
     }
+  })
+
+  // ── command.palette: 커맨드 팔레트 열기 ─────────────────────
+  useHotkey(keys['command.palette'], (e) => {
+    e.preventDefault()
+    setCommandPaletteOpen(true)
   })
 
   // ── search.focus: 검색 포커스 ────────────────────────────────

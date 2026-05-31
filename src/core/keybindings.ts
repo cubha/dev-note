@@ -18,7 +18,8 @@ export type CommandId =
   | 'editor.toggleComment'
   | 'editor.moveLineUp'
   | 'editor.moveLineDown'
-  | 'editor.copyLineDown';
+  | 'editor.copyLineDown'
+  | 'command.palette';
 
 export interface KeybindingDef {
   label: string;
@@ -100,6 +101,11 @@ export const DEFAULT_KEYBINDINGS: Record<CommandId, KeybindingDef> = {
     label: '줄 아래로 복사',
     defaultKey: 'Shift+Alt+ArrowDown',
     category: 'editor',
+  },
+  'command.palette': {
+    label: '커맨드 팔레트',
+    defaultKey: 'Mod+Shift+P',
+    category: 'ui',
   },
 };
 
