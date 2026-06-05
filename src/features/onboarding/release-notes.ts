@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.6.1',
+    date: '2026-06-05',
+    title: '좁은 화면 헤더 레이아웃 수정',
+    highlights: [
+      '창을 좁히면 탭 제목과 검색 영역이 겹치던 문제 수정',
+      '좁은 화면에서 타입 필터가 \'필터\' 드롭다운으로 자동 접힘 — 탭과 검색을 가리지 않음',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.6.0',
     date: '2026-05-31',
     title: '카드 콘텐츠 암호화 & 커맨드 팔레트',

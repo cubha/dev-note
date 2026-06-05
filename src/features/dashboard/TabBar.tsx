@@ -217,34 +217,36 @@ export const TabBar = () => {
     <div className="flex items-stretch flex-1 min-w-0" ref={tabContainerRef}>
       {openTabs.length > 0 && (
         <>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleTabDragEnd}
-          >
-            <SortableContext
-              items={visibleTabs.map((id) => String(id))}
-              strategy={horizontalListSortingStrategy}
+          <div className="flex items-stretch overflow-hidden min-w-0 flex-1">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleTabDragEnd}
             >
-              {visibleTabs.map((tabId) => (
-                <SortableTab
-                  key={tabId}
-                  tabId={tabId}
-                  tabElsRef={tabElsRef}
-                  items={items}
-                  activeTab={activeTab}
-                  dirtyItems={dirtyItems}
-                  setActiveTab={setActiveTab}
-                  handleCloseTab={handleCloseTab}
-                  handleMiddleClick={handleMiddleClick}
-                  handleTabContextMenu={handleTabContextMenu}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={visibleTabs.map((id) => String(id))}
+                strategy={horizontalListSortingStrategy}
+              >
+                {visibleTabs.map((tabId) => (
+                  <SortableTab
+                    key={tabId}
+                    tabId={tabId}
+                    tabElsRef={tabElsRef}
+                    items={items}
+                    activeTab={activeTab}
+                    dirtyItems={dirtyItems}
+                    setActiveTab={setActiveTab}
+                    handleCloseTab={handleCloseTab}
+                    handleMiddleClick={handleMiddleClick}
+                    handleTabContextMenu={handleTabContextMenu}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
 
           {hiddenTabs.length > 0 && (
-            <div className="relative flex items-center ml-0.5" ref={overflowRef}>
+            <div className="relative flex items-center ml-0.5 shrink-0" ref={overflowRef}>
               <button
                 type="button"
                 onClick={() => setOverflowOpen((prev) => !prev)}
