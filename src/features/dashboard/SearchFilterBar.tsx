@@ -58,8 +58,8 @@ export const SearchFilterBar = () => {
       {/* 구분선 */}
       <div className="w-px h-5 bg-[var(--border-default)] shrink-0" />
 
-      {/* 타입 필터 */}
-      <div className="flex items-center gap-0.5">
+      {/* 타입 필터 — 넓은 헤더: 인라인 버튼 */}
+      <div className="hidden @4xl:flex items-center gap-0.5">
         <Filter size={12} className="text-[var(--text-tertiary)] mr-0.5 shrink-0" />
         {FILTER_TYPES.map((ft) => {
           const isActive = typeFilter === ft
@@ -89,6 +89,36 @@ export const SearchFilterBar = () => {
           )
         })}
       </div>
+
+      {/* 타입 필터 — 좁은 헤더: 드롭다운으로 접기 */}
+      <Dropdown
+        className="@4xl:hidden shrink-0"
+        trigger={
+          <button
+            type="button"
+            className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
+              typeFilter
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+            }`}
+            style={
+              typeFilter
+                ? { background: `var(--badge-${TYPE_META[typeFilter].colorKey}-bg)`, color: `var(--badge-${TYPE_META[typeFilter].colorKey}-text)` }
+                : undefined
+            }
+          >
+            <Filter size={12} className="shrink-0" />
+            {typeFilter ? TYPE_META[typeFilter].label : '필터'}
+          </button>
+        }
+        items={FILTER_TYPES.map((ft) => ({
+          label: ft ? TYPE_META[ft].label : '전체',
+          value: ft ?? '__all__',
+        }))}
+        value={typeFilter ?? '__all__'}
+        onSelect={(val) => setTypeFilter(val === '__all__' ? null : (val as ItemType))}
+        align="right"
+      />
 
       {/* 태그 필터 */}
       {allTags && allTags.length > 0 && (

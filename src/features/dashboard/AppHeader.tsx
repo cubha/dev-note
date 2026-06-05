@@ -13,7 +13,7 @@ export const AppHeader = () => {
   const [sidebarMobileOpen, setSidebarMobileOpen] = useAtom(sidebarMobileOpenAtom)
 
   return (
-    <div className="flex items-stretch border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 shrink-0 min-h-[44px]">
+    <div className="@container flex items-stretch border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 shrink-0 min-h-[44px]">
       {/* 햄버거 버튼 — 모바일에서만 표시 */}
       <button
         type="button"
