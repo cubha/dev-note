@@ -15,7 +15,7 @@
 - **Search**: Fuse.js (클라이언트 사이드 퍼지 검색)
 - **Styling**: Tailwind CSS v4 (`@tailwindcss/vite` 플러그인 방식 — v3 방식과 다름)
 - **Language**: TypeScript Strict Mode (`any` 타입 금지)
-- **AI (선택적)**: Cloudflare Workers 프록시 경유 Claude API 호출 (공유 키 모드, IP당 50회/일)
+- **AI (선택적)**: Vercel Edge Function(`api/v1/messages.ts`) 프록시 경유 Claude API 호출 (공유 키 모드)
 
 ---
 
@@ -27,7 +27,7 @@ src/
 │   ├── db.ts              # Dexie v4 스키마 v8 & DB 인스턴스
 │   ├── types.ts           # CardField, StructuredContent, FIELD_SCHEMAS, TYPE_META
 │   ├── content.ts         # parseContent, serializeContent, extractSearchText
-│   ├── ai.ts              # Claude API fetch 래퍼 (Cloudflare Workers 공유 키 모드)
+│   ├── ai.ts              # Claude API fetch 래퍼 (Vercel Edge Function 공유 키 모드)
 │   └── ai-schemas.ts      # Smart Paste / Summary / Document Paste JSON Schema
 ├── features/
 │   ├── sidebar/           # 폴더 트리, 항목 목록 (useLiveQuery 연동)
@@ -61,7 +61,7 @@ src/
 - **Vercel Edge Function 공유 키 단일 체제** — API 키는 Vercel 서버에서 관리, 클라이언트는 키를 보유하지 않음
 - **API URL은 빌드 타임 환경변수** — `VITE_API_URL` (.env.local, gitignore)
 - **Claude API fetch 직접 호출** — SDK 불필요, Vercel Edge Function 프록시가 인증 헤더 추가
-- **모델 자동 분기** — Smart Paste·요약은 Haiku(속도·비용 우선), Document Smart Paste는 Sonnet(품질 우선)
+- **모델 설정** — 공유 키(anthropic)는 fast·quality 모두 `claude-sonnet-4-6` 단일 사용 (v1.2.x에서 Haiku→Sonnet 품질 상향, `DEFAULT_MODELS` in `core/ai.ts`). BYOK 멀티프로바이더 시에만 fast/quality 분기 존재(google=Gemini 2.5 Flash 단일, openai=GPT-4o-mini/GPT-4o). Edge Function 화이트리스트(`ALLOWED_MODELS`)엔 Haiku도 허용되나 클라이언트는 전송하지 않음
 
 ---
 
