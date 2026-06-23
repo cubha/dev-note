@@ -34,3 +34,5 @@
 {"at":"2026-06-23T13:03:00.386Z","session":"2ec8e806-3690-4207-9f42-e11c0a60508c","specHash":"1926d91884100d25","kind":"gate","tool":"Edit","decision":"cached"}
 {"at":"2026-06-23T13:03:20.330Z","session":"2ec8e806-3690-4207-9f42-e11c0a60508c","specHash":"1926d91884100d25","kind":"gate","tool":"Edit","decision":"cached"}
 {"at":"2026-06-23T13:03:25.745Z","session":"2ec8e806-3690-4207-9f42-e11c0a60508c","specHash":"1926d91884100d25","kind":"gate","tool":"Edit","decision":"cached"}
+{"at":"2026-06-23T13:05:04.173Z","session":"2ec8e806-3690-4207-9f42-e11c0a60508c","specHash":"1926d91884100d25","kind":"gate","tool":"Write","decision":"cached"}
+{"at":"2026-06-23T13:06:06.468Z","session":"2ec8e806-3690-4207-9f42-e11c0a60508c","specHash":"1926d91884100d25","kind":"gate","tool":"Edit","decision":"cached"}
