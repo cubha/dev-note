@@ -25,3 +25,4 @@
 ## 결정
 - TDD 적격: SubTask 1만 (순수 암호화 로직). 2~3 IO·5/4 UI = test-after
 - 아키텍처 A: 복호화는 UI 오케스트레이션 1회, importData/parseImportPreview는 평문만
+<!-- scratch-done -->

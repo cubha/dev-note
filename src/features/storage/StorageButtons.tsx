@@ -158,8 +158,10 @@ export const StorageButtons = () => {
     setPassphraseError('')
     try {
       const plainText = await decryptBackup(pendingEncrypted.rawText, passphrase)
-      setPendingEncrypted(null)
+      // proceedToModeModal이 (복호화 성공 후) 실패해도 모달이 살아있어 에러가 표시되도록
+      // 성공적으로 다음 단계로 넘어간 뒤에만 패스프레이즈 모달을 닫는다
       await proceedToModeModal(plainText)
+      setPendingEncrypted(null)
     } catch (err) {
       // 패스프레이즈 불일치 등 — 모달 유지하고 에러 표시
       setPassphraseError(err instanceof Error ? err.message : '복호화 실패')
