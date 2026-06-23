@@ -19,9 +19,17 @@ import {
 } from '../../store/atoms'
 import { db } from '../../core/db'
 import { exportData } from './export'
-import { importFromFile, importData, parseImportPreview } from './import'
+import {
+  importFromFile,
+  importData,
+  parseImportPreview,
+  detectBackupType,
+  decryptBackup,
+} from './import'
 import type { ImportPreview } from './import'
 import { ImportModeModal } from './ImportModeModal'
+import { ImportPassphraseModal } from './ImportPassphraseModal'
+import { ExportOptionsModal } from './ExportOptionsModal'
 import { Button } from '../../shared/components/Button'
 
 type FeedbackState =
@@ -42,6 +50,11 @@ export const StorageButtons = () => {
   const [importing, setImporting] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState>({ type: 'idle' })
   const [modalData, setModalData] = useState<ModalData | null>(null)
+  const [showExportOptions, setShowExportOptions] = useState(false)
+  // 암호화 백업 가져오기: 패스프레이즈 입력 대기 상태
+  const [pendingEncrypted, setPendingEncrypted] = useState<{ rawText: string } | null>(null)
+  const [passphraseError, setPassphraseError] = useState('')
+  const [decrypting, setDecrypting] = useState(false)
 
   const setOpenTabs        = useSetAtom(openTabsAtom)
   const setActiveTab       = useSetAtom(activeTabAtom)
@@ -63,14 +76,23 @@ export const StorageButtons = () => {
     setDirtyItems(new Set<number>())
   }
 
-  // ── 내보내기 ────────────────────────────────────────────────
-  const handleExport = async () => {
+  // ── 내보내기 Step 1: 옵션 모달 열기 ─────────────────────────
+  const handleExport = () => {
     if (exporting || importing) return
-    setExporting(true)
     setFeedback({ type: 'idle' })
+    setShowExportOptions(true)
+  }
+
+  // ── 내보내기 Step 2: 옵션 확인 → exportData 실행 ────────────
+  const handleExportConfirm = async (passphrase?: string) => {
+    setShowExportOptions(false)
+    setExporting(true)
     try {
-      await exportData()
-      showFeedback({ type: 'success', message: '내보내기 완료' })
+      await exportData(passphrase)
+      showFeedback({
+        type: 'success',
+        message: passphrase ? '암호화 내보내기 완료' : '내보내기 완료',
+      })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       if (err instanceof Error && err.name === 'AbortError') return
@@ -80,7 +102,17 @@ export const StorageButtons = () => {
     }
   }
 
-  // ── 가져오기 Step 1: 파일 선택 → 미리보기 파싱 → 모달 표시 ──
+  // ── 평문 백업 → 미리보기 파싱 후 방식 선택 모달 표시 ────────
+  const proceedToModeModal = async (plainText: string): Promise<void> => {
+    const preview = await parseImportPreview(plainText)
+    const [currentFolders, currentItems] = await Promise.all([
+      db.folders.count(),
+      db.items.count(),
+    ])
+    setModalData({ rawText: plainText, preview, currentFolders, currentItems })
+  }
+
+  // ── 가져오기 Step 1: 파일 선택 → 봉투 감지 → 분기 ──────────
   const handleImport = async () => {
     if (exporting || importing) return
     setImporting(true)
@@ -88,13 +120,21 @@ export const StorageButtons = () => {
     let modalShown = false
     try {
       const rawText = await importFromFile()
-      const preview = await parseImportPreview(rawText)
-      const [currentFolders, currentItems] = await Promise.all([
-        db.folders.count(),
-        db.items.count(),
-      ])
+      const type = detectBackupType(rawText)
+
+      if (type === 'invalid') {
+        throw new Error('파일 형식이 dev-note 백업 형식과 다릅니다')
+      }
+      if (type === 'encrypted') {
+        // 패스프레이즈 입력 모달로 분기 — 복호화 후 카운트 표시
+        modalShown = true
+        setPassphraseError('')
+        setPendingEncrypted({ rawText })
+        return
+      }
+      // plain
+      await proceedToModeModal(rawText)
       modalShown = true
-      setModalData({ rawText, preview, currentFolders, currentItems })
     } catch (err) {
       if (
         (err instanceof DOMException || err instanceof Error) &&
@@ -107,9 +147,31 @@ export const StorageButtons = () => {
       }
     } finally {
       // 모달이 열리지 않은 경우에만 여기서 importing 해제
-      // 모달이 열린 경우 handleModalConfirm / handleModalCancel에서 해제
       if (!modalShown) setImporting(false)
     }
+  }
+
+  // ── 암호화 백업: 패스프레이즈 제출 → 복호화 → 방식 선택 ────
+  const handlePassphraseConfirm = async (passphrase: string) => {
+    if (!pendingEncrypted) return
+    setDecrypting(true)
+    setPassphraseError('')
+    try {
+      const plainText = await decryptBackup(pendingEncrypted.rawText, passphrase)
+      setPendingEncrypted(null)
+      await proceedToModeModal(plainText)
+    } catch (err) {
+      // 패스프레이즈 불일치 등 — 모달 유지하고 에러 표시
+      setPassphraseError(err instanceof Error ? err.message : '복호화 실패')
+    } finally {
+      setDecrypting(false)
+    }
+  }
+
+  const handlePassphraseCancel = () => {
+    setPendingEncrypted(null)
+    setPassphraseError('')
+    setImporting(false)
   }
 
   // ── 가져오기 Step 2: 모달 취소 ─────────────────────────────
@@ -154,6 +216,24 @@ export const StorageButtons = () => {
 
   return (
     <>
+      {/* 내보내기 옵션 모달 */}
+      {showExportOptions && (
+        <ExportOptionsModal
+          onConfirm={(passphrase) => void handleExportConfirm(passphrase)}
+          onCancel={() => setShowExportOptions(false)}
+        />
+      )}
+
+      {/* 암호화 백업 패스프레이즈 입력 모달 */}
+      {pendingEncrypted && (
+        <ImportPassphraseModal
+          onConfirm={(passphrase) => void handlePassphraseConfirm(passphrase)}
+          onCancel={handlePassphraseCancel}
+          errorMessage={passphraseError}
+          submitting={decrypting}
+        />
+      )}
+
       {/* 가져오기 방식 선택 모달 */}
       {modalData && (
         <ImportModeModal
@@ -177,7 +257,7 @@ export const StorageButtons = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void handleExport()}
+            onClick={handleExport}
             disabled={isLoading}
             className="flex-1"
             aria-label="내보내기"
