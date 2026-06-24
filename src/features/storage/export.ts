@@ -9,6 +9,7 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { ExportSchema } from './schema'
 import { isEncryptedContent } from '../../core/content'
+import { wrapEnvelope } from './envelope'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
 
@@ -61,6 +62,20 @@ async function saveToFile(content: string, fileName: string): Promise<void> {
   }
 }
 
+// ─── 백업 직렬화 (평문 / 봉투 암호화 분기) ───────────────────
+
+// passphrase가 있으면 ExportSchema 전체를 봉투로 감싸 암호화, 없으면 평문 JSON
+async function serializeBackup(
+  schema: ExportSchema,
+  passphrase?: string,
+): Promise<string> {
+  if (passphrase) {
+    const envelope = await wrapEnvelope(schema, passphrase)
+    return JSON.stringify(envelope, null, 2)
+  }
+  return JSON.stringify(schema, null, 2)
+}
+
 // ─── 아이템 내보내기 포맷 변환 ────────────────────────────────
 
 function toExportItem(item: Item): Omit<Item, 'id'> {
@@ -79,7 +94,7 @@ function toExportItem(item: Item): Omit<Item, 'id'> {
 
 // ─── 내보내기 진입점 ───────────────────────────────────────────
 
-export async function exportData(): Promise<void> {
+export async function exportData(passphrase?: string): Promise<void> {
   const [folders, items, config] = await Promise.all([
     db.folders.toArray(),
     db.items.toArray(),
@@ -99,8 +114,9 @@ export async function exportData(): Promise<void> {
     }),
   }
 
-  const content = JSON.stringify(schema, null, 2)
-  const fileName = `devnote-backup-${formatDateForFilename(exportedAt)}.json`
+  const content = await serializeBackup(schema, passphrase)
+  const suffix = passphrase ? '-encrypted' : ''
+  const fileName = `devnote-backup${suffix}-${formatDateForFilename(exportedAt)}.json`
   await saveToFile(content, fileName)
 
   await db.config.update(1, { lastExportAt: exportedAt })
@@ -108,7 +124,10 @@ export async function exportData(): Promise<void> {
 
 // ─── 선택 항목 내보내기 ────────────────────────────────────────
 
-export async function exportSelectedItems(itemIds: number[]): Promise<void> {
+export async function exportSelectedItems(
+  itemIds: number[],
+  passphrase?: string,
+): Promise<void> {
   const allFolders = await db.folders.toArray()
 
   const selectedItemsData = await db.items.bulkGet(itemIds)
@@ -146,8 +165,9 @@ export async function exportSelectedItems(itemIds: number[]): Promise<void> {
     }),
   }
 
-  const content = JSON.stringify(schema, null, 2)
-  const fileName = `devnote-selected-${formatDateForFilename(exportedAt)}.json`
+  const content = await serializeBackup(schema, passphrase)
+  const suffix = passphrase ? '-encrypted' : ''
+  const fileName = `devnote-selected${suffix}-${formatDateForFilename(exportedAt)}.json`
   await saveToFile(content, fileName)
 
   await db.config.update(1, { lastExportAt: exportedAt })

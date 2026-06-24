@@ -3,7 +3,7 @@
 // Web Crypto API 래퍼 — AES-GCM at-rest 암호화
 // 패스프레이즈 → PBKDF2 키 파생 → AES-GCM 암호화/복호화
 
-const PBKDF2_ITERATIONS = 100_000
+export const PBKDF2_ITERATIONS = 100_000
 const AES_KEY_ALGO = { name: 'AES-GCM', length: 256 } as const
 const IV_BYTES = 12
 const SALT_BYTES = 16
@@ -15,6 +15,7 @@ export function generateSalt(): Uint8Array {
 export async function deriveKey(
   passphrase: string,
   salt: Uint8Array,
+  iterations: number = PBKDF2_ITERATIONS,
 ): Promise<CryptoKey> {
   const enc = new TextEncoder()
   const keyMaterial = await crypto.subtle.importKey(
@@ -28,7 +29,7 @@ export async function deriveKey(
     {
       name: 'PBKDF2',
       salt: salt as unknown as ArrayBuffer,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -50,7 +51,18 @@ export async function encrypt(plaintext: string, key: CryptoKey): Promise<string
   const combined = new Uint8Array(IV_BYTES + ciphertext.byteLength)
   combined.set(iv, 0)
   combined.set(new Uint8Array(ciphertext), IV_BYTES)
-  return btoa(String.fromCharCode(...combined))
+  return bytesToBase64(combined)
+}
+
+// Uint8Array → base64. 대용량 페이로드(봉투 암호화)에서 String.fromCharCode(...arr)의
+// 인자 스프레드가 RangeError(call stack)를 유발하므로 0x8000 청크로 나눠 변환한다.
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
 }
 
 // base64 → IV 분리 → AES-GCM 복호화

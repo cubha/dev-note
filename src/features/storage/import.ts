@@ -11,6 +11,7 @@
 import { db } from '../../core/db'
 import type { Folder, Item } from '../../core/db'
 import { isValidExportSchema, convertLegacyItem } from './schema'
+import { isEncryptedBackup, unwrapEnvelope } from './envelope'
 
 // ─── 파일 읽기 (FSAA + input 폴백) ────────────────────────────
 
@@ -67,6 +68,45 @@ export async function importFromFile(): Promise<string> {
   }
 }
 
+// ─── 백업 종류 감지 / 봉투 복호화 (가져오기 상류 1회) ─────────
+
+export type BackupType = 'plain' | 'encrypted' | 'invalid'
+
+// 파일 내용을 파싱하지 않고 봉투/평문/무효를 판별한다 (복호화 전 분기용)
+export function detectBackupType(rawText: string): BackupType {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawText)
+  } catch {
+    return 'invalid'
+  }
+  // 봉투 검사를 평문 스키마 검사보다 먼저 (봉투는 folders/items가 없어 오인 거부됨)
+  if (isEncryptedBackup(parsed)) return 'encrypted'
+  if (isValidExportSchema(parsed)) return 'plain'
+  return 'invalid'
+}
+
+// 봉투를 복호화하여 평문 ExportSchema JSON 문자열을 반환한다.
+// 이후 단계(parseImportPreview/importData)는 이 평문만 처리한다 (아키텍처 A).
+export async function decryptBackup(rawText: string, passphrase: string): Promise<string> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawText)
+  } catch {
+    throw new Error('유효하지 않은 JSON 형식입니다')
+  }
+  if (!isEncryptedBackup(parsed)) {
+    throw new Error('암호화된 백업 파일이 아닙니다')
+  }
+  // 패스프레이즈 불일치 시 unwrapEnvelope가 친절한 에러를 throw
+  const schema = await unwrapEnvelope(parsed, passphrase)
+  // 복호화 성공 ≠ 스키마 유효성 보장 — 손상/버전 불일치 봉투 방어 (scope-critic 지적)
+  if (!isValidExportSchema(schema)) {
+    throw new Error('복호화된 데이터가 올바른 백업 형식이 아닙니다')
+  }
+  return JSON.stringify(schema)
+}
+
 // ─── 미리보기 파싱 (DB 미쓰기, 모달 표시용) ───────────────────
 
 export interface ImportPreview {
@@ -83,6 +123,10 @@ export async function parseImportPreview(rawText: string): Promise<ImportPreview
     throw new Error('유효하지 않은 JSON 형식입니다')
   }
 
+  // 봉투는 복호화 후의 평문으로만 들어와야 함 — 미복호화 봉투를 명확히 안내
+  if (isEncryptedBackup(parsed)) {
+    throw new Error('암호화된 백업입니다 — 패스프레이즈로 먼저 복호화해야 합니다')
+  }
   if (!isValidExportSchema(parsed)) {
     throw new Error('파일 형식이 dev-note 백업 형식과 다릅니다')
   }
@@ -113,6 +157,9 @@ export async function importData(
     throw new Error('유효하지 않은 JSON 형식입니다')
   }
 
+  if (isEncryptedBackup(parsed)) {
+    throw new Error('암호화된 백업입니다 — 패스프레이즈로 먼저 복호화해야 합니다')
+  }
   if (!isValidExportSchema(parsed)) {
     throw new Error('파일 형식이 dev-note 백업 형식과 다릅니다')
   }
