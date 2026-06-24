@@ -113,8 +113,14 @@ describe('wrapEnvelope / unwrapEnvelope', () => {
 
   it('crypto-agility: 봉투에 기록된 iterations로 복호화', async () => {
     const backup = await wrapEnvelope(makeSchema(), PASS)
-    // iterations를 명시적으로 다른 값으로 조작하면 키 파생이 달라져 복호화 실패해야 함
+    // iterations를 floor 미만으로 조작하면 키 파생 전에 거부되어야 함
     const tampered: EncryptedBackup = { ...backup, iterations: 50_000 }
     await expect(unwrapEnvelope(tampered, PASS)).rejects.toThrow()
+  })
+
+  it('약한 파라미터(iterations < 100000) 봉투는 키 파생 전 거부', async () => {
+    const backup = await wrapEnvelope(makeSchema(), PASS)
+    const weak: EncryptedBackup = { ...backup, iterations: 1 }
+    await expect(unwrapEnvelope(weak, PASS)).rejects.toThrow(/보안 파라미터/)
   })
 })

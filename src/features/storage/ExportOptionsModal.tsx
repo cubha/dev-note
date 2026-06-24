@@ -33,8 +33,8 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
       onConfirm(undefined)
       return
     }
-    if (passphrase.length === 0) {
-      setError('패스프레이즈를 입력하세요')
+    if (passphrase.length < 8) {
+      setError('패스프레이즈는 최소 8자 이상이어야 합니다')
       return
     }
     if (passphrase !== confirm) {

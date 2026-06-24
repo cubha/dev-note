@@ -18,6 +18,9 @@ import {
 
 const BACKUP_FORMAT = 'devnote-encrypted-backup'
 const BACKUP_VERSION = 1
+// 복호화 시 허용하는 PBKDF2 반복 최소값 (다운그레이드/약한 파라미터 봉투 거부).
+// 기본값(PBKDF2_ITERATIONS)을 향후 상향해도 구버전 백업 호환을 위해 floor는 고정한다.
+const MIN_BACKUP_ITERATIONS = 100_000
 
 export interface EncryptedBackup {
   format: typeof BACKUP_FORMAT
@@ -66,6 +69,10 @@ export async function unwrapEnvelope(
   backup: EncryptedBackup,
   passphrase: string,
 ): Promise<ExportSchema> {
+  // 약한 파라미터/다운그레이드 봉투 거부 (정상 백업은 항상 floor 이상)
+  if (backup.iterations < MIN_BACKUP_ITERATIONS) {
+    throw new Error('백업 파일의 보안 파라미터가 유효하지 않습니다')
+  }
   const salt = hexToSalt(backup.salt)
   // 봉투에 기록된 iterations로 키 파생 (crypto-agility: 향후 반복 횟수 변경에도 구버전 백업 복호화)
   const key = await deriveKey(passphrase, salt, backup.iterations)
