@@ -60,3 +60,7 @@ test-results/
 # ─── Claude Code (local config with secrets) ────────────────
 .claude/
 .codebase-viz/
+
+# 게이트 상태 / 세션 추적 (로컬 전용)
+.gbc/
+scratch.md
