@@ -2,7 +2,7 @@ import { useRef, useEffect, useMemo } from 'react'
 import { useAtomValue } from 'jotai'
 import { Copy } from 'lucide-react'
 import {
-  EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
+  EditorView, keymap as cmKeymap, lineNumbers,
   highlightActiveLine, placeholder as cmPlaceholder,
 } from '@codemirror/view'
 import { EditorState as CMState, Compartment } from '@codemirror/state'
@@ -119,7 +119,7 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
         extensions: [
           history(),
           lineNumbers(),
-          drawSelection(),
+          // drawSelection 미사용 — native ::selection으로 caret 행 선택표시 보장(D2, index.css)
           highlightActiveLine(),
           bracketMatching(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -146,12 +146,11 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
             '.cm-content': { caretColor: 'var(--accent)', minHeight: '60px' },
             '.cm-cursor': { borderLeftColor: 'var(--accent)' },
             '.cm-placeholder': { color: 'var(--text-placeholder)' },
-            '.cm-gutters': { background: 'transparent', border: 'none', paddingRight: '4px', color: 'var(--text-placeholder)' },
+            // 거터 배경 불투명(에디터 입력 surface)으로 가로스크롤 코드 겹침 차단(D1)
+            '.cm-gutters': { background: 'var(--bg-input)', border: 'none', paddingRight: '4px', color: 'var(--text-placeholder)' },
             '.cm-lineNumbers .cm-gutterElement': { color: 'var(--text-placeholder)', minWidth: '1.5rem', fontSize: '10px' },
             '.cm-activeLine': { background: 'var(--bg-surface-hover)' },
-            '.cm-activeLineGutter': { background: 'transparent' },
-            '.cm-selectionBackground': { background: 'var(--accent-glow) !important' },
-            '&.cm-focused .cm-selectionBackground': { background: 'rgba(59,130,246,0.25) !important' },
+            '.cm-activeLineGutter': { background: 'var(--bg-input)' },
             '.cm-comment-highlight': { color: 'var(--text-tertiary)', fontStyle: 'italic' },
           }),
           commentHighlight,
