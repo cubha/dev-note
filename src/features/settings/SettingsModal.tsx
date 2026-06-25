@@ -10,6 +10,7 @@ import { appConfigAtom, settingsOpenAtom, settingsInitialTabAtom } from '../../s
 import { KeybindingsTab } from './KeybindingsTab'
 import { AISettingsTab } from './AISettingsTab'
 import { SecurityTab } from './SecurityTab'
+import { SyncTab } from './SyncTab'
 import { Modal } from '../../shared/components/Modal'
 import { ModalHeader } from '../../shared/components/ModalHeader'
 
@@ -17,7 +18,7 @@ export const SettingsModal = () => {
   const [isOpen, setIsOpen] = useAtom(settingsOpenAtom)
   const [config, setConfig] = useAtom(appConfigAtom)
   // settingsInitialTabAtom을 activeTab으로 직접 사용 — 외부(AIUsageBanner)에서 직접 제어
-  const [activeTab, setActiveTab] = useAtom<'general' | 'ai' | 'keybindings' | 'security'>(settingsInitialTabAtom)
+  const [activeTab, setActiveTab] = useAtom<'general' | 'ai' | 'keybindings' | 'security' | 'sync'>(settingsInitialTabAtom)
 
   const handleClose = useCallback(() => {
     setIsOpen(false)
@@ -39,7 +40,7 @@ export const SettingsModal = () => {
 
         {/* 탭 네비게이션 */}
         <div className="flex border-b border-[var(--border-default)] px-5">
-          {(['general', 'ai', 'keybindings', 'security'] as const).map((tab) => (
+          {(['general', 'ai', 'keybindings', 'security', 'sync'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -50,7 +51,7 @@ export const SettingsModal = () => {
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              {tab === 'general' ? '일반' : tab === 'ai' ? 'AI' : tab === 'keybindings' ? '단축키' : '보안'}
+              {tab === 'general' ? '일반' : tab === 'ai' ? 'AI' : tab === 'keybindings' ? '단축키' : tab === 'security' ? '보안' : '동기화'}
             </button>
           ))}
         </div>
@@ -59,6 +60,8 @@ export const SettingsModal = () => {
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {activeTab === 'ai' ? (
             <AISettingsTab />
+          ) : activeTab === 'sync' ? (
+            <SyncTab />
           ) : activeTab === 'security' ? (
             <SecurityTab />
           ) : activeTab === 'general' ? (
