@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { nanoid } from 'nanoid'
 
 // ─── 타입 정의 ────────────────────────────────────────────────
 
@@ -23,6 +24,17 @@ export interface Item {
   content: string           // JSON string (StructuredContent | LegacyContent)
   updatedAt: number
   createdAt: number
+  // ── 동기화 (Phase 2 BYO-storage) — 옵트인. 미동기화 노트는 undefined ──
+  uuid?: string             // 기기 간 안정적 식별자 ({uuid}.enc). 동기화 시 지연 부여
+}
+
+/**
+ * 동기화 상태(per-note) — items와 분리한 단일 진실 원천.
+ * 노트 행이 삭제돼도 살아남아 "동기화됐던 노트가 로컬에서 삭제됨"(tombstone 전파)을 감지한다.
+ */
+export interface SyncState {
+  uuid: string              // PK
+  syncedVersion: string     // 마지막으로 클라우드와 일치한 페이로드 해시 (3-way base)
 }
 
 export type AIProvider = 'anthropic' | 'google' | 'openai'
@@ -38,6 +50,12 @@ export interface AppConfig {
   userApiKey: string            // 빈 문자열 = 공유 키 모드
   encryptionEnabled: boolean    // at-rest 암호화 활성화 여부
   encryptionSalt: string | null // PBKDF2 salt hex 문자열
+  // ── 동기화 설정 (Phase 2 BYO-storage) — 기본 로컬, 옵트인 ──
+  syncEnabled: boolean              // 동기화 활성화 여부
+  syncProvider: 'google-drive' | null // 선택된 스토리지 프로바이더
+  deviceId: string                  // 이 기기의 안정적 식별자 (충돌 사본 라벨링)
+  syncCursor: string | null         // 마지막 동기화 시점의 manifest updatedAt 마커
+  lastSyncAt: number | null         // 마지막 동기화 완료 시각
 }
 
 // ─── Dexie v4 클래스 ──────────────────────────────────────────
@@ -46,6 +64,7 @@ class DevNoteDB extends Dexie {
   folders!: EntityTable<Folder, 'id'>
   items!: EntityTable<Item, 'id'>
   config!: EntityTable<AppConfig, 'id'>
+  syncState!: EntityTable<SyncState, 'uuid'>
 
   constructor() {
     super('dev-note')
@@ -238,6 +257,26 @@ class DevNoteDB extends Dexie {
         c.encryptionSalt = null
       })
     )
+    // v16: 동기화(Phase 2 BYO-storage) — items에 uuid 인덱스, syncState 테이블, config 동기화 설정
+    this.version(16).stores({
+      folders:   '++id, parentId, name, order',
+      items:     '++id, &uuid, folderId, title, *tags, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+    }).upgrade(async (tx) => {
+      // 기존 노트에 안정적 uuid 부여 (동기화 준비)
+      await tx.table('items').toCollection().modify((item: Record<string, unknown>) => {
+        if (!item.uuid) item.uuid = nanoid(16)
+      })
+      // config: 동기화 기본값 (기본 로컬·미활성)
+      await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        c.syncEnabled = false
+        c.syncProvider = null
+        c.deviceId = nanoid(12)
+        c.syncCursor = null
+        c.lastSyncAt = null
+      })
+    })
   }
 }
 
@@ -260,6 +299,11 @@ export async function ensureConfig(): Promise<AppConfig> {
     userApiKey: '',
     encryptionEnabled: false,
     encryptionSalt: null,
+    syncEnabled: false,
+    syncProvider: null,
+    deviceId: nanoid(12),
+    syncCursor: null,
+    lastSyncAt: null,
   }
   await db.config.add(defaults)
   return defaults

@@ -77,7 +77,7 @@ export const tabContextMenuAtom = atom<TabContextMenuState>({
 export const settingsOpenAtom = atom<boolean>(false)
 
 /** 환경설정 모달 초기 탭 (외부에서 특정 탭으로 열 때 사용) */
-export const settingsInitialTabAtom = atom<'general' | 'ai' | 'keybindings' | 'security'>('general')
+export const settingsInitialTabAtom = atom<'general' | 'ai' | 'keybindings' | 'security' | 'sync'>('general')
 
 // ─── 인라인 이름 변경 ─────────────────────────────────────────
 
@@ -172,6 +172,21 @@ export const cardViewAtom = atom<CardViewState | null>(null)
 
 /** 패스프레이즈에서 파생된 AES-GCM CryptoKey. 앱 닫으면 소멸. */
 export const encryptionKeyAtom = atom<CryptoKey | null>(null)
+
+// ─── 동기화 (Phase 2 BYO-storage — 세션 메모리 전용) ──────────────
+
+export type SyncStatus = 'idle' | 'syncing' | 'error' | 'locked'
+
+/** 현재 동기화 진행 상태 (UI 표시용) */
+export const syncStatusAtom = atom<SyncStatus>('idle')
+
+// 참고: 실제 DEK는 syncSession.ts 모듈 메모리에만 보관(원자 노출 안 함 = 누출 표면 최소화).
+
+/** 마지막 동기화 오류 메시지 (없으면 null) */
+export const syncLastErrorAtom = atom<string | null>(null)
+
+/** 마지막 동기화 완료 시각 (epoch ms, 없으면 null) */
+export const syncLastAtAtom = atom<number | null>(null)
 
 // ─── 키바인딩 설정 ─────────────────────────────────────────────
 
