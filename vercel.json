@@ -11,6 +11,7 @@
   },
   "rewrites": [
     { "source": "/v1/messages", "destination": "/api/v1/messages" },
-    { "source": "/v1/error-report", "destination": "/api/v1/error-report" }
+    { "source": "/v1/error-report", "destination": "/api/v1/error-report" },
+    { "source": "/v1/metrics", "destination": "/api/v1/metrics" }
   ]
 }

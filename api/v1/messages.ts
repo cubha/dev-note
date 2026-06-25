@@ -108,6 +108,36 @@ async function checkAndIncrementRateLimit(
   }
 }
 
+// ── 사용량 집계 계측 (대시보드용 메타데이터) ────────────────
+// 노트 평문·제목은 절대 기록하지 않는다. 호출 수·모델 분포·실패 수만 집계.
+const METRIC_RETENTION = 7_776_000 // 90일 (일별 키 보존)
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// 누적 키는 영구, 일별 키는 EXPIRE 부여. fire-and-forget이 아니라 await로 호출해
+// Edge 종료 전에 반영되게 한다(계측 실패는 핵심 경로에 영향 없음).
+async function recordMetrics(totalKeys: string[], dailyKeys: string[]): Promise<void> {
+  const url = process.env.KV_REST_API_URL
+  const token = process.env.KV_REST_API_TOKEN
+  if (!url || !token) return
+  const cmds: Array<Array<string | number>> = totalKeys.map((k) => ['INCR', k])
+  for (const k of dailyKeys) {
+    cmds.push(['INCR', k])
+    cmds.push(['EXPIRE', k, METRIC_RETENTION])
+  }
+  try {
+    await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cmds),
+    })
+  } catch {
+    // 계측 실패 무시
+  }
+}
+
 // ── 요청/응답 형식 정의 ─────────────────────────────────────
 
 interface AnthropicBody {
@@ -256,7 +286,8 @@ function normalizeOpenAIResponse(
 
 // ── 에러 분류 ───────────────────────────────────────────────
 
-function classifyByokError(status: number, origin: string, providerName: string): Response {
+async function classifyByokError(status: number, origin: string, providerName: string): Promise<Response> {
+  await recordMetrics(['m:fail:total'], [`m:fail:${todayStr()}`])
   if (status === 401 || status === 403) {
     return jsonError('입력한 API 키가 올바르지 않습니다.', 401, origin, 'byok_auth_error')
   }
@@ -270,9 +301,10 @@ interface AnthropicError {
   error?: { type?: string; message?: string }
 }
 
-function classifyAnthropicError(
+async function classifyAnthropicError(
   status: number, body: string, origin: string, requestId: string, retries: number,
-): Response {
+): Promise<Response> {
+  await recordMetrics(['m:fail:total'], [`m:fail:${todayStr()}`])
   if (body.includes('<!DOCTYPE') || body.includes('<html')) {
     return jsonError(
       `Cloudflare WAF 차단이 감지되었습니다. (${retries}회 재시도 후 실패, request-id: ${requestId})`,
@@ -358,6 +390,15 @@ export default async function handler(request: Request): Promise<Response> {
   if (typeof parsed.max_tokens !== 'number' || parsed.max_tokens > MAX_TOKENS_LIMIT) {
     parsed.max_tokens = MAX_TOKENS_LIMIT
   }
+
+  // 사용량 집계: 수락된 호출 수·모델 분포·일별 (실패는 classify*Error에서 별도 카운트)
+  // 모델 키는 화이트리스트로 버킷팅 — BYOK 임의 모델명으로 m:model:* 키가 무한 생성되는
+  // 가용성/비용 벡터 차단(미허용 모델은 'other'로 합산).
+  const modelLabel = ALLOWED_MODELS.includes(parsed.model) ? parsed.model : 'other'
+  await recordMetrics(
+    ['m:calls:total', `m:model:${modelLabel}`],
+    [`m:calls:${todayStr()}`],
+  )
 
   const rateLimitHeaders: Record<string, string> = isByok ? {} : {
     'X-RateLimit-Remaining': String(rateLimitRemaining),

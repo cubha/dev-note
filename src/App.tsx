@@ -19,6 +19,7 @@ import { ContextMenu } from './shared/components/ContextMenu'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { Dashboard } from './features/dashboard/Dashboard'
 import { SettingsModal } from './features/settings/SettingsModal'
+import { AdminMetrics } from './features/admin/AdminMetrics'
 import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
 import { GuideModal } from './features/onboarding/GuideModal'
 import { CommandPalette } from './shared/components/CommandPalette'
@@ -178,6 +179,7 @@ export default function App() {
       <CommandPalette />
       <AnnouncementModal />
       <GuideModal />
+      <AdminMetrics />
       <Toaster
         theme={config.theme}
         position="bottom-right"

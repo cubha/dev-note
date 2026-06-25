@@ -94,8 +94,9 @@ if [ -n "$CHANGED_FILES" ]; then
     # 예외: api/ — Vercel Edge Function 서버사이드 (fetch는 정상 동작)
     # 예외: src/features/sync/providers/ — Phase 2 옵트인 BYO-storage 동기화 프로바이더만
     #       (네트워크 접점은 이 디렉토리에 한정. syncEngine/keyManager는 인터페이스만 호출)
+    # 예외: src/features/admin/ — admin 메트릭 대시보드(옵트인, /v1/metrics 조회). 네트워크 접점 한정
     if [[ "$file" != "src/core/ai.ts" ]] && [[ "$file" != worker/* ]] && [[ "$file" != api/* ]] \
-       && [[ "$file" != src/features/sync/providers/* ]]; then
+       && [[ "$file" != src/features/sync/providers/* ]] && [[ "$file" != src/features/admin/* ]]; then
       if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
         fail "[보안] 외부 fetch() 호출 발견 — 이 앱은 완전 로컬 오프라인 전용: $file"
         SPEC_FAILS=$((SPEC_FAILS + 1))
