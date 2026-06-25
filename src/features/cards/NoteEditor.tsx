@@ -5,7 +5,7 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useAtomValue } from 'jotai'
 import {
-  EditorView, keymap as cmKeymap, lineNumbers, drawSelection,
+  EditorView, keymap as cmKeymap, lineNumbers,
   highlightActiveLine, placeholder as cmPlaceholder,
 } from '@codemirror/view'
 import { EditorState as CMState, Compartment } from '@codemirror/state'
@@ -49,7 +49,8 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
         extensions: [
           history(),
           lineNumbers(),
-          drawSelection(),
+          // drawSelection 미사용 — 불투명 active-line이 커스텀 선택레이어를 caret 행에서 가렸음(D2).
+          // native ::selection은 줄 배경 위에 그려져 단일/마지막 행도 항상 표시된다(index.css).
           highlightActiveLine(),
           bracketMatching(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -83,12 +84,11 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
             '.cm-content': { minHeight: '100%', caretColor: 'var(--accent)' },
             '.cm-cursor': { borderLeftColor: 'var(--accent)' },
             '.cm-placeholder': { color: 'var(--text-placeholder)' },
-            '.cm-gutters': { background: 'transparent', border: 'none', paddingRight: '8px', color: 'var(--text-placeholder)' },
+            // 거터 배경 불투명(부모 패널 surface)으로 가로스크롤된 코드가 줄번호 뒤로 비치는 겹침 차단(D1)
+            '.cm-gutters': { background: 'var(--bg-surface)', border: 'none', paddingRight: '8px', color: 'var(--text-placeholder)' },
             '.cm-lineNumbers .cm-gutterElement': { color: 'var(--text-placeholder)', minWidth: '2rem' },
             '.cm-activeLine': { background: 'var(--bg-surface-hover)' },
-            '.cm-activeLineGutter': { background: 'transparent' },
-            '.cm-selectionBackground': { background: 'var(--accent-glow) !important' },
-            '&.cm-focused .cm-selectionBackground': { background: 'rgba(59,130,246,0.25) !important' },
+            '.cm-activeLineGutter': { background: 'var(--bg-surface)' },
             '.cm-matchingBracket': { color: 'var(--text-primary)', outline: '1px solid var(--border-accent)' },
             '.cm-comment-highlight': { color: 'var(--text-tertiary)', fontStyle: 'italic' },
           }),

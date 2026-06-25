@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.7.1',
+    date: '2026-06-25',
+    title: '노트 편집기 표시 오류 수정',
+    highlights: [
+      '긴 줄을 가로로 스크롤할 때 줄 번호와 코드가 겹쳐 보이던 문제 수정',
+      '텍스트를 선택할 때 마지막 줄(또는 한 줄만 선택 시)이 표시되지 않던 문제 수정',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.7.0',
     date: '2026-06-23',
     title: '암호화 백업 내보내기 · 가져오기',
