@@ -75,7 +75,7 @@ export const AdminMetrics = () => {
   if (!active) return null
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[var(--bg-base)] p-6 text-[var(--text-primary)]">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[var(--bg-app)] p-6 text-[var(--text-primary)]">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold">사용량 대시보드 <span className="text-xs font-normal text-[var(--text-secondary)]">(admin · 메타데이터만)</span></h1>
@@ -83,7 +83,10 @@ export const AdminMetrics = () => {
         </div>
 
         {/* 토큰 입력 */}
-        <div className="flex gap-2">
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => { e.preventDefault(); void load() }}
+        >
           <input
             type="password"
             value={token}
@@ -92,14 +95,13 @@ export const AdminMetrics = () => {
             className="flex-1 rounded border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-1.5 text-sm"
           />
           <button
-            type="button"
-            onClick={() => void load()}
+            type="submit"
             disabled={loading || !token}
             className="rounded bg-[var(--accent)] px-4 py-1.5 text-sm text-white disabled:opacity-50"
           >
             {loading ? '조회 중…' : '조회'}
           </button>
-        </div>
+        </form>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
