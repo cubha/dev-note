@@ -15,6 +15,13 @@ interface Metrics {
   daily: Array<{ date: string; calls: number; fail: number }>
 }
 
+interface Visits {
+  total: number
+  totalEvents: number
+  paths: Array<{ path: string; title: string; count: number }>
+  daily: Array<{ date: string; views: number }>
+}
+
 function useHashActive(target: string): boolean {
   const [active, setActive] = useState(() => window.location.hash === target)
   useEffect(() => {
@@ -29,6 +36,7 @@ export const AdminMetrics = () => {
   const active = useHashActive('#admin')
   const [token, setToken] = useState('')
   const [data, setData] = useState<Metrics | null>(null)
+  const [visits, setVisits] = useState<Visits | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -45,9 +53,20 @@ export const AdminMetrics = () => {
         throw new Error(body.error ?? `조회 실패 (${res.status})`)
       }
       setData((await res.json()) as Metrics)
+
+      // 방문 통계는 선택적 — 미설정(503)·실패 시 섹션만 생략, AI 지표는 유지
+      try {
+        const vres = await fetch(`${SHARED_API_URL}/v1/visits`, {
+          headers: { 'X-Admin-Token': token },
+        })
+        setVisits(vres.ok ? ((await vres.json()) as Visits) : null)
+      } catch {
+        setVisits(null)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '조회 실패')
       setData(null)
+      setVisits(null)
     } finally {
       setLoading(false)
     }
@@ -59,7 +78,7 @@ export const AdminMetrics = () => {
     <div className="fixed inset-0 z-[100] overflow-y-auto bg-[var(--bg-base)] p-6 text-[var(--text-primary)]">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold">AI 사용량 대시보드 <span className="text-xs font-normal text-[var(--text-secondary)]">(admin · 메타데이터만)</span></h1>
+          <h1 className="text-lg font-bold">사용량 대시보드 <span className="text-xs font-normal text-[var(--text-secondary)]">(admin · 메타데이터만)</span></h1>
           <a href="#" className="text-xs text-[var(--text-secondary)] underline">닫기</a>
         </div>
 
@@ -86,6 +105,7 @@ export const AdminMetrics = () => {
 
         {data && (
           <div className="space-y-5">
+            <h2 className="text-sm font-semibold text-[var(--text-secondary)]">AI 사용량</h2>
             {/* 요약 */}
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -125,6 +145,55 @@ export const AdminMetrics = () => {
                   <div key={d.date} className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-sm last:border-0">
                     <span className="font-mono text-xs">{d.date}</span>
                     <span className="tabular-nums text-[var(--text-secondary)]">호출 {d.calls} · 실패 {d.fail}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {visits && (
+          <div className="space-y-5">
+            <h2 className="text-sm font-semibold text-[var(--text-secondary)]">방문 통계 <span className="font-normal">(최근 30일)</span></h2>
+
+            {/* 요약 */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: '총 방문', value: visits.total.toLocaleString() },
+                { label: '총 이벤트', value: visits.totalEvents.toLocaleString() },
+              ].map((s) => (
+                <div key={s.label} className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] p-3">
+                  <div className="text-xs text-[var(--text-secondary)]">{s.label}</div>
+                  <div className="text-xl font-bold tabular-nums">{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 경로별 */}
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">경로별</h3>
+              <div className="rounded border border-[var(--border-default)]">
+                {visits.paths.length === 0 ? (
+                  <p className="p-3 text-xs text-[var(--text-secondary)]">데이터 없음</p>
+                ) : (
+                  visits.paths.map((p) => (
+                    <div key={p.path} className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-3 py-1.5 text-sm last:border-0">
+                      <span className="truncate font-mono text-xs" title={p.title || p.path}>{p.path || '(기타)'}</span>
+                      <span className="tabular-nums">{p.count.toLocaleString()}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* 최근 7일 */}
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">최근 7일 방문</h3>
+              <div className="rounded border border-[var(--border-default)]">
+                {visits.daily.map((d) => (
+                  <div key={d.date} className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-sm last:border-0">
+                    <span className="font-mono text-xs">{d.date}</span>
+                    <span className="tabular-nums text-[var(--text-secondary)]">방문 {d.views}</span>
                   </div>
                 ))}
               </div>

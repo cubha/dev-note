@@ -14,16 +14,18 @@ set -euo pipefail
 
 # ─── 옵션 파싱 ─────────────────────────────────────────────────
 TS_ONLY=false
+NO_BUILD=false
 AI_MODE=false
 STAGED_ONLY=false
 FULL_SCAN=false
 
 for arg in "$@"; do
   case $arg in
-    --ts-only) TS_ONLY=true ;;
-    --ai)      AI_MODE=true ;;
-    --staged)  STAGED_ONLY=true ;;
-    --full)    FULL_SCAN=true ;;
+    --ts-only)  TS_ONLY=true ;;
+    --no-build) NO_BUILD=true ;;
+    --ai)       AI_MODE=true ;;
+    --staged)   STAGED_ONLY=true ;;
+    --full)     FULL_SCAN=true ;;
   esac
 done
 
@@ -147,8 +149,10 @@ fi
 
 # ─── TypeScript 타입 체크 ─────────────────────────────────────
 header "🔍 TypeScript 타입 체크"
-TS_OUTPUT=$(npx tsc --noEmit 2>&1 || true)
-TS_ERRORS=$(echo "$TS_OUTPUT" | (grep -c ' error TS' 2>/dev/null || echo 0))
+# tsconfig.json이 files:[] + references(Vite 구조)라 `tsc --noEmit`은 0파일 검사(vacuous) — `-b` 필수
+TS_OUTPUT=$(npx tsc -b --noEmit 2>&1 || true)
+TS_ERRORS=$(echo "$TS_OUTPUT" | grep -c ' error TS' || true)
+TS_ERRORS=${TS_ERRORS:-0}
 if [ "${TS_ERRORS}" -gt 0 ]; then
   fail "TypeScript 오류 ${TS_ERRORS}건"
   echo "$TS_OUTPUT" | grep ' error TS' | head -20
@@ -202,7 +206,10 @@ if [ "$TS_ONLY" = false ]; then
 fi
 
 # ─── 빌드 검증 ────────────────────────────────────────────────
-if [ "$TS_ONLY" = false ]; then
+if [ "$TS_ONLY" = false ] && [ "$NO_BUILD" = true ]; then
+  info "빌드 건너뜀 (--no-build) — 풀 빌드는 COMPLETE/ship 게이트에서 실행"
+fi
+if [ "$TS_ONLY" = false ] && [ "$NO_BUILD" = false ]; then
   header "🏗️  빌드 검증"
   BUILD_EXIT=0
   npm run build 2>&1 || BUILD_EXIT=$?
