@@ -29,6 +29,7 @@ jobs:
       - run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}  # Vercel Edge Function URL
+          VITE_ANALYTICS_ENDPOINT: ${{ vars.VITE_ANALYTICS_ENDPOINT }}  # GoatCounter no-JS 픽셀 count 엔드포인트
 
       - uses: actions/upload-pages-artifact@v3
         with:
