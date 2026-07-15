@@ -9,7 +9,7 @@ import {
   highlightActiveLine, placeholder as cmPlaceholder,
 } from '@codemirror/view'
 import { EditorState as CMState, Compartment } from '@codemirror/state'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, insertTab, indentLess } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import { effectiveKeybindingsAtom } from '../../store/atoms'
 import { buildEditorKeymap } from '../../shared/utils/editorKeymap'
@@ -56,7 +56,8 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           defaultCommentTokens,
           editorKeymapCompartment.current.of(cmKeymap.of(customKeymap)),
-          cmKeymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          // Tab: 커서 위치에 삽입(선택영역 있으면 줄 들여쓰기), Shift+Tab: 내어쓰기
+          cmKeymap.of([...defaultKeymap, ...historyKeymap, { key: 'Tab', run: insertTab, shift: indentLess }]),
           phComp.of(cmPlaceholder(placeholderText)),
           EditorView.updateListener.of((update) => {
             if (update.docChanged && !isProgrammaticRef.current) {
