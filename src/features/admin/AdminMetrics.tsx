@@ -6,6 +6,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SHARED_API_URL } from '../../store/atoms'
+import { bucketVisitSeries, type ChartPeriod } from '../../shared/utils/visitChartBucket'
+
+const PERIOD_OPTIONS: Array<{ value: ChartPeriod; label: string }> = [
+  { value: '7d', label: '7일' },
+  { value: '30d', label: '30일' },
+  { value: '90d', label: '90일' },
+  { value: '1y', label: '1년' },
+  { value: 'all', label: '전체' },
+]
 
 interface Metrics {
   callsTotal: number
@@ -18,6 +27,7 @@ interface Metrics {
 interface Visits {
   total: number
   totalEvents: number
+  period: string
   paths: Array<{ path: string; title: string; count: number }>
   daily: Array<{ date: string; views: number }>
 }
@@ -37,8 +47,26 @@ export const AdminMetrics = () => {
   const [token, setToken] = useState('')
   const [data, setData] = useState<Metrics | null>(null)
   const [visits, setVisits] = useState<Visits | null>(null)
+  const [visitPeriod, setVisitPeriod] = useState<ChartPeriod>('30d')
+  const [visitsLoading, setVisitsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // 방문 통계는 선택적 — 미설정(503)·실패 시 섹션만 생략, AI 지표는 무관하게 유지
+  const loadVisits = useCallback(async (period: ChartPeriod, tok: string) => {
+    if (!SHARED_API_URL) return
+    setVisitsLoading(true)
+    try {
+      const vres = await fetch(`${SHARED_API_URL}/v1/visits?period=${period}`, {
+        headers: { 'X-Admin-Token': tok },
+      })
+      setVisits(vres.ok ? ((await vres.json()) as Visits) : null)
+    } catch {
+      setVisits(null)
+    } finally {
+      setVisitsLoading(false)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setError(null)
@@ -53,16 +81,7 @@ export const AdminMetrics = () => {
         throw new Error(body.error ?? `조회 실패 (${res.status})`)
       }
       setData((await res.json()) as Metrics)
-
-      // 방문 통계는 선택적 — 미설정(503)·실패 시 섹션만 생략, AI 지표는 유지
-      try {
-        const vres = await fetch(`${SHARED_API_URL}/v1/visits`, {
-          headers: { 'X-Admin-Token': token },
-        })
-        setVisits(vres.ok ? ((await vres.json()) as Visits) : null)
-      } catch {
-        setVisits(null)
-      }
+      await loadVisits(visitPeriod, token)
     } catch (e) {
       setError(e instanceof Error ? e.message : '조회 실패')
       setData(null)
@@ -70,7 +89,12 @@ export const AdminMetrics = () => {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, visitPeriod, loadVisits])
+
+  const handlePeriodChange = (period: ChartPeriod) => {
+    setVisitPeriod(period)
+    void loadVisits(period, token)
+  }
 
   if (!active) return null
 
@@ -156,7 +180,29 @@ export const AdminMetrics = () => {
 
         {visits && (
           <div className="space-y-5">
-            <h2 className="text-sm font-semibold text-[var(--text-secondary)]">방문 통계 <span className="font-normal">(최근 30일)</span></h2>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-sm font-semibold text-[var(--text-secondary)]">방문 통계</h2>
+
+              {/* 기간 선택 */}
+              <div role="group" aria-label="조회 기간" className="flex rounded border border-[var(--border-default)] overflow-hidden">
+                {PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={visitPeriod === opt.value}
+                    disabled={visitsLoading}
+                    onClick={() => handlePeriodChange(opt.value)}
+                    className={
+                      visitPeriod === opt.value
+                        ? 'px-2.5 py-1 text-xs bg-[var(--accent)] text-white'
+                        : 'px-2.5 py-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-50'
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* 요약 */}
             <div className="grid grid-cols-2 gap-3">
@@ -170,6 +216,9 @@ export const AdminMetrics = () => {
                 </div>
               ))}
             </div>
+
+            {/* 방문 추이 차트 */}
+            <VisitTrendChart daily={visits.daily} period={visitPeriod} />
 
             {/* 경로별 */}
             <section>
@@ -187,22 +236,50 @@ export const AdminMetrics = () => {
                 )}
               </div>
             </section>
-
-            {/* 최근 7일 */}
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">최근 7일 방문</h3>
-              <div className="rounded border border-[var(--border-default)]">
-                {visits.daily.map((d) => (
-                  <div key={d.date} className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-sm last:border-0">
-                    <span className="font-mono text-xs">{d.date}</span>
-                    <span className="tabular-nums text-[var(--text-secondary)]">방문 {d.views}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+// ── 방문 추이 차트 (제로디펜던시 CSS 바 차트) ────────────────
+// day 기간(7d/30d/90d)은 일별, week 기간(1y/all)은 주별로 버킷팅해 라벨 과밀을 방지한다.
+const CHART_HEIGHT = 80
+
+const VisitTrendChart = ({ daily, period }: { daily: Visits['daily']; period: ChartPeriod }) => {
+  const buckets = bucketVisitSeries(daily, period)
+
+  if (buckets.length === 0) {
+    return (
+      <section>
+        <h3 className="mb-2 text-sm font-semibold">방문 추이</h3>
+        <p className="rounded border border-[var(--border-default)] p-3 text-xs text-[var(--text-secondary)]">데이터 없음</p>
+      </section>
+    )
+  }
+
+  const max = Math.max(1, ...buckets.map((b) => b.views))
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold">방문 추이</h3>
+      <div className="rounded border border-[var(--border-default)] p-3">
+        <div className="flex items-end gap-0.5" style={{ height: CHART_HEIGHT }}>
+          {buckets.map((b) => (
+            <div
+              key={b.label}
+              title={`${b.label}: 방문 ${b.views.toLocaleString()}`}
+              className="min-w-[2px] flex-1 rounded-t bg-[var(--accent)] transition-colors hover:bg-[var(--accent-hover)]"
+              style={{ height: `${Math.max(2, (b.views / max) * CHART_HEIGHT)}px` }}
+            />
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] text-[var(--text-tertiary)]">
+          <span>{buckets[0].label}</span>
+          {buckets.length > 1 && <span>{buckets[buckets.length - 1].label}</span>}
+        </div>
+      </div>
+    </section>
   )
 }

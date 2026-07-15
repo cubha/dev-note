@@ -45,12 +45,13 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
-// 최근 n일 날짜(YYYY-MM-DD), 최신 우선.
-function lastNDates(n: number): string[] {
+// startMs~endMs 사이 날짜(YYYY-MM-DD) 오름차순 — 차트 x축이 시간순으로 흐르도록.
+function dateRange(startMs: number, endMs: number): string[] {
   const out: string[] = []
-  const base = Date.now()
-  for (let i = 0; i < n; i++) {
-    out.push(new Date(base - i * 86_400_000).toISOString().slice(0, 10))
+  const startDay = Math.floor(startMs / 86_400_000)
+  const endDay = Math.floor(endMs / 86_400_000)
+  for (let d = startDay; d <= endDay; d++) {
+    out.push(new Date(d * 86_400_000).toISOString().slice(0, 10))
   }
   return out
 }
@@ -58,6 +59,15 @@ function lastNDates(n: number): string[] {
 // GoatCounter가 요구하는 "시(hour)로 반올림된" date-time 문자열.
 function isoHour(ms: number): string {
   return new Date(ms).toISOString().slice(0, 13) + ':00:00Z'
+}
+
+// 조회 기간 프리셋 — 'all'은 GoatCounter 계정 생성 이전 구간이라도 안전하게(공백=0) 처리되므로
+// 정확한 가입일을 몰라도 넉넉한 lookback(3년)으로 "도입 시점부터 전체"를 커버한다.
+const PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '1y': 365, all: 1095 }
+const DEFAULT_PERIOD = '30d'
+
+function resolvePeriod(raw: string | null): string {
+  return raw !== null && Object.hasOwn(PERIOD_DAYS, raw) ? raw : DEFAULT_PERIOD
 }
 
 // ── GoatCounter Reporting API (REST) ───────────────────────
@@ -97,50 +107,51 @@ export default async function handler(request: Request): Promise<Response> {
     return json({ error: '방문 계측이 설정되지 않았습니다 (GOATCOUNTER_API_URL/TOKEN 미설정)' }, 503, origin)
   }
 
-  // ── 방문 통계 조회 (최근 30일 윈도우) ──────────────────────
+  // ── 방문 통계 조회 (기간 선택형 윈도우) ─────────────────────
   try {
+    const period = resolvePeriod(new URL(request.url).searchParams.get('period'))
     const now = Date.now()
-    const start = isoHour(now - 30 * 86_400_000)
+    const startMs = now - PERIOD_DAYS[period] * 86_400_000
+    const start = isoHour(startMs)
     const end = isoHour(now)
     const q = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
 
+    // /stats/total의 stats[]가 일자별 daily 값을 직접 제공 — 경로별 합산 불필요(더 정확·단순).
     const totalRes = (await gc(`/api/v0/stats/total?${q}`)) as
-      | { total?: unknown; total_events?: unknown }
+      | { total?: unknown; total_events?: unknown; stats?: unknown }
       | null
     const total = toNum(totalRes?.total)
     const totalEvents = toNum(totalRes?.total_events)
 
-    const hitsRes = (await gc(`/api/v0/stats/hits?${q}&daily=true&limit=100`)) as
-      | { hits?: unknown }
-      | null
-    const rawHits = Array.isArray(hitsRes?.hits) ? (hitsRes?.hits as unknown[]) : []
-
-    // 경로별 카운트 + 일별 합산(여러 경로의 같은 날을 누적; SPA라 사실상 단일 경로)
     const dayMap = new Map<string, number>()
+    if (Array.isArray(totalRes?.stats)) {
+      for (const s of totalRes.stats) {
+        if (typeof s !== 'object' || s === null) continue
+        const st = s as { day?: unknown; daily?: unknown }
+        if (typeof st.day === 'string') {
+          dayMap.set(st.day, toNum(st.daily))
+        }
+      }
+    }
+    // GoatCounter가 무방문일을 생략할 수 있어 시작~끝을 gapless하게 0으로 채운다(차트 x축 일관성).
+    const daily = dateRange(startMs, now).map((date) => ({ date, views: dayMap.get(date) ?? 0 }))
+
+    // 경로별 — 동일 period 윈도우로 조회해 페이지 전체가 같은 기간을 보도록 한다.
+    const hitsRes = (await gc(`/api/v0/stats/hits?${q}&limit=100`)) as { hits?: unknown } | null
+    const rawHits = Array.isArray(hitsRes?.hits) ? (hitsRes.hits as unknown[]) : []
     const paths: Array<{ path: string; title: string; count: number }> = []
     for (const h of rawHits) {
       if (typeof h !== 'object' || h === null) continue
-      const hit = h as { path?: unknown; title?: unknown; count?: unknown; stats?: unknown }
+      const hit = h as { path?: unknown; title?: unknown; count?: unknown }
       paths.push({
         path: typeof hit.path === 'string' ? hit.path : '',
         title: typeof hit.title === 'string' ? hit.title : '',
         count: toNum(hit.count),
       })
-      if (Array.isArray(hit.stats)) {
-        for (const s of hit.stats) {
-          if (typeof s !== 'object' || s === null) continue
-          const st = s as { day?: unknown; daily?: unknown }
-          if (typeof st.day === 'string') {
-            dayMap.set(st.day, (dayMap.get(st.day) ?? 0) + toNum(st.daily))
-          }
-        }
-      }
     }
     paths.sort((a, b) => b.count - a.count)
 
-    const daily = lastNDates(7).map((date) => ({ date, views: dayMap.get(date) ?? 0 }))
-
-    return json({ total, totalEvents, paths: paths.slice(0, 20), daily }, 200, origin)
+    return json({ total, totalEvents, period, paths: paths.slice(0, 20), daily }, 200, origin)
   } catch {
     return json({ error: '방문 통계 조회 실패' }, 502, origin)
   }
