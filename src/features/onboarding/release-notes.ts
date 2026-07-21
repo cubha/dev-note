@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.8.0',
+    date: '2026-07-21',
+    title: '마크다운 전체화면 보기 추가 & 에디터 표시 오류 수정',
+    highlights: [
+      '노트 에디터에 "MD변환" 버튼 추가 — 분할 미리보기 대신 전체 화면으로 변환된 마크다운을 바로 확인 가능',
+      '긴 줄을 가로로 스크롤할 때 줄 번호와 텍스트가 겹쳐 보이던 문제 수정',
+      '짧은 노트에서 줄 번호 영역이 배경과 다른 색 박스처럼 보이던 문제 수정',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.7.1',
     date: '2026-06-25',
     title: '노트 편집기 표시 오류 수정',
