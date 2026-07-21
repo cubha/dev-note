@@ -141,10 +141,13 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, "Courier New", monospace',
               fontSize: '12px',
               lineHeight: '1.6',
-              padding: '8px 4px',
+              paddingTop: '8px',
+              paddingBottom: '8px',
               overflow: 'auto',
             },
-            '.cm-content': { caretColor: 'var(--accent)', minHeight: '60px' },
+            // 좌우 padding은 scroller가 아닌 content에 둔다 — scroller에 두면 sticky gutter(좌측 고정) 안쪽에
+            // 빈 여백이 생기고 그 여백이 가로 스크롤 범위에 포함되어 텍스트가 겹쳐 보인다.
+            '.cm-content': { caretColor: 'var(--accent)', minHeight: '60px', paddingLeft: '4px', paddingRight: '4px' },
             '.cm-cursor': { borderLeftColor: 'var(--accent)' },
             '.cm-placeholder': { color: 'var(--text-placeholder)' },
             // 거터 배경 불투명(에디터 입력 surface)으로 가로스크롤 코드 겹침 차단(D1)

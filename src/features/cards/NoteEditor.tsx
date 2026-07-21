@@ -79,14 +79,19 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, "Courier New", monospace',
               fontSize: '13px',
               lineHeight: '1.7',
-              padding: '20px 24px',
+              paddingTop: '20px',
+              paddingBottom: '20px',
               overflow: 'auto',
             },
-            '.cm-content': { minHeight: '100%', caretColor: 'var(--accent)' },
+            // 좌우 padding은 scroller가 아닌 content에 둔다 — scroller에 두면 sticky gutter(좌측 고정) 안쪽에
+            // 빈 여백이 생기고 그 여백이 가로 스크롤 범위에 포함되어 텍스트가 겹쳐 보인다.
+            '.cm-content': { minHeight: '100%', caretColor: 'var(--accent)', paddingLeft: '24px', paddingRight: '24px' },
             '.cm-cursor': { borderLeftColor: 'var(--accent)' },
             '.cm-placeholder': { color: 'var(--text-placeholder)' },
-            // 거터 배경 불투명(부모 패널 surface)으로 가로스크롤된 코드가 줄번호 뒤로 비치는 겹침 차단(D1)
-            '.cm-gutters': { background: 'var(--bg-surface)', border: 'none', paddingRight: '8px', color: 'var(--text-placeholder)' },
+            // 거터 배경 불투명(가로스크롤된 코드가 줄번호 뒤로 비치는 겹침 차단, D1)
+            // 실제 패널 배경(--bg-app)과 일치시킨다 — --bg-surface를 쓰면 `&`의 transparent 배경 뒤로 비치는
+            // 진짜 배경(--bg-app)보다 밝아, 짧은 노트에서 거터가 별도 박스처럼 튀어 보인다.
+            '.cm-gutters': { background: 'var(--bg-app)', border: 'none', paddingRight: '8px', color: 'var(--text-placeholder)' },
             '.cm-lineNumbers .cm-gutterElement': { color: 'var(--text-placeholder)', minWidth: '2rem' },
             '.cm-activeLine': { background: 'var(--bg-surface-hover)' },
             '.cm-activeLineGutter': { background: 'var(--bg-surface)' },
