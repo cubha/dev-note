@@ -329,6 +329,9 @@ export async function ensureConfig(): Promise<AppConfig> {
     syncCursor: null,
     lastSyncAt: null,
   }
-  await db.config.add(defaults)
+  // add()는 중복 키(id:1) 시 ConstraintError를 던진다. StrictMode의 개발 모드 effect
+  // 이중 호출로 빈 DB에서 두 번 동시 호출되면 두 번째 add()가 실패하며 콘솔에 노출됐다.
+  // put()은 upsert라 경합해도 예외 없이 마지막 쓰기가 반영되어 동일한 결과로 수렴한다.
+  await db.config.put(defaults)
   return defaults
 }
