@@ -8,10 +8,14 @@ import {
   ChevronDown, Download, Save,
 } from 'lucide-react'
 import { db } from '../../core/db'
-import type { ItemType } from '../../core/db'
+import type { ItemType, Item } from '../../core/db'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
+import { isDraftPersistable, parseDraftBody } from '../../core/draft'
+import type { DraftBody } from '../../core/draft'
+import { saveDraft, loadDraft, deleteDraft } from '../../core/draftStore'
+import { registerActiveFlush, consumeSuppression } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
@@ -24,6 +28,8 @@ import { DocumentEditor } from './DocumentEditor'
 import type { DocumentEditorHandle } from './DocumentEditor'
 import { NoteEditor } from './NoteEditor'
 import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
+
+const DRAFT_DEBOUNCE_MS = 500
 
 const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
 
@@ -60,6 +66,14 @@ export const CardDetailEditor = () => {
   }
   const [original, setOriginal] = useState<OriginalSnapshot | null>(null)
 
+  // liveQuery가 무관 필드(핀/순서 등) 변경으로 재발화해도 편집 중인 로컬 상태를 지키기 위한 가드
+  const loadedItemIdRef = useRef<number | null>(null)
+
+  // 탭전환 cleanup·visibilitychange·외부 flush 요청이 참조하는 "항상 최신" 값 — 클로저 staleness 방지
+  const itemRef = useRef<Item | null>(null)
+  const dirtyRef = useRef(false)
+  const draftStateRef = useRef({ title: '', type: 'server' as ItemType, tags: '', fields: [] as CardField[], editorText: '' })
+
   const item = useLiveQuery(
     () => activeTab ? db.items.get(activeTab) : undefined,
     [activeTab],
@@ -76,53 +90,93 @@ export const CardDetailEditor = () => {
   }, [activeTab])
 
   // 아이템 로드 (useLiveQuery 완료 후, 암호화된 content는 복호화 후 파싱)
+  // 가드: id만 비교하면 사이드바 이름변경·재암호화·동기화 pull 같은 "진짜 콘텐츠 변경"까지
+  // 침묵 무시하게 된다(핀/순서 변경과 구별 불가). 그래서 title/type/tags/content 지문으로 비교하되,
+  // 편집 중(dirty)에는 외부 변경을 반영하지 않고 로컬 편집을 보존한다(이 기능 자체의 목적과 동일한 원칙 —
+  // 외부변경 반영은 다음 저장 전까지 지연되는 게 알려진 제약, sync는 수동·last-writer-wins 기수용).
+  const loadedFingerprintRef = useRef<string>('')
   useEffect(() => {
     if (!item) return
+    const fingerprint = JSON.stringify([item.title, item.type, item.tags, item.content])
+    const sameItem = loadedItemIdRef.current === item.id
+    if (sameItem && loadedFingerprintRef.current === fingerprint) return // 무관 필드(핀/순서 등) 변경 — 무시
+    if (sameItem && dirtyRef.current) return // 콘텐츠는 외부에서 바뀌었지만 편집 중 — 로컬 편집 보존
+
     const tagsStr = item.tags.join(', ')
-    setTitle(item.title)
-    setType(item.type)
-    setTags(tagsStr)
 
     void (async () => {
       let rawContent = item.content
       if (isEncryptedContent(rawContent)) {
-        if (!encryptionKey) return
+        if (!encryptionKey) return // 키 대기 — 키 도착 시 이 effect가 재실행됨
         rawContent = await decryptContent(rawContent, encryptionKey)
       }
-    const content = parseContent(rawContent)
-    const editorKey = getEditorFieldKey(item.type)
+      const content = parseContent(rawContent)
+      const editorKey = getEditorFieldKey(item.type)
 
-    let loadedFields: CardField[]
-    let loadedEditorText: string
+      let loadedFields: CardField[]
+      let loadedEditorText: string
 
-    if (content.format === 'structured') {
-      const fieldMap = new Map(content.fields.map(f => [f.key, f.value]))
-      const schemas = FIELD_SCHEMAS[item.type]
-      loadedFields = schemas.map(s => ({
-        key: s.key, label: s.label, value: fieldMap.get(s.key) ?? '', type: s.type,
-      }))
-      loadedEditorText = editorKey ? (fieldMap.get(editorKey) ?? '') : ''
-    } else if (content.format === 'legacy') {
-      const schemas = FIELD_SCHEMAS[item.type]
-      loadedFields = schemas.map(s => ({ key: s.key, label: s.label, value: '', type: s.type }))
-      loadedEditorText = content.text
-    } else {
-      // HybridContent — document 타입은 DocumentEditor에서 처리
-      loadedFields = []
-      loadedEditorText = ''
-    }
+      if (content.format === 'structured') {
+        const fieldMap = new Map(content.fields.map(f => [f.key, f.value]))
+        const schemas = FIELD_SCHEMAS[item.type]
+        loadedFields = schemas.map(s => ({
+          key: s.key, label: s.label, value: fieldMap.get(s.key) ?? '', type: s.type,
+        }))
+        loadedEditorText = editorKey ? (fieldMap.get(editorKey) ?? '') : ''
+      } else if (content.format === 'legacy') {
+        const schemas = FIELD_SCHEMAS[item.type]
+        loadedFields = schemas.map(s => ({ key: s.key, label: s.label, value: '', type: s.type }))
+        loadedEditorText = content.text
+      } else {
+        // HybridContent — document 타입은 DocumentEditor에서 처리
+        loadedFields = []
+        loadedEditorText = ''
+      }
 
-    setFields(loadedFields)
-    setEditorText(loadedEditorText)
+      // 드래프트 오버레이 — 암호화 카드는 대상 제외(별도 작업)
+      let draftApplied = false
+      if (isDraftPersistable(item)) {
+        const draft = await loadDraft(item.id)
+        if (draft) {
+          const body = parseDraftBody(draft.body)
+          if (body) {
+            setTitle(draft.title)
+            setType(draft.type)
+            setTags(draft.tags)
+            if (body.kind === 'fields') {
+              const fieldMap = new Map(body.fields)
+              const schemas = FIELD_SCHEMAS[draft.type]
+              setFields(schemas.map(s => ({
+                key: s.key, label: s.label, value: fieldMap.get(s.key) ?? '', type: s.type,
+              })))
+              setEditorText(body.editorText)
+            }
+            // body.kind==='document'이면 fields/editorText는 그대로 두고 DocumentEditor가 sections을 자체 복원한다
+            draftApplied = true
+          }
+          // 손상 드래프트(body===null)는 무시하고 아래 DB 값으로 폴백
+        }
+      }
 
-    // 원본 스냅샷 저장 (dirty 비교 기준)
-    setOriginal({
-      title: item.title,
-      type: item.type,
-      tags: tagsStr,
-      fields: JSON.stringify(loadedFields.map(f => [f.key, f.value])),
-      editorText: loadedEditorText,
-    })
+      if (!draftApplied) {
+        setTitle(item.title)
+        setType(item.type)
+        setTags(tagsStr)
+        setFields(loadedFields)
+        setEditorText(loadedEditorText)
+      }
+
+      // 원본 스냅샷은 항상 DB 값 기준(드래프트 유무와 무관) — dirty 판정·뱃지 유지의 기준점
+      setOriginal({
+        title: item.title,
+        type: item.type,
+        tags: tagsStr,
+        fields: JSON.stringify(loadedFields.map(f => [f.key, f.value])),
+        editorText: loadedEditorText,
+      })
+
+      loadedItemIdRef.current = item.id
+      loadedFingerprintRef.current = fingerprint
     })()
   }, [item, encryptionKey])
 
@@ -148,6 +202,82 @@ export const CardDetailEditor = () => {
       return next
     })
   }, [dirty, activeTab, setDirtyItems])
+
+  // document 타입 sections 변경 신호 — DocumentEditor가 onSectionsChange로 매 편집마다 호출.
+  // 디바운스 effect의 deps에 넣어 "child state가 바뀌었는데 부모 effect는 모르는" 문제를 없앤다.
+  const [docVersion, setDocVersion] = useState(0)
+  const bumpDocVersion = useCallback(() => setDocVersion((v) => v + 1), [])
+
+  // refs를 매 커밋마다 최신값으로 동기화 — cleanup·전역 flush 콜백은 클로저가 아닌 ref로 최신값을 읽는다
+  useEffect(() => {
+    itemRef.current = item ?? null
+    dirtyRef.current = dirty
+    draftStateRef.current = { title, type, tags, fields, editorText }
+  })
+
+  // document 타입은 CardDetailEditor가 유일한 draft writer다(단일 행 upsert라 title/tags 쓰기와
+  // sections 쓰기가 각자 read-modify-write하면 동시 flush 시 서로를 덮어쓰는 레이스가 생긴다).
+  // 대신 DocumentEditor의 최신 sections를 getSections()로 동기 취득해 하나의 draft row로 합쳐 쓴다.
+  const buildDraftBody = useCallback((): DraftBody | null => {
+    const s = draftStateRef.current
+    if (s.type === 'document') {
+      const sections = docEditorRef.current?.getSections()
+      if (!sections) return null // DocumentEditor 아직 마운트 전 — 다음 flush 기회에 재시도
+      return { kind: 'document', sections }
+    }
+    return { kind: 'fields', fields: s.fields.map((f) => [f.key, f.value] as [string, string]), editorText: s.editorText }
+  }, [])
+
+  // 현재 편집 버퍼를 drafts 테이블에 즉시 기록.
+  // loadedItemIdRef 가드: activeTab 전환 커밋 중 itemRef는 이미 새 탭을 가리키는데
+  // draftStateRef(제목/필드 등 로컬 state)는 아직 리셋 전이라 이전 탭 값 그대로인 찰나의 창이 있다.
+  // 이 창에서 flush가 발생하면 "새 탭 id로 이전 탭 내용을 저장"하는 탭 간 오염이 생기므로,
+  // 로드가 완전히 끝나 item과 로컬 state가 실제로 일치할 때(loadedItemIdRef===it.id)만 기록한다.
+  const flushDraftNow = useCallback(() => {
+    const it = itemRef.current
+    const s = draftStateRef.current
+    if (!it) return
+    if (loadedItemIdRef.current !== it.id) return
+    if (!dirtyRef.current) return
+    if (!isDraftPersistable(it)) return
+    const body = buildDraftBody()
+    if (!body) return
+    void saveDraft(it.id, { title: s.title, type: s.type, tags: s.tags, baseUpdatedAt: it.updatedAt, body })
+  }, [buildDraftBody])
+
+  // 탭 전환(activeTab 변경) 시 동기 flush — 억제 플래그가 서 있으면 건너뜀(닫기/폐기 직후 드래프트 재생성 방지)
+  useEffect(() => {
+    return () => {
+      const it = itemRef.current
+      if (!it) return
+      if (consumeSuppression(it.id)) return
+      flushDraftNow()
+    }
+  }, [activeTab, flushDraftNow])
+
+  // 브라우저 종료/최소화 대비 — beforeunload는 커밋을 보장 못하므로 훨씬 이르게 발화하는 hidden 시점에 flush
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraftNow()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [flushDraftNow])
+
+  // 디바운스 자동저장 — 키 입력(또는 document의 docVersion)마다 재스케줄, DRAFT_DEBOUNCE_MS 유휴 후 drafts에 기록.
+  // loadedItemIdRef 가드는 flushDraftNow와 동일한 이유(탭전환 커밋 중 item↔로컬state 불일치 창 차단).
+  useEffect(() => {
+    if (!item) return
+    if (loadedItemIdRef.current !== item.id) return
+    if (!dirty) return
+    if (!isDraftPersistable(item)) return
+    // flushDraftNow를 그대로 쓴다 — 예약 시점이 아닌 "발화 시점"에 loadedItemIdRef/dirtyRef를
+    // 다시 확인하므로, 메인스레드 지연으로 타이머가 늦게 발화해도(예: Ctrl+S 저장과 겹침) stale
+    // 클로저 값을 쓰지 않는다. 직접 saveDraft를 호출하면 발화 시점 재검증이 빠져 좀비 드래프트나
+    // 탭전환 중 cross-tab 오염이 타이밍에 따라 재발할 수 있다(scope-critic 재검증 지적).
+    const t = setTimeout(flushDraftNow, DRAFT_DEBOUNCE_MS)
+    return () => clearTimeout(t)
+  }, [item, type, dirty, title, tags, fields, editorText, docVersion, flushDraftNow])
 
   // 정형 필드 값 변경
   const handleFieldChange = useCallback((key: string, value: string) => {
@@ -187,6 +317,10 @@ export const CardDetailEditor = () => {
         if (docEditorRef.current) {
           await docEditorRef.current.save()
         }
+        // setOriginal의 리렌더 커밋을 기다리지 않고 즉시 반영 — 그 사이 flush가 끼어들면
+        // 방금 지운 드래프트가 되살아나는 레이스를 막는다(dirtyRef가 false여야 flushDraftNow가 no-op)
+        dirtyRef.current = false
+        await deleteDraft(item.id)
         return
       }
 
@@ -212,17 +346,27 @@ export const CardDetailEditor = () => {
         content,
         updatedAt: Date.now(),
       })
-      // 원본 스냅샷 갱신 → dirty가 자동으로 false 됨
+      // 원본 스냅샷 갱신 → dirty가 자동으로 false 됨(리렌더 이후). setOriginal 커밋을 기다리지 않고
+      // dirtyRef를 즉시 갱신해, 그 사이 flush가 끼어들어 방금 지운 드래프트를 되살리는 레이스를 막는다.
       setOriginal({
         title, type, tags,
         fields: JSON.stringify(fields.map(f => [f.key, f.value])),
         editorText,
       })
+      dirtyRef.current = false
+      await deleteDraft(item.id)
       toast.success('저장됨', { duration: 1500 })
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     }
   }, [item, fields, editorText, title, type, tags, encryptionKey, encryptionEnabled])
+
+  // 닫기 confirm 등 외부에서 activeTab의 최신 편집분을 즉시 flush하거나(run) 저장할(save) 수 있도록 등록
+  useEffect(() => {
+    if (!item) return
+    registerActiveFlush({ itemId: item.id, run: flushDraftNow, save: handleSave })
+    return () => registerActiveFlush(null)
+  }, [item, flushDraftNow, handleSave])
 
   // .md 다운로드 (Custom 타입)
   const handleDownloadMd = useCallback(() => {
@@ -380,7 +524,7 @@ export const CardDetailEditor = () => {
 
       {/* ── Document 타입: DocumentEditor ────── */}
       {type === 'document' ? (
-        <DocumentEditor ref={docEditorRef} item={item} onDirtyChange={setDocDirty} />
+        <DocumentEditor ref={docEditorRef} item={item} onDirtyChange={setDocDirty} onSectionsChange={bumpDocVersion} />
       ) : (
         <>
           {/* ── 정형 필드 폼 (Server/DB/API) ────── */}
