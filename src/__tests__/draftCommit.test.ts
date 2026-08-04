@@ -108,4 +108,20 @@ describe('commitDraftToItem', () => {
     const content = parseContent(decrypted)
     expect(content.format).toBe('structured')
   })
+
+  it('암호화 활성 상태인데 키가 없으면(잠김) 평문 저장 대신 에러를 던지고 아이템을 건드리지 않는다', async () => {
+    const id = await addItem()
+    await saveDraft(id, {
+      title: '제목', type: 'server', tags: '', baseUpdatedAt: 100,
+      body: { kind: 'fields', fields: [['host', '1.2.3.4']], editorText: '' },
+    })
+
+    await expect(commitDraftToItem(id, true, null)).rejects.toThrow()
+
+    const item = await db.items.get(id)
+    expect(item?.title).toBe('원본 제목')
+    expect(item?.content).toBe('{"format":"structured","fields":[]}')
+    // 드래프트도 그대로 남아있어야 한다(폐기 아님 — 잠금 해제 후 재시도 가능해야 함)
+    expect(await loadDraft(id)).not.toBeUndefined()
+  })
 })

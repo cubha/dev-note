@@ -41,6 +41,15 @@ export async function commitDraftToItem(
     return
   }
 
+  // 볼트가 켜져 있는데 잠긴 상태(키 없음)면 커밋을 거부한다 — 조건이 그냥 false가 되어
+  // 평문으로 조용히 저장되는 걸 막는다. handleSave(활성 탭)는 로더가 키 없으면 아이템을
+  // 아예 못 불러와 dirty가 성립하지 않아 이 경로에 도달 못 하지만, commitDraftToItem은
+  // 컴포넌트 상태와 무관하게 독립 실행되므로 동일 가드가 없으면 zero-knowledge 원칙이
+  // 깨진다(security-auditor 지적).
+  if (encryptionEnabled && !encryptionKey) {
+    throw new Error('암호화가 잠긴 상태입니다. 잠금을 해제한 뒤 다시 시도해 주세요.')
+  }
+
   const parsedTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean)
 
   let content: string

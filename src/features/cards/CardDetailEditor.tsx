@@ -250,10 +250,24 @@ export const CardDetailEditor = () => {
     return () => {
       const it = itemRef.current
       if (!it) return
+      if (!isDraftPersistable(it)) {
+        // 암호화 카드는 drafts에 못 남기므로 이 탭을 벗어나는 순간 편집 버퍼가 복구
+        // 불가능하게 사라진다(알려진 제약). dirtyItemsAtom에 이 id가 남아있으면 나중에
+        // 탭을 닫을 때 "저장하지 않은 변경사항"이라며 confirm이 뜨지만 실제로는 저장할
+        // 내용이 없어 "저장"을 눌러도 조용히 아무 일도 안 일어난다(security-auditor 지적,
+        // 기만적 UX). 편집 버퍼가 사라지는 시점에 뱃지도 정직하게 같이 지운다.
+        setDirtyItems((prev) => {
+          if (!prev.has(it.id)) return prev
+          const next = new Set(prev)
+          next.delete(it.id)
+          return next
+        })
+        return
+      }
       if (consumeSuppression(it.id)) return
       flushDraftNow()
     }
-  }, [activeTab, flushDraftNow])
+  }, [activeTab, flushDraftNow, setDirtyItems])
 
   // 브라우저 종료/최소화 대비 — beforeunload는 커밋을 보장 못하므로 훨씬 이르게 발화하는 hidden 시점에 flush
   useEffect(() => {
