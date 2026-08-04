@@ -50,6 +50,16 @@ describe('serializeDraftBody / parseDraftBody', () => {
   it('fields 배열 요소가 [string,string] 쌍이 아니면 null', () => {
     expect(parseDraftBody('{"kind":"fields","fields":[["host"]],"editorText":""}')).toBeNull()
   })
+
+  it('document 섹션 요소가 id/type이 없는 객체면 null', () => {
+    expect(parseDraftBody('{"kind":"document","sections":[{"foo":"bar"}]}')).toBeNull()
+  })
+
+  it('document 섹션 type이 알려진 SectionType이 아니면 null', () => {
+    expect(
+      parseDraftBody('{"kind":"document","sections":[{"id":"s1","type":"unknown","title":"","collapsed":false}]}'),
+    ).toBeNull()
+  })
 })
 
 describe('orphanDraftIds', () => {

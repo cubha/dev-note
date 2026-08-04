@@ -37,6 +37,19 @@ export function serializeDraftBody(body: DraftBody): string {
 const isFieldPair = (f: unknown): f is [string, string] =>
   Array.isArray(f) && f.length === 2 && typeof f[0] === 'string' && typeof f[1] === 'string'
 
+const VALID_SECTION_TYPES = new Set<string>(['markdown', 'credentials', 'urls', 'env', 'code'])
+
+/** 얕은 섹션 형태 가드 — content.ts의 isValidSection과 동일 기준(id/type/title/collapsed) */
+const isSectionShape = (s: unknown): boolean => {
+  if (typeof s !== 'object' || s === null) return false
+  const sec = s as Record<string, unknown>
+  return typeof sec.id === 'string' &&
+    typeof sec.type === 'string' &&
+    VALID_SECTION_TYPES.has(sec.type) &&
+    typeof sec.title === 'string' &&
+    typeof sec.collapsed === 'boolean'
+}
+
 /** 저장된 JSON 문자열을 DraftBody로 파싱. 형식이 어긋나면 null(손상 드래프트 방어) */
 export function parseDraftBody(text: string): DraftBody | null {
   let parsed: unknown
@@ -54,6 +67,7 @@ export function parseDraftBody(text: string): DraftBody | null {
   }
 
   if (obj.kind === 'document' && Array.isArray(obj.sections)) {
+    if (!obj.sections.every(isSectionShape)) return null
     return { kind: 'document', sections: obj.sections as AnySection[] }
   }
 
@@ -70,7 +84,11 @@ export function filterRestorableTabs(openTabIds: number[], liveItemIds: Set<numb
   return openTabIds.filter((id) => liveItemIds.has(id))
 }
 
-/** 복원 목록에 없는 드래프트 보유 탭을 순서 뒤에 강제 추가(중복 없이) */
+/**
+ * 복원 목록에 없는 드래프트 보유 탭을 순서 뒤에 강제 추가(중복 없이).
+ * 선행조건: draftItemIds는 호출 전 orphanDraftIds로 GC된, 현존 아이템만 가리키는 목록이어야 한다.
+ * (고아 id가 섞이면 존재하지 않는 아이템의 탭이 열려 로더가 조용히 실패한다)
+ */
 export function mergeDraftTabs(restoredTabs: number[], draftItemIds: number[]): number[] {
   const result = [...restoredTabs]
   for (const id of draftItemIds) {
