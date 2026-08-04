@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.9.0',
+    date: '2026-08-04',
+    title: '탭 미저장 변경사항 보호',
+    highlights: [
+      '카드 편집 중 다른 탭으로 전환하거나 브라우저를 닫아도 저장하지 않은 내용이 유지됩니다',
+      '앱을 다시 열면 편집 중이던 탭과 내용이 미저장 표시(●)와 함께 그대로 복원됩니다',
+      '탭을 닫을 때 저장하지 않은 변경사항이 있으면 저장 / 저장 안 함 / 취소를 선택할 수 있습니다',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v1.8.0',
     date: '2026-07-21',
     title: '마크다운 전체화면 보기 추가 & 에디터 표시 오류 수정',

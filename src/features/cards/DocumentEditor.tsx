@@ -14,6 +14,8 @@ import type {
 import { SECTION_OPTIONS } from '../../shared/constants'
 import { parseContent, serializeContent, createSection, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { db } from '../../core/db'
+import { isDraftPersistable, parseDraftBody } from '../../core/draft'
+import { loadDraft } from '../../core/draftStore'
 import { useAtomValue } from 'jotai'
 import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { toast } from 'sonner'
@@ -83,21 +85,36 @@ const parseSectionPaste = (section: AnySection, text: string): AnySection => {
 
 export interface DocumentEditorHandle {
   save: () => Promise<void>
+  /** 현재 sections를 동기적으로 반환 — 부모(CardDetailEditor)의 드래프트 flush가 사용 */
+  getSections: () => AnySection[]
 }
 
 interface DocumentEditorProps {
   item: Item
   onDirtyChange: (dirty: boolean) => void
+  /** sections가 바뀔 때마다 호출 — 부모의 드래프트 디바운스 재스케줄 신호 */
+  onSectionsChange?: () => void
 }
 
-export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(function DocumentEditor({ item, onDirtyChange }, ref) {
+export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(function DocumentEditor({ item, onDirtyChange, onSectionsChange }, ref) {
   const [sections, setSections] = useState<AnySection[]>([])
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef<HTMLDivElement>(null)
   const originalRef = useRef<string>('')
+  const sectionsRef = useRef<AnySection[]>([])
   const encryptionKey = useAtomValue(encryptionKeyAtom)
   const config = useAtomValue(appConfigAtom)
   const encryptionEnabled = config?.encryptionEnabled ?? false
+
+  // 부모 flush가 getSections()로 언제든 최신값을 동기 취득할 수 있도록 유지
+  useEffect(() => {
+    sectionsRef.current = sections
+  })
+
+  // 부모(CardDetailEditor)의 드래프트 디바운스 재스케줄 신호 — 초기 로드 시점 포함 매 변경마다
+  useEffect(() => {
+    onSectionsChange?.()
+  }, [sections, onSectionsChange])
 
   // @dnd-kit
   const sensors = useSensors(
@@ -117,14 +134,29 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
         rawContent = await decryptContent(rawContent, encryptionKey)
       }
       const content = parseContent(rawContent)
-      if (content.format === 'hybrid') {
-        setSections(content.sections)
-        originalRef.current = JSON.stringify(content.sections)
-      } else {
-        // document 타입이지만 아직 hybrid 아닌 경우 (초기 생성 직후)
-        setSections([])
-        originalRef.current = JSON.stringify([])
+      // document 타입이지만 아직 hybrid 아닌 경우(초기 생성 직후)엔 빈 섹션이 DB 기준값
+      const loadedSections: AnySection[] = content.format === 'hybrid' ? content.sections : []
+
+      // 드래프트 오버레이 — 암호화 카드는 대상 제외(별도 작업). CardDetailEditor가 title/tags와
+      // 함께 단일 draft row로 쓰므로, 여기서는 body.kind==='document'인 경우만 읽어 적용한다.
+      let draftApplied = false
+      if (isDraftPersistable({ content: item.content })) {
+        const draft = await loadDraft(item.id)
+        if (draft) {
+          const body = parseDraftBody(draft.body)
+          if (body && body.kind === 'document') {
+            setSections(body.sections)
+            draftApplied = true
+          }
+        }
       }
+
+      if (!draftApplied) {
+        setSections(loadedSections)
+      }
+
+      // originalRef(dirty 판정 기준)는 항상 DB 값 기준 — 드래프트 유무와 무관
+      originalRef.current = JSON.stringify(loadedSections)
     })()
   }, [item.id, item.content, encryptionKey])
 
@@ -152,7 +184,10 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
   }, [item.id, sections, onDirtyChange, encryptionKey, encryptionEnabled])
 
   // ref를 통해 외부에서 save 호출 가능
-  useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave])
+  useImperativeHandle(ref, () => ({
+    save: handleSave,
+    getSections: () => sectionsRef.current,
+  }), [handleSave])
 
   // 외부 클릭으로 추가 메뉴 닫기
   const closeAddMenu = useCallback(() => setAddMenuOpen(false), [])

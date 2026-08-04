@@ -3,6 +3,7 @@ import type { AppConfig, AIProvider, Item, ItemType } from '../core/db'
 import type { CardContent as CardContentType } from '../core/types'
 import type { UserOverrides, CommandId } from '../core/keybindings'
 import { getEffectiveBindings } from '../core/keybindings'
+import type { CloseKind } from './tabHelpers'
 
 // ─── 탭 관리 ──────────────────────────────────────────────────
 
@@ -14,6 +15,16 @@ export const activeTabAtom = atom<number | null>(null)
 
 /** 미저장 변경이 있는 Item ID Set (탭에 dot 표시용) */
 export const dirtyItemsAtom = atom<Set<number>>(new Set<number>())
+
+/** 사용자가 명시적으로 탭을 닫으려 하는데 dirty 탭이 포함된 경우 — 3버튼 confirm 대상 */
+export interface PendingCloseAction {
+  kind: CloseKind
+  tabId: number | null   // 'all'은 특정 탭이 없으므로 null
+  dirtyTabIds: number[]  // 이 닫기 동작으로 실제 닫힐 탭 중 dirty인 것들
+}
+
+/** 닫기 confirm 대기 상태 (null = 닫혀있음) */
+export const pendingCloseAtom = atom<PendingCloseAction | null>(null)
 
 // ─── 사이드바 ─────────────────────────────────────────────────
 

@@ -19,7 +19,8 @@ import {
   selectedItemsAtom,
   searchQueryAtom,
 } from '../../store/atoms'
-import { closeTab, removeItemsFromState } from '../../store/tabHelpers'
+import { removeItemsFromState } from '../../store/tabHelpers'
+import { useGuardedTabClose } from '../hooks/useGuardedTabClose'
 import { DEFAULT_KEYBINDINGS } from '../../core/keybindings'
 import type { CommandId } from '../../core/keybindings'
 import { DEFAULT_FOLDER_NAME } from '../constants'
@@ -62,7 +63,6 @@ export const CommandPalette = () => {
   // 명령 실행에 필요한 atom setter들
   const setCardForm = useSetAtom(cardFormAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
-  const openTabs = useAtomValue(openTabsAtom)
   const activeTab = useAtomValue(activeTabAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
@@ -70,6 +70,7 @@ export const CommandPalette = () => {
   const selectedItems = useAtomValue(selectedItemsAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
   const setSearchQuery = useSetAtom(searchQueryAtom)
+  const { requestClose } = useGuardedTabClose()
 
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -139,7 +140,7 @@ export const CommandPalette = () => {
         break
       case 'tab.close':
         if (activeTab !== null) {
-          closeTab(activeTab, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+          requestClose('single', activeTab)
         }
         break
       case 'search.focus':
@@ -176,7 +177,7 @@ export const CommandPalette = () => {
       }
     }
   }, [
-    close, setCardForm, selectedFolder, activeTab, openTabs,
+    close, setCardForm, selectedFolder, activeTab, requestClose,
     setOpenTabs, setActiveTab, setDirtyItems, selectedItems,
     setSelectedItems, setSearchQuery,
   ])

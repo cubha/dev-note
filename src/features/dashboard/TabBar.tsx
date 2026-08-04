@@ -25,9 +25,9 @@ import { db } from '../../core/db'
 import {
   openTabsAtom, activeTabAtom, dirtyItemsAtom, tabContextMenuAtom,
 } from '../../store/atoms'
-import { closeTab } from '../../store/tabHelpers'
 import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
+import { useGuardedTabClose } from '../../shared/hooks/useGuardedTabClose'
 import type { Item } from '../../core/db'
 
 const OVERFLOW_BTN_W = 44
@@ -120,8 +120,8 @@ export const TabBar = () => {
   const [openTabs, setOpenTabs] = useAtom(openTabsAtom)
   const [activeTab, setActiveTab] = useAtom(activeTabAtom)
   const dirtyItems = useAtomValue(dirtyItemsAtom)
-  const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const setTabContextMenu = useSetAtom(tabContextMenuAtom)
+  const { requestClose } = useGuardedTabClose()
 
   const [overflowOpen, setOverflowOpen] = useState(false)
   const overflowRef = useRef<HTMLDivElement>(null)
@@ -184,13 +184,13 @@ export const TabBar = () => {
 
   const handleCloseTab = (e: React.MouseEvent, itemId: number) => {
     e.stopPropagation()
-    closeTab(itemId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('single', itemId)
   }
 
   const handleMiddleClick = (e: React.MouseEvent, itemId: number) => {
     if (e.button === 1) {
       e.preventDefault()
-      closeTab(itemId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+      requestClose('single', itemId)
     }
   }
 
@@ -300,7 +300,7 @@ export const TabBar = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            closeTab(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+                            requestClose('single', tabId)
                             setOverflowOpen(false)
                           }}
                           className="shrink-0 rounded p-0.5 mr-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-colors border-none bg-transparent"
