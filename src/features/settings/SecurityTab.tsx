@@ -73,6 +73,9 @@ export function SecurityTab() {
       }
 
       await db.config.update(1, { encryptionEnabled: true, encryptionSalt: saltHex })
+      // 방금 암호화된 아이템의 평문 드래프트가 있었다면 isDraftPersistable이 false로
+      // 바뀌어 앞으로 절대 로드되지도 정리되지도 않는 좀비가 된다 — 활성화 시점에 일괄 정리
+      await db.drafts.clear()
       setConfig((prev) => prev ? { ...prev, encryptionEnabled: true, encryptionSalt: saltHex } : prev)
       setEncryptionKey(key)
       flash('암호화가 활성화되었습니다')

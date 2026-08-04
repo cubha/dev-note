@@ -17,7 +17,10 @@ interface ActiveFlushEntry {
 }
 
 let activeFlush: ActiveFlushEntry | null = null
-let suppressedItemId: number | null = null
+// 여러 dirty 탭을 한 번에 폐기(전체닫기 등)할 때 각 id마다 suppressNextFlush가 호출되므로
+// 단일 스칼라로는 마지막 id만 남고 앞선 id들의 억제가 유실된다(scope-critic SubTask7 지적 —
+// 유실된 id의 드래프트가 탭전환 cleanup-flush에 의해 되살아나 "저장 안 함"의 폐기가 무효화됨).
+const suppressedItemIds = new Set<number>()
 
 /** 현재 활성 탭의 flush/save 함수를 등록/해제한다. itemId가 없으면(entry=null) 해제만 한다. */
 export function registerActiveFlush(entry: ActiveFlushEntry | null): void {
@@ -43,13 +46,13 @@ export async function saveIfActive(itemId: number): Promise<boolean> {
 
 /** 다음 1회의 자동 flush(탭전환 cleanup)를 억제한다 — 닫기/폐기 직후 드래프트 재생성 방지. */
 export function suppressNextFlush(itemId: number): void {
-  suppressedItemId = itemId
+  suppressedItemIds.add(itemId)
 }
 
-/** 억제 플래그를 소비한다(1회성). 대상이면 true를 반환하고 플래그를 리셋한다. */
+/** 억제 플래그를 소비한다(1회성). 대상이면 true를 반환하고 그 id만 제거한다(다른 id는 유지). */
 export function consumeSuppression(itemId: number): boolean {
-  if (suppressedItemId === itemId) {
-    suppressedItemId = null
+  if (suppressedItemIds.has(itemId)) {
+    suppressedItemIds.delete(itemId)
     return true
   }
   return false

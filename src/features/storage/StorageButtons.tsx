@@ -74,6 +74,9 @@ export const StorageButtons = () => {
     setSelectedFolder(null)
     setExpandedFolders(new Set<number>())
     setDirtyItems(new Set<number>())
+    // 가져오기는 기존 항목을 같은 id로 다른 내용으로 대체할 수 있어(append/replace 모두),
+    // orphan GC(SubTask9, id 기준)로는 못 잡는 "살아있는 id의 stale 드래프트"가 남을 수 있다.
+    void db.drafts.clear()
   }
 
   // ── 내보내기 Step 1: 옵션 모달 열기 ─────────────────────────

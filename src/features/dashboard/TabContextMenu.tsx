@@ -16,23 +16,18 @@ import {
   selectedFolderAtom,
   expandedFoldersAtom,
 } from '../../store/atoms'
-import {
-  closeTab,
-  closeOtherTabs,
-  closeTabsToRight,
-  closeTabsToLeft,
-  closeSavedTabs,
-  closeAllTabs,
-} from '../../store/tabHelpers'
+import { closeSavedTabs } from '../../store/tabHelpers'
+import { useGuardedTabClose } from '../../shared/hooks/useGuardedTabClose'
 
 export const TabContextMenu = () => {
   const [menu, setMenu] = useAtom(tabContextMenuAtom)
   const [openTabs, setOpenTabs] = useAtom(openTabsAtom)
   const [activeTab, setActiveTab] = useAtom(activeTabAtom)
-  const [dirtyItems, setDirtyItems] = useAtom(dirtyItemsAtom)
+  const [dirtyItems] = useAtom(dirtyItemsAtom)
   const setRenamingTarget = useSetAtom(renamingTargetAtom)
   const setSelectedFolder = useSetAtom(selectedFolderAtom)
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
+  const { requestClose } = useGuardedTabClose()
 
   const menuRef = useRef<HTMLUListElement>(null)
 
@@ -106,22 +101,22 @@ export const TabContextMenu = () => {
   }
 
   const handleClose = () => {
-    closeTab(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('single', tabId)
     closeMenu()
   }
 
   const handleCloseOthers = () => {
-    closeOtherTabs(tabId, openTabs, setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('others', tabId)
     closeMenu()
   }
 
   const handleCloseToRight = () => {
-    closeTabsToRight(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('right', tabId)
     closeMenu()
   }
 
   const handleCloseToLeft = () => {
-    closeTabsToLeft(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('left', tabId)
     closeMenu()
   }
 
@@ -131,7 +126,7 @@ export const TabContextMenu = () => {
   }
 
   const handleCloseAll = () => {
-    closeAllTabs(setOpenTabs, setActiveTab, setDirtyItems)
+    requestClose('all', null)
     closeMenu()
   }
 

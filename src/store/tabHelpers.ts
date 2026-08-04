@@ -4,6 +4,7 @@
 // 일괄 닫기: closeOtherTabs, closeTabsToRight, closeTabsToLeft, closeSavedTabs, closeAllTabs
 
 import type { SetStateAction } from 'jotai'
+import { deleteDrafts } from '../core/draftStore'
 
 type Setter<T> = (update: SetStateAction<T>) => void
 
@@ -71,6 +72,8 @@ export function removeItemsFromState(
     ids.forEach((id) => next.delete(id))
     return next
   })
+  // 아이템 자체가 삭제되므로 드래프트도 함께 정리 — 모든 삭제 경로가 이 함수를 거치므로 여기 한 곳이면 충분
+  void deleteDrafts(ids)
 }
 
 /**

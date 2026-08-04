@@ -25,7 +25,8 @@ import {
   effectiveKeybindingsAtom,
   commandPaletteOpenAtom,
 } from '../../store/atoms'
-import { closeTab, removeItemsFromState } from '../../store/tabHelpers'
+import { removeItemsFromState } from '../../store/tabHelpers'
+import { useGuardedTabClose } from './useGuardedTabClose'
 import { DEFAULT_FOLDER_NAME } from '../constants'
 import { toast } from 'sonner'
 
@@ -35,7 +36,6 @@ export const useGlobalKeyboardShortcuts = () => {
   const setCardForm = useSetAtom(cardFormAtom)
   const setSearchQuery = useSetAtom(searchQueryAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
-  const openTabs = useAtomValue(openTabsAtom)
   const activeTab = useAtomValue(activeTabAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
@@ -43,6 +43,7 @@ export const useGlobalKeyboardShortcuts = () => {
   const setCommandPaletteOpen = useSetAtom(commandPaletteOpenAtom)
   const keysRaw = useAtomValue(effectiveKeybindingsAtom)
   const keys = keysRaw as Record<string, RegisterableHotkey>
+  const { requestClose } = useGuardedTabClose()
 
   // ── card.new: 새 카드 (카드 폼 모달) ─────────────────────────
   useHotkey(keys['card.new'], (e) => {
@@ -65,7 +66,7 @@ export const useGlobalKeyboardShortcuts = () => {
   useHotkey(keys['tab.close'], (e) => {
     e.preventDefault()
     if (activeTab !== null) {
-      closeTab(activeTab, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
+      requestClose('single', activeTab)
     }
   })
 
