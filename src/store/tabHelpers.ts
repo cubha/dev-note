@@ -7,6 +7,51 @@ import type { SetStateAction } from 'jotai'
 
 type Setter<T> = (update: SetStateAction<T>) => void
 
+/** 명시적 닫기 종류 — 3버튼 confirm 대상 판정에 사용 */
+export type CloseKind = 'single' | 'others' | 'right' | 'left' | 'all'
+
+/**
+ * 지정된 닫기 동작(kind)이 실제로 닫게 될 탭 중 dirty(미저장)인 것만 반환.
+ * 빈 배열이면 confirm 없이 즉시 닫아도 안전 — close*() 각 함수의 candidate 계산과 동일 규칙.
+ */
+export function computeDirtyTargets(
+  kind: CloseKind,
+  tabId: number | null,
+  openTabs: number[],
+  dirtyItems: Set<number>,
+): number[] {
+  let candidates: number[]
+
+  switch (kind) {
+    case 'single': {
+      candidates = tabId !== null && openTabs.includes(tabId) ? [tabId] : []
+      break
+    }
+    case 'others': {
+      candidates = tabId === null ? [] : openTabs.filter((id) => id !== tabId)
+      break
+    }
+    case 'right': {
+      if (tabId === null) { candidates = []; break }
+      const idx = openTabs.indexOf(tabId)
+      candidates = idx === -1 ? [] : openTabs.slice(idx + 1)
+      break
+    }
+    case 'left': {
+      if (tabId === null) { candidates = []; break }
+      const idx = openTabs.indexOf(tabId)
+      candidates = idx === -1 ? [] : openTabs.slice(0, idx)
+      break
+    }
+    case 'all': {
+      candidates = openTabs
+      break
+    }
+  }
+
+  return candidates.filter((id) => dirtyItems.has(id))
+}
+
 /**
  * 항목 삭제 시 탭/dirty 상태 일괄 정리
  * — 모든 삭제 경로(ContextMenu, CardGrid, Delete키)에서 공용 사용

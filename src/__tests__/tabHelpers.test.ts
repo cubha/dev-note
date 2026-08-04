@@ -13,6 +13,10 @@ describe('computeDirtyTargets — single', () => {
   it('tabId가 null이면 빈 배열', () => {
     expect(computeDirtyTargets('single', null, [1, 2, 3], new Set([1]))).toEqual([])
   })
+
+  it('tabId가 openTabs에 없으면(dirtyItems엔 있어도) 빈 배열 — closeTab()의 idx===-1 no-op과 일치', () => {
+    expect(computeDirtyTargets('single', 99, [1, 2, 3], new Set([99]))).toEqual([])
+  })
 })
 
 describe('computeDirtyTargets — others', () => {
