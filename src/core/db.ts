@@ -48,6 +48,7 @@ export interface DraftRow {
   type: ItemType
   tags: string         // 쉼표구분 원문 (에디터 상태와 동일 포맷)
   body: string          // DraftBody JSON (core/draft.ts의 serializeDraftBody)
+  baseUpdatedAt: number  // 드래프트를 뜬 시점의 원본 items.updatedAt — stale 감지용(현재는 기록만, 충돌 UI는 범위 외)
   updatedAt: number     // 드래프트 마지막 기록 시각
 }
 

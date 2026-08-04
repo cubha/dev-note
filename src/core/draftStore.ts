@@ -10,7 +10,7 @@ import type { DraftBody } from './draft'
 /** 드래프트 기록/갱신 (upsert) */
 export async function saveDraft(
   itemId: number,
-  fields: { title: string; type: ItemType; tags: string; body: DraftBody },
+  fields: { title: string; type: ItemType; tags: string; body: DraftBody; baseUpdatedAt: number },
 ): Promise<void> {
   const row: DraftRow = {
     itemId,
@@ -18,6 +18,7 @@ export async function saveDraft(
     type: fields.type,
     tags: fields.tags,
     body: serializeDraftBody(fields.body),
+    baseUpdatedAt: fields.baseUpdatedAt,
     updatedAt: Date.now(),
   }
   await db.drafts.put(row)
