@@ -10,11 +10,15 @@ import {
   announcementOpenAtom,
   sidebarCollapsedAtom,
   sidebarMobileOpenAtom,
+  openTabsAtom,
   activeTabAtom,
   selectedFolderAtom,
   selectedProviderAtom,
   userApiKeyAtom,
 } from './store/atoms'
+import { loadSessionSnapshot } from './store/sessionPersist'
+import { filterRestorableTabs, orphanDraftIds, mergeDraftTabs } from './core/draft'
+import { listDraftItemIds, deleteDrafts } from './core/draftStore'
 import { ContextMenu } from './shared/components/ContextMenu'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { Dashboard } from './features/dashboard/Dashboard'
@@ -23,8 +27,44 @@ import { AdminMetrics } from './features/admin/AdminMetrics'
 import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
 import { GuideModal } from './features/onboarding/GuideModal'
 import { CommandPalette } from './shared/components/CommandPalette'
+import { CloseConfirmDialog } from './shared/components/CloseConfirmDialog'
+import { DraftDirtySync } from './features/dashboard/DraftDirtySync'
+import { SessionPersist } from './features/dashboard/SessionPersist'
 import { shouldShowAnnouncement } from './features/onboarding/announcement-utils'
 import { useGlobalKeyboardShortcuts } from './shared/hooks/useGlobalKeyboardShortcuts'
+
+/**
+ * 부팅 시 열린 탭 세션 복원 — localStorage 스냅샷을 라이브 아이템 기준으로 필터링하고,
+ * 드래프트가 있는 탭은 복원 목록에 없어도 강제로 열며, 어떤 아이템도 안 가리키는
+ * 고아 드래프트는 GC한다.
+ */
+async function restoreSession(
+  setOpenTabs: (v: number[]) => void,
+  setActiveTab: (v: number | null) => void,
+): Promise<void> {
+  const snapshot = loadSessionSnapshot()
+
+  const [liveIds, draftIds] = await Promise.all([
+    db.items.toCollection().primaryKeys(),
+    listDraftItemIds(),
+  ])
+  const liveIdSet = new Set(liveIds as number[])
+
+  const orphanIds = orphanDraftIds(draftIds, liveIdSet)
+  if (orphanIds.length > 0) void deleteDrafts(orphanIds)
+
+  const restorable = snapshot ? filterRestorableTabs(snapshot.openTabs, liveIdSet) : []
+  const liveDraftIds = draftIds.filter((id) => liveIdSet.has(id))
+  const merged = mergeDraftTabs(restorable, liveDraftIds)
+
+  if (merged.length === 0) return // 복원할 것도 강제로 열 것도 없으면 빈 상태 그대로(초기값과 동일)
+
+  setOpenTabs(merged)
+  const candidateActive = snapshot?.activeTab ?? null
+  setActiveTab(candidateActive !== null && merged.includes(candidateActive)
+    ? candidateActive
+    : merged[merged.length - 1])
+}
 
 /** 브라우저에 데이터 삭제 방지 요청 */
 async function requestPersistentStorage(): Promise<void> {
@@ -58,8 +98,11 @@ export default function App() {
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [sidebarMobileOpen, setSidebarMobileOpen] = useAtom(sidebarMobileOpenAtom)
+  const setOpenTabs = useSetAtom(openTabsAtom)
+  const setActiveTab = useSetAtom(activeTabAtom)
   const activeTab = useAtomValue(activeTabAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
+  const sessionRestoredRef = useRef(false)
   const backupCheckedRef = useRef(false)
   const announcementCheckedRef = useRef(false)
 
@@ -81,6 +124,14 @@ export default function App() {
       document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth)
     }
   }, [setConfig, setSelectedProvider, setUserApiKey])
+
+  // 세션 복원 — StrictMode 이중 마운트 방지용 ref 가드(setOpenTabs/setActiveTab은 안정적이라
+  // 의존성 배열만으로는 재실행을 막지 못한다)
+  useEffect(() => {
+    if (sessionRestoredRef.current) return
+    sessionRestoredRef.current = true
+    void restoreSession(setOpenTabs, setActiveTab)
+  }, [setOpenTabs, setActiveTab])
 
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
@@ -177,6 +228,9 @@ export default function App() {
       <ContextMenu />
       <SettingsModal />
       <CommandPalette />
+      <CloseConfirmDialog />
+      <DraftDirtySync />
+      <SessionPersist />
       <AnnouncementModal />
       <GuideModal />
       <AdminMetrics />
