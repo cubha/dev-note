@@ -37,6 +37,20 @@ export interface SyncState {
   syncedVersion: string     // 마지막으로 클라우드와 일치한 페이로드 해시 (3-way base)
 }
 
+/**
+ * 탭 드래프트(미저장 편집분) — items와 분리된 테이블.
+ * items에 컬럼으로 두면 write→useLiveQuery 재발화→로더가 편집 중인 값을 덮어쓰는
+ * 재진입 루프가 생기므로 별도 테이블로 둔다. 암호화된 카드는 대상에서 제외(별도 작업).
+ */
+export interface DraftRow {
+  itemId: number      // PK — items.id 참조
+  title: string
+  type: ItemType
+  tags: string         // 쉼표구분 원문 (에디터 상태와 동일 포맷)
+  body: string          // DraftBody JSON (core/draft.ts의 serializeDraftBody)
+  updatedAt: number     // 드래프트 마지막 기록 시각
+}
+
 export type AIProvider = 'anthropic' | 'google' | 'openai'
 
 export interface AppConfig {
@@ -65,6 +79,7 @@ class DevNoteDB extends Dexie {
   items!: EntityTable<Item, 'id'>
   config!: EntityTable<AppConfig, 'id'>
   syncState!: EntityTable<SyncState, 'uuid'>
+  drafts!: EntityTable<DraftRow, 'itemId'>
 
   constructor() {
     super('dev-note')
@@ -276,6 +291,14 @@ class DevNoteDB extends Dexie {
         c.syncCursor = null
         c.lastSyncAt = null
       })
+    })
+    // v17: 탭 드래프트(미저장 편집분) 영속 — items와 분리된 신규 테이블만 추가(기존 테이블 무변경)
+    this.version(17).stores({
+      folders:   '++id, parentId, name, order',
+      items:     '++id, &uuid, folderId, title, *tags, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
     })
   }
 }
