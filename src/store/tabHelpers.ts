@@ -5,6 +5,7 @@
 
 import type { SetStateAction } from 'jotai'
 import { deleteDrafts } from '../core/draftStore'
+import { bumpDraftEpoch } from '../features/cards/draftFlushControl'
 
 type Setter<T> = (update: SetStateAction<T>) => void
 
@@ -72,7 +73,9 @@ export function removeItemsFromState(
     ids.forEach((id) => next.delete(id))
     return next
   })
-  // 아이템 자체가 삭제되므로 드래프트도 함께 정리 — 모든 삭제 경로가 이 함수를 거치므로 여기 한 곳이면 충분
+  // 아이템 자체가 삭제되므로 드래프트도 함께 정리 — 모든 삭제 경로가 이 함수를 거치므로 여기 한 곳이면 충분.
+  // epoch을 먼저 올려, 삭제 직전 시작된 암호화 flush(encrypt await 중)가 뒤늦게 도착해도 폐기되게 한다.
+  ids.forEach((id) => bumpDraftEpoch(id))
   void deleteDrafts(ids)
 }
 

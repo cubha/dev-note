@@ -14,8 +14,8 @@ import type {
 import { SECTION_OPTIONS } from '../../shared/constants'
 import { parseContent, serializeContent, createSection, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { db } from '../../core/db'
-import { isDraftPersistable, parseDraftBody } from '../../core/draft'
-import { loadDraft } from '../../core/draftStore'
+import { isDraftPersistable } from '../../core/draft'
+import { readDraft } from '../../core/draftStore'
 import { useAtomValue } from 'jotai'
 import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { toast } from 'sonner'
@@ -137,17 +137,14 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       // document 타입이지만 아직 hybrid 아닌 경우(초기 생성 직후)엔 빈 섹션이 DB 기준값
       const loadedSections: AnySection[] = content.format === 'hybrid' ? content.sections : []
 
-      // 드래프트 오버레이 — 암호화 카드는 대상 제외(별도 작업). CardDetailEditor가 title/tags와
-      // 함께 단일 draft row로 쓰므로, 여기서는 body.kind==='document'인 경우만 읽어 적용한다.
+      // 드래프트 오버레이. CardDetailEditor가 title/tags와 함께 단일 draft row로 쓰므로,
+      // 여기서는 body.kind==='document'인 경우만 읽어 적용한다.
       let draftApplied = false
-      if (isDraftPersistable({ content: item.content })) {
-        const draft = await loadDraft(item.id)
-        if (draft) {
-          const body = parseDraftBody(draft.body)
-          if (body && body.kind === 'document') {
-            setSections(body.sections)
-            draftApplied = true
-          }
+      if (isDraftPersistable({ content: item.content }, encryptionKey)) {
+        const result = await readDraft(item.id, encryptionKey)
+        if (result.status === 'ok' && result.body.kind === 'document') {
+          setSections(result.body.sections)
+          draftApplied = true
         }
       }
 

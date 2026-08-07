@@ -40,7 +40,9 @@ export interface SyncState {
 /**
  * 탭 드래프트(미저장 편집분) — items와 분리된 테이블.
  * items에 컬럼으로 두면 write→useLiveQuery 재발화→로더가 편집 중인 값을 덮어쓰는
- * 재진입 루프가 생기므로 별도 테이블로 둔다. 암호화된 카드는 대상에서 제외(별도 작업).
+ * 재진입 루프가 생기므로 별도 테이블로 둔다.
+ * 암호화된 카드도 대상이다 — 잠금 해제 상태에서만 기록하며 body는 세션 키로 암호화한다
+ * (title/type/tags는 items와 동일하게 평문 — 사이드바·검색 인덱스 제약).
  */
 export interface DraftRow {
   itemId: number      // PK — items.id 참조

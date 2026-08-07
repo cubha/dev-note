@@ -11,6 +11,7 @@ import { db } from '../../core/db'
 import { generateSalt, deriveKey, saltToHex, hexToSalt } from '../../core/crypto'
 import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
 import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
+import { bumpAllDraftEpochs } from '../cards/draftFlushControl'
 
 type SecurityState = 'idle' | 'enabling' | 'unlocking' | 'disabling' | 'changing'
 
@@ -74,8 +75,11 @@ export function SecurityTab() {
 
       await db.config.update(1, { encryptionEnabled: true, encryptionSalt: saltHex })
       // 방금 암호화된 아이템의 평문 드래프트가 있었다면 isDraftPersistable이 false로
-      // 바뀌어 앞으로 절대 로드되지도 정리되지도 않는 좀비가 된다 — 활성화 시점에 일괄 정리
+      // 바뀌어 앞으로 절대 로드되지도 정리되지도 않는 좀비가 된다 — 활성화 시점에 일괄 정리.
+      // bumpAllDraftEpochs는 in-flight 중이던 flush(예: 방금까지 평문으로 encrypt 없이 진행되던
+      // saveDraftRaw 호출)가 clear() 이후 도착해 좀비를 되살리는 것도 막는다.
       await db.drafts.clear()
+      bumpAllDraftEpochs()
       setConfig((prev) => prev ? { ...prev, encryptionEnabled: true, encryptionSalt: saltHex } : prev)
       setEncryptionKey(key)
       flash('암호화가 활성화되었습니다')
@@ -154,6 +158,10 @@ export function SecurityTab() {
       }
 
       await db.config.update(1, { encryptionEnabled: false, encryptionSalt: null })
+      // 드래프트는 옛 키로 암호화되어 있었을 수 있어 비활성화 후엔 복호화 불가능한 좀비가 된다 — 일괄 정리.
+      // bumpAllDraftEpochs로 in-flight 암호화 flush가 clear() 이후 도착해 좀비를 되살리는 것도 막는다.
+      await db.drafts.clear()
+      bumpAllDraftEpochs()
       setConfig((prev) => prev ? { ...prev, encryptionEnabled: false, encryptionSalt: null } : prev)
       setEncryptionKey(null)
       flash('암호화가 비활성화되었습니다')
@@ -206,6 +214,10 @@ export function SecurityTab() {
       }
 
       await db.config.update(1, { encryptionSalt: newSaltHex })
+      // 드래프트는 이전 키(oldKey)로 암호화되어 있어 새 키로는 복호화 불가능한 좀비가 된다 — 일괄 정리.
+      // bumpAllDraftEpochs로 in-flight 암호화 flush가 clear() 이후 도착해 좀비를 되살리는 것도 막는다.
+      await db.drafts.clear()
+      bumpAllDraftEpochs()
       setConfig((prev) => prev ? { ...prev, encryptionSalt: newSaltHex } : prev)
       setEncryptionKey(newKey)
       flash('패스프레이즈가 변경되었습니다')

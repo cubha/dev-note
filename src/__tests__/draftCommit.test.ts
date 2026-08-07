@@ -124,4 +124,42 @@ describe('commitDraftToItem', () => {
     // 드래프트도 그대로 남아있어야 한다(폐기 아님 — 잠금 해제 후 재시도 가능해야 함)
     expect(await loadDraft(id)).not.toBeUndefined()
   })
+
+  it('드래프트 body 자체가 암호화된 채 잠긴(키 없음) 경우도 폐기 없이 에러를 던진다', async () => {
+    const id = await addItem()
+    const key = await deriveKey('passphrase', generateSalt())
+    await saveDraft(id, {
+      title: '제목', type: 'server', tags: '', baseUpdatedAt: 100,
+      body: { kind: 'fields', fields: [['host', '1.2.3.4']], editorText: '' },
+    }, key)
+
+    await expect(commitDraftToItem(id, true, null)).rejects.toThrow()
+
+    const item = await db.items.get(id)
+    expect(item?.title).toBe('원본 제목')
+    expect(await loadDraft(id)).not.toBeUndefined()
+  })
+
+  it('암호화된 드래프트를 올바른 키로 커밋하면 정상적으로 아이템에 반영되고 드래프트가 삭제된다', async () => {
+    const id = await addItem()
+    const key = await deriveKey('passphrase', generateSalt())
+    await saveDraft(id, {
+      title: '수정된 제목', type: 'server', tags: 'x', baseUpdatedAt: 100,
+      body: { kind: 'fields', fields: [['host', '5.5.5.5']], editorText: '' },
+    }, key)
+
+    await commitDraftToItem(id, true, key)
+
+    const item = await db.items.get(id)
+    expect(item?.title).toBe('수정된 제목')
+    expect(isEncryptedContent(item?.content ?? '')).toBe(true)
+    const decrypted = await decryptContent(item?.content ?? '', key)
+    const content = parseContent(decrypted)
+    expect(content.format).toBe('structured')
+    if (content.format === 'structured') {
+      const host = content.fields.find((f) => f.key === 'host')
+      expect(host?.value).toBe('5.5.5.5')
+    }
+    expect(await loadDraft(id)).toBeUndefined()
+  })
 })
