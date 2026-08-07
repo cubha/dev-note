@@ -9,6 +9,7 @@ import { deleteDraft, readDraft } from '../../core/draftStore'
 import { FIELD_SCHEMAS } from '../../core/types'
 import type { CardField, StructuredContent, HybridContent } from '../../core/types'
 import { serializeContent, encryptContent } from '../../core/content'
+import { encryptTags } from '../../core/metaCrypto'
 import { getEditorFieldKey } from './fieldHelpers'
 import { bumpDraftEpoch } from './draftFlushControl'
 
@@ -57,7 +58,7 @@ export async function commitDraftToItem(
   }
 
   const { draft, body } = result
-  const parsedTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean)
+  let parsedTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean)
 
   let content: string
   if (body.kind === 'document') {
@@ -79,6 +80,7 @@ export async function commitDraftToItem(
 
   if (encryptionEnabled && encryptionKey) {
     content = await encryptContent(content, encryptionKey)
+    parsedTags = await encryptTags(parsedTags, encryptionKey)
   }
 
   await db.items.update(itemId, {

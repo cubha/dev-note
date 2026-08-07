@@ -89,5 +89,17 @@ export async function readDraft(itemId: number, encryptionKey: CryptoKey | null)
 
   const body = parseDraftBody(bodyStr)
   if (!body) return { status: 'corrupt' }
-  return { status: 'ok', draft, body }
+
+  // 태그도 암호화 대상이다(body와 같은 키). 제목은 items.title과 동일하게 평문 유지.
+  // 복호화 실패는 손상이 아니라 태그만 비우고 진행 — 편집 내용(body)까지 버릴 이유가 없다.
+  let tags = draft.tags
+  if (isEncryptedContent(tags)) {
+    try {
+      tags = encryptionKey ? await decryptContent(tags, encryptionKey) : ''
+    } catch {
+      tags = ''
+    }
+  }
+
+  return { status: 'ok', draft: { ...draft, tags }, body }
 }

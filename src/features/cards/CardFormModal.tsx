@@ -8,6 +8,7 @@ import type { Item, ItemType } from '../../core/db'
 import type { CardField, StructuredContent, AnySection, HybridContent } from '../../core/types'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
+import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { checkDuplicates } from '../../core/duplicate-check'
 import { openTabsAtom, activeTabAtom, encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
@@ -61,9 +62,11 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
 
     setTitle(item.title)
     setType(item.type)
-    setTags(item.tags.join(', '))
 
     void (async () => {
+      // 태그는 암호화 대상이라 동기 join으로 못 쓴다 — 잠금 시 decryptTags가 빈 배열을 돌려준다
+      setTags((await decryptTags(item.tags, encryptionKey)).join(', '))
+
       let rawContent = item.content
       if (isEncryptedContent(rawContent)) {
         if (!encryptionKey) return
@@ -163,10 +166,13 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
       if (encryptionEnabled && encryptionKey) {
         content = await encryptContent(content, encryptionKey)
       }
-      const parsedTags = tags
+      let parsedTags = tags
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean)
+      if (encryptionEnabled && encryptionKey) {
+        parsedTags = await encryptTags(parsedTags, encryptionKey)
+      }
       const now = Date.now()
 
       if (isEditMode && item) {

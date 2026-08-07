@@ -12,6 +12,7 @@ import type { ItemType, Item } from '../../core/db'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
+import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
 import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
@@ -105,8 +106,6 @@ export const CardDetailEditor = () => {
     if (sameItem && loadedFingerprintRef.current === fingerprint) return // 무관 필드(핀/순서 등) 변경 — 무시
     if (sameItem && dirtyRef.current) return // 콘텐츠는 외부에서 바뀌었지만 편집 중 — 로컬 편집 보존
 
-    const tagsStr = item.tags.join(', ')
-
     void (async () => {
       if (isEncryptedContent(item.content) && !encryptionKey) {
         // 잠긴 암호화 카드 — 복호화 불가. 드래프트 존재 자체는 복호화 없이(raw row) 확인 가능하므로
@@ -117,6 +116,9 @@ export const CardDetailEditor = () => {
         return
       }
       setDraftLocked(false)
+
+      // 태그 복호화는 잠금 해제가 확인된 이 지점 이후에만 의미가 있다
+      const tagsStr = (await decryptTags(item.tags, encryptionKey)).join(', ')
 
       let rawContent = item.content
       if (isEncryptedContent(rawContent)) {
@@ -264,8 +266,10 @@ export const CardDetailEditor = () => {
     const epoch = currentDraftEpoch(it.id)
     void (async () => {
       const finalBodyStr = needsEncryption && key ? await encryptContent(bodyStr, key) : bodyStr
+      // 태그도 items.tags와 같은 비밀이다 — 드래프트 행에만 평문으로 남기면 암호화가 새는 셈
+      const finalTags = needsEncryption && key ? await encryptContent(s.tags, key) : s.tags
       if (currentDraftEpoch(it.id) !== epoch) return // 대기 중 삭제/커밋이 있었음 — 이 쓰기는 폐기
-      await saveDraftRaw(it.id, { title: s.title, type: s.type, tags: s.tags, baseUpdatedAt: it.updatedAt, bodyStr: finalBodyStr })
+      await saveDraftRaw(it.id, { title: s.title, type: s.type, tags: finalTags, baseUpdatedAt: it.updatedAt, bodyStr: finalBodyStr })
     })()
   }, [buildDraftBody])
 
@@ -334,7 +338,10 @@ export const CardDetailEditor = () => {
   const handleSave = useCallback(async () => {
     if (!item) return
     try {
-      const parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
+      let parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (encryptionEnabled && encryptionKey) {
+        parsedTags = await encryptTags(parsedTags, encryptionKey)
+      }
 
       if (type === 'document') {
         // document 타입: title/tags 저장 + DocumentEditor content 저장 통합
