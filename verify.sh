@@ -122,6 +122,18 @@ if [ -n "$CHANGED_FILES" ]; then
       SPEC_FAILS=$((SPEC_FAILS + 1))
     fi
 
+    # ── [Spec 3b] API 키 영구 스토리지 저장 금지 ─────────────
+    # Spec 2/3이 cryptoKey·password만 봐서 BYOK API 키가 IndexedDB에 평문으로 들어가던 경로를
+    # 통과시켰다(v18에서 제거). at-rest 암호화는 config 테이블을 덮지 않으므로 암호화를 켜도
+    # 노출된다 — localStorage/sessionStorage뿐 아니라 Dexie 쓰기(db.<table>.put/add/update)도 막는다.
+    if grep -niE '(localStorage|sessionStorage)\.(set|get)Item' "$file" 2>/dev/null | grep -qiE 'apikey|api_key'; then
+      fail "[보안] API 키를 localStorage/sessionStorage에 저장 시도: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+    if grep -niE 'db\.[a-zA-Z]+\.(put|add|update|bulkPut|bulkAdd)\(' "$file" 2>/dev/null | grep -qiE 'apikey|api_key'; then
+      fail "[보안] API 키를 IndexedDB(Dexie)에 저장 시도 — 세션 메모리(atom) 전용: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
 
     # ── [Spec 4] Dexie 스키마 암호화 필드 인덱스 노출 금지 ───
     if grep -n '\.stores(' "$file" 2>/dev/null | grep -qE 'encryptedContent|\biv\b'; then

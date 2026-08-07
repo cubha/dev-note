@@ -51,20 +51,17 @@ export function AISettingsTab() {
     await db.config.update(1, { selectedProvider: p })
   }
 
-  const handleSave = async () => {
-    const trimmed = keyInput.trim()
-    setUserApiKey(trimmed)
-    setConfig((prev) => prev ? { ...prev, userApiKey: trimmed } : prev)
-    await db.config.update(1, { userApiKey: trimmed })
+  // 키는 Jotai atom(세션 메모리)에만 둔다 — db.config에 쓰면 IndexedDB에 평문으로 남고,
+  // at-rest 암호화는 config 테이블을 덮지 않아 암호화를 켜도 노출된다(CLAUDE.md 하드룰 위반).
+  const handleSave = () => {
+    setUserApiKey(keyInput.trim())
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const handleClear = async () => {
+  const handleClear = () => {
     setKeyInput('')
     setUserApiKey('')
-    setConfig((prev) => prev ? { ...prev, userApiKey: '' } : prev)
-    await db.config.update(1, { userApiKey: '' })
   }
 
   const remaining = usage.remaining
@@ -178,11 +175,11 @@ export function AISettingsTab() {
             />
             <button
               type="button"
-              onClick={() => void handleSave()}
+              onClick={handleSave}
               disabled={!keyInput.trim()}
               className="shrink-0 rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
             >
-              {saved ? '저장됨' : '저장'}
+              {saved ? '적용됨' : '적용'}
             </button>
           </div>
 
@@ -190,7 +187,7 @@ export function AISettingsTab() {
           {userApiKey && (
             <button
               type="button"
-              onClick={() => void handleClear()}
+              onClick={handleClear}
               className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
             >
               지우기 — 공유 키로 복귀
@@ -200,6 +197,14 @@ export function AISettingsTab() {
           <p className="text-xs text-[var(--text-tertiary)]">
             키 입력 시 일일 제한 없이 본인 quota를 사용합니다.
           </p>
+
+          <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2">
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+              🔑 API 키는 <span className="font-medium text-[var(--text-primary)]">이 세션에만</span> 보관됩니다.
+              브라우저를 닫거나 새로고침하면 지워지고 공유 키 모드로 돌아가므로, 사용할 때마다 다시 입력해야 합니다.
+              키를 저장해 두지 않는 이유는 브라우저 저장소(IndexedDB)에 남으면 기기에 접근할 수 있는 사람이 그대로 읽을 수 있기 때문입니다.
+            </p>
+          </div>
         </div>
       </section>
 

@@ -5,6 +5,8 @@
 // - 암호화 백업(encrypted): 패스프레이즈로 봉투 암호화 (분실 시 복구 불가 경고)
 
 import { useEffect, useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
+import { appConfigAtom } from '../../store/atoms'
 
 interface Props {
   onConfirm: (passphrase?: string) => void
@@ -14,6 +16,9 @@ interface Props {
 export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [mode, setMode] = useState<'plain' | 'encrypted'>('plain')
+  // at-rest 암호화는 items.content만 덮는다 — 제목·태그·폴더명은 평문으로 파일에 실린다.
+  // 암호화를 켜 둔 사용자는 "일반 백업 = 전부 보호됨"으로 오해하기 쉬워 명시 경고가 필요하다.
+  const atRestEncrypted = useAtomValue(appConfigAtom)?.encryptionEnabled === true
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
@@ -87,7 +92,9 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
                 <span className="ml-1 text-[10px] font-normal text-[var(--text-secondary)]">Plain</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                평문 JSON으로 내보냅니다. 어떤 기기에서도 바로 가져올 수 있습니다.
+                {atRestEncrypted
+                  ? '평문 JSON으로 내보냅니다. 카드 내용은 암호화된 상태 그대로 실리므로 가져올 때 같은 패스프레이즈가 필요합니다.'
+                  : '평문 JSON으로 내보냅니다. 어떤 기기에서도 바로 가져올 수 있습니다.'}
               </div>
             </div>
           </label>
@@ -122,6 +129,17 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
             </div>
           </label>
         </div>
+
+        {/* 암호화 사용 중인데 일반 백업을 고른 경우 — 무엇이 평문으로 남는지 명시 */}
+        {atRestEncrypted && mode === 'plain' && (
+          <div className="mt-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2">
+            <p className="text-xs leading-relaxed text-yellow-500">
+              ⚠ 암호화를 사용 중입니다. 일반 백업은 <span className="font-medium">카드 제목 · 태그 · 폴더명</span>을
+              평문으로 저장합니다 — 카드 내용만 암호화된 채 남습니다.
+              제목·폴더 구조까지 감추려면 암호화 백업을 선택하세요.
+            </p>
+          </div>
+        )}
 
         {/* 패스프레이즈 입력 */}
         {mode === 'encrypted' && (

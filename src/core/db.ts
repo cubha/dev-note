@@ -64,7 +64,9 @@ export interface AppConfig {
   showLineNumbers: boolean // 줄 번호 표시
   lastExportAt: number | null
   selectedProvider: AIProvider  // 기본: 'anthropic'
-  userApiKey: string            // 빈 문자열 = 공유 키 모드
+  // userApiKey는 여기 없다 — BYOK 키는 세션 메모리(userApiKeyAtom) 전용이다.
+  // v18 이전에는 이 필드에 평문 저장했고, at-rest 암호화를 켜도 config는 암호화 대상이
+  // 아니라 키가 그대로 노출됐다(CLAUDE.md "API 키를 클라이언트에 저장 금지" 위반).
   encryptionEnabled: boolean    // at-rest 암호화 활성화 여부
   encryptionSalt: string | null // PBKDF2 salt hex 문자열
   // ── 동기화 설정 (Phase 2 BYO-storage) — 기본 로컬, 옵트인 ──
@@ -303,6 +305,20 @@ class DevNoteDB extends Dexie {
       config:    'id',
       drafts:    'itemId',
     })
+    // v18: BYOK API 키를 config에서 완전 제거 — 세션 메모리 전용으로 전환.
+    // 이미 설치된 브라우저의 IndexedDB에는 평문 키가 남아 있으므로 업그레이드 시 지운다.
+    // 필드를 인터페이스에서 뺀 것만으로는 기존 행의 값이 사라지지 않는다.
+    this.version(18).stores({
+      folders:   '++id, parentId, name, order',
+      items:     '++id, &uuid, folderId, title, *tags, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
+    }).upgrade(async (tx) => {
+      await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        delete c.userApiKey
+      })
+    })
   }
 }
 
@@ -322,7 +338,6 @@ export async function ensureConfig(): Promise<AppConfig> {
     showLineNumbers: false,
     lastExportAt: null,
     selectedProvider: 'anthropic',
-    userApiKey: '',
     encryptionEnabled: false,
     encryptionSalt: null,
     syncEnabled: false,
