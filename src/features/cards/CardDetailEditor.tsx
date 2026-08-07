@@ -12,10 +12,11 @@ import type { ItemType, Item } from '../../core/db'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
-import { isDraftPersistable, parseDraftBody } from '../../core/draft'
+import { encryptTags, decryptTags } from '../../core/metaCrypto'
+import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
-import { saveDraft, loadDraft, deleteDraft } from '../../core/draftStore'
-import { registerActiveFlush, consumeSuppression } from './draftFlushControl'
+import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
+import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
@@ -58,6 +59,8 @@ export const CardDetailEditor = () => {
   const [editorText, setEditorText] = useState('')
   const docEditorRef = useRef<DocumentEditorHandle>(null)
   const [docDirty, setDocDirty] = useState(false)
+  // 잠긴 암호화 카드에 저장된(하지만 지금은 복호화 불가한) 드래프트가 있을 때만 true
+  const [draftLocked, setDraftLocked] = useState(false)
 
   // 원본 스냅샷 — 값 비교 기반 dirty 판단
   interface OriginalSnapshot {
@@ -87,6 +90,7 @@ export const CardDetailEditor = () => {
     setFields([])
     setEditorText('')
     setOriginal(null)
+    setDraftLocked(false)
   }, [activeTab])
 
   // 아이템 로드 (useLiveQuery 완료 후, 암호화된 content는 복호화 후 파싱)
@@ -102,13 +106,23 @@ export const CardDetailEditor = () => {
     if (sameItem && loadedFingerprintRef.current === fingerprint) return // 무관 필드(핀/순서 등) 변경 — 무시
     if (sameItem && dirtyRef.current) return // 콘텐츠는 외부에서 바뀌었지만 편집 중 — 로컬 편집 보존
 
-    const tagsStr = item.tags.join(', ')
-
     void (async () => {
+      if (isEncryptedContent(item.content) && !encryptionKey) {
+        // 잠긴 암호화 카드 — 복호화 불가. 드래프트 존재 자체는 복호화 없이(raw row) 확인 가능하므로
+        // 있으면 플레이스홀더로 안내한다. loadedItemIdRef는 갱신하지 않아 키 도착 시(encryptionKey
+        // deps) 이 effect가 재실행되어 정상 로드·자동 복원된다.
+        const rawDraft = await loadDraft(item.id)
+        setDraftLocked(!!rawDraft)
+        return
+      }
+      setDraftLocked(false)
+
+      // 태그 복호화는 잠금 해제가 확인된 이 지점 이후에만 의미가 있다
+      const tagsStr = (await decryptTags(item.tags, encryptionKey)).join(', ')
+
       let rawContent = item.content
       if (isEncryptedContent(rawContent)) {
-        if (!encryptionKey) return // 키 대기 — 키 도착 시 이 effect가 재실행됨
-        rawContent = await decryptContent(rawContent, encryptionKey)
+        rawContent = await decryptContent(rawContent, encryptionKey!)
       }
       const content = parseContent(rawContent)
       const editorKey = getEditorFieldKey(item.type)
@@ -133,29 +147,27 @@ export const CardDetailEditor = () => {
         loadedEditorText = ''
       }
 
-      // 드래프트 오버레이 — 암호화 카드는 대상 제외(별도 작업)
+      // 드래프트 오버레이
       let draftApplied = false
-      if (isDraftPersistable(item)) {
-        const draft = await loadDraft(item.id)
-        if (draft) {
-          const body = parseDraftBody(draft.body)
-          if (body) {
-            setTitle(draft.title)
-            setType(draft.type)
-            setTags(draft.tags)
-            if (body.kind === 'fields') {
-              const fieldMap = new Map(body.fields)
-              const schemas = FIELD_SCHEMAS[draft.type]
-              setFields(schemas.map(s => ({
-                key: s.key, label: s.label, value: fieldMap.get(s.key) ?? '', type: s.type,
-              })))
-              setEditorText(body.editorText)
-            }
-            // body.kind==='document'이면 fields/editorText는 그대로 두고 DocumentEditor가 sections을 자체 복원한다
-            draftApplied = true
+      if (isDraftPersistable(item, encryptionKey)) {
+        const result = await readDraft(item.id, encryptionKey)
+        if (result.status === 'ok') {
+          const { draft, body } = result
+          setTitle(draft.title)
+          setType(draft.type)
+          setTags(draft.tags)
+          if (body.kind === 'fields') {
+            const fieldMap = new Map(body.fields)
+            const schemas = FIELD_SCHEMAS[draft.type]
+            setFields(schemas.map(s => ({
+              key: s.key, label: s.label, value: fieldMap.get(s.key) ?? '', type: s.type,
+            })))
+            setEditorText(body.editorText)
           }
-          // 손상 드래프트(body===null)는 무시하고 아래 DB 값으로 폴백
+          // body.kind==='document'이면 fields/editorText는 그대로 두고 DocumentEditor가 sections을 자체 복원한다
+          draftApplied = true
         }
+        // 'corrupt' | 'none' → 아래 DB 값으로 폴백. 'locked'는 위에서 이미 처리되어 도달하지 않는다.
       }
 
       if (!draftApplied) {
@@ -209,10 +221,12 @@ export const CardDetailEditor = () => {
   const bumpDocVersion = useCallback(() => setDocVersion((v) => v + 1), [])
 
   // refs를 매 커밋마다 최신값으로 동기화 — cleanup·전역 flush 콜백은 클로저가 아닌 ref로 최신값을 읽는다
+  const encryptionKeyRef = useRef<CryptoKey | null>(null)
   useEffect(() => {
     itemRef.current = item ?? null
     dirtyRef.current = dirty
     draftStateRef.current = { title, type, tags, fields, editorText }
+    encryptionKeyRef.current = encryptionKey
   })
 
   // document 타입은 CardDetailEditor가 유일한 draft writer다(단일 행 upsert라 title/tags 쓰기와
@@ -236,13 +250,27 @@ export const CardDetailEditor = () => {
   const flushDraftNow = useCallback(() => {
     const it = itemRef.current
     const s = draftStateRef.current
+    const key = encryptionKeyRef.current
     if (!it) return
     if (loadedItemIdRef.current !== it.id) return
     if (!dirtyRef.current) return
-    if (!isDraftPersistable(it)) return
+    if (!isDraftPersistable(it, key)) return
     const body = buildDraftBody()
     if (!body) return
-    void saveDraft(it.id, { title: s.title, type: s.type, tags: s.tags, baseUpdatedAt: it.updatedAt, body })
+    const needsEncryption = isEncryptedContent(it.content)
+    const bodyStr = serializeDraftBody(body)
+    // 평문 카드는 encrypt를 거치지 않아 이 시점부터 saveDraftRaw까지 완전히 동기적으로 진행되므로
+    // (기존과 동일하게) IndexedDB 요청 순서가 handleSave의 delete와 호출 순서대로 보장된다.
+    // 암호화 카드만 encrypt로 인해 비동기 간극이 생기므로, 그 간극 동안 delete가 끼어들었는지
+    // epoch로 재검증한 뒤에만 쓴다 — 그렇지 않으면 방금 지운 드래프트가 되살아날 수 있다.
+    const epoch = currentDraftEpoch(it.id)
+    void (async () => {
+      const finalBodyStr = needsEncryption && key ? await encryptContent(bodyStr, key) : bodyStr
+      // 태그도 items.tags와 같은 비밀이다 — 드래프트 행에만 평문으로 남기면 암호화가 새는 셈
+      const finalTags = needsEncryption && key ? await encryptContent(s.tags, key) : s.tags
+      if (currentDraftEpoch(it.id) !== epoch) return // 대기 중 삭제/커밋이 있었음 — 이 쓰기는 폐기
+      await saveDraftRaw(it.id, { title: s.title, type: s.type, tags: finalTags, baseUpdatedAt: it.updatedAt, bodyStr: finalBodyStr })
+    })()
   }, [buildDraftBody])
 
   // 탭 전환(activeTab 변경) 시 동기 flush — 억제 플래그가 서 있으면 건너뜀(닫기/폐기 직후 드래프트 재생성 방지)
@@ -250,24 +278,14 @@ export const CardDetailEditor = () => {
     return () => {
       const it = itemRef.current
       if (!it) return
-      if (!isDraftPersistable(it)) {
-        // 암호화 카드는 drafts에 못 남기므로 이 탭을 벗어나는 순간 편집 버퍼가 복구
-        // 불가능하게 사라진다(알려진 제약). dirtyItemsAtom에 이 id가 남아있으면 나중에
-        // 탭을 닫을 때 "저장하지 않은 변경사항"이라며 confirm이 뜨지만 실제로는 저장할
-        // 내용이 없어 "저장"을 눌러도 조용히 아무 일도 안 일어난다(security-auditor 지적,
-        // 기만적 UX). 편집 버퍼가 사라지는 시점에 뱃지도 정직하게 같이 지운다.
-        setDirtyItems((prev) => {
-          if (!prev.has(it.id)) return prev
-          const next = new Set(prev)
-          next.delete(it.id)
-          return next
-        })
-        return
-      }
+      // 잠긴 상태(암호화 카드인데 키 없음)면 애초에 편집이 불가능해 dirty가 성립하지 않으므로
+      // 보통 도달하지 않는다(로더가 이 상태에선 편집 버퍼를 채우지 않음). 방어적으로만 스킵 —
+      // 뱃지는 건드리지 않는다(암호화 카드도 이제 영속되므로, 지울 근거가 없다).
+      if (!isDraftPersistable(it, encryptionKeyRef.current)) return
       if (consumeSuppression(it.id)) return
       flushDraftNow()
     }
-  }, [activeTab, flushDraftNow, setDirtyItems])
+  }, [activeTab, flushDraftNow])
 
   // 브라우저 종료/최소화 대비 — beforeunload는 커밋을 보장 못하므로 훨씬 이르게 발화하는 hidden 시점에 flush
   useEffect(() => {
@@ -284,14 +302,14 @@ export const CardDetailEditor = () => {
     if (!item) return
     if (loadedItemIdRef.current !== item.id) return
     if (!dirty) return
-    if (!isDraftPersistable(item)) return
+    if (!isDraftPersistable(item, encryptionKey)) return
     // flushDraftNow를 그대로 쓴다 — 예약 시점이 아닌 "발화 시점"에 loadedItemIdRef/dirtyRef를
     // 다시 확인하므로, 메인스레드 지연으로 타이머가 늦게 발화해도(예: Ctrl+S 저장과 겹침) stale
     // 클로저 값을 쓰지 않는다. 직접 saveDraft를 호출하면 발화 시점 재검증이 빠져 좀비 드래프트나
     // 탭전환 중 cross-tab 오염이 타이밍에 따라 재발할 수 있다(scope-critic 재검증 지적).
     const t = setTimeout(flushDraftNow, DRAFT_DEBOUNCE_MS)
     return () => clearTimeout(t)
-  }, [item, type, dirty, title, tags, fields, editorText, docVersion, flushDraftNow])
+  }, [item, type, dirty, title, tags, fields, editorText, docVersion, flushDraftNow, encryptionKey])
 
   // 정형 필드 값 변경
   const handleFieldChange = useCallback((key: string, value: string) => {
@@ -320,7 +338,10 @@ export const CardDetailEditor = () => {
   const handleSave = useCallback(async () => {
     if (!item) return
     try {
-      const parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
+      let parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (encryptionEnabled && encryptionKey) {
+        parsedTags = await encryptTags(parsedTags, encryptionKey)
+      }
 
       if (type === 'document') {
         // document 타입: title/tags 저장 + DocumentEditor content 저장 통합
@@ -332,8 +353,10 @@ export const CardDetailEditor = () => {
           await docEditorRef.current.save()
         }
         // setOriginal의 리렌더 커밋을 기다리지 않고 즉시 반영 — 그 사이 flush가 끼어들면
-        // 방금 지운 드래프트가 되살아나는 레이스를 막는다(dirtyRef가 false여야 flushDraftNow가 no-op)
+        // 방금 지운 드래프트가 되살아나는 레이스를 막는다(dirtyRef가 false여야 flushDraftNow가 no-op).
+        // bumpDraftEpoch는 이미 in-flight인 암호화 flush(encrypt await 중)까지 잡아낸다.
         dirtyRef.current = false
+        bumpDraftEpoch(item.id)
         await deleteDraft(item.id)
         return
       }
@@ -368,6 +391,7 @@ export const CardDetailEditor = () => {
         editorText,
       })
       dirtyRef.current = false
+      bumpDraftEpoch(item.id)
       await deleteDraft(item.id)
       toast.success('저장됨', { duration: 1500 })
     } catch (err) {
@@ -446,6 +470,11 @@ export const CardDetailEditor = () => {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      {draftLocked && (
+        <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-500">
+          🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.
+        </div>
+      )}
       {/* ── Meta (제목 / 타입 / 태그) ────── */}
       <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-4 space-y-3">
         <input

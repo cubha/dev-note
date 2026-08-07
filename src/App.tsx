@@ -14,7 +14,6 @@ import {
   activeTabAtom,
   selectedFolderAtom,
   selectedProviderAtom,
-  userApiKeyAtom,
 } from './store/atoms'
 import { loadSessionSnapshot } from './store/sessionPersist'
 import { filterRestorableTabs, orphanDraftIds, mergeDraftTabs } from './core/draft'
@@ -93,7 +92,6 @@ export default function App() {
   const config = useAtomValue(appConfigAtom)
   const setConfig = useSetAtom(appConfigAtom)
   const setSelectedProvider = useSetAtom(selectedProviderAtom)
-  const setUserApiKey = useSetAtom(userApiKeyAtom)
   const setContextMenu = useSetAtom(contextMenuAtom)
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
@@ -113,17 +111,18 @@ export default function App() {
   useGlobalKeyboardShortcuts()
 
   useEffect(() => {
+    // BYOK 키는 복원하지 않는다 — 세션 메모리 전용이라 애초에 저장된 값이 없다.
+    // 부팅 시 항상 공유 키 모드로 시작하고, 사용자가 이번 세션에 입력해야 BYOK가 켜진다.
     ensureConfig().then((cfg) => {
       setConfig(cfg)
       setSelectedProvider(cfg.selectedProvider)
-      setUserApiKey(cfg.userApiKey)
     })
     void requestPersistentStorage()
     const savedSidebarWidth = localStorage.getItem('sidebar-width')
     if (savedSidebarWidth) {
       document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth)
     }
-  }, [setConfig, setSelectedProvider, setUserApiKey])
+  }, [setConfig, setSelectedProvider])
 
   // 세션 복원 — StrictMode 이중 마운트 방지용 ref 가드(setOpenTabs/setActiveTab은 안정적이라
   // 의존성 배열만으로는 재실행을 막지 못한다)

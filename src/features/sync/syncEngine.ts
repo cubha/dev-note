@@ -8,6 +8,7 @@ import { nanoid } from 'nanoid'
 import { db } from '../../core/db'
 import type { Item, Folder } from '../../core/db'
 import { encrypt, decrypt } from '../../core/crypto'
+import { encryptTags, decryptTags, encryptFolderName, decryptFolderName } from '../../core/metaCrypto'
 import { importDEK, importHmacKey } from '../../core/sync-crypto'
 import {
   emptyManifest,
@@ -139,7 +140,9 @@ async function hashPayload(p: SyncNotePayload, hmacKey: CryptoKey): Promise<stri
 }
 
 /** folderId → 루트부터의 폴더명 경로 (기기 간 id 불일치 회피) */
-async function folderIdToPath(folderId: number | null): Promise<string[]> {
+// 페이로드에는 **평문** 폴더명이 들어가야 한다 — at-rest 암호문을 그대로 실으면
+// 페이로드 전체가 DEK로 다시 암호화되어(이중 암호화) 상대 기기가 절대 풀 수 없다.
+async function folderIdToPath(folderId: number | null, atRestKey: CryptoKey | null): Promise<string[]> {
   const path: string[] = []
   let current = folderId
   const guard = new Set<number>()
@@ -147,25 +150,32 @@ async function folderIdToPath(folderId: number | null): Promise<string[]> {
     guard.add(current)
     const folder = await db.folders.get(current)
     if (!folder) break
-    path.unshift(folder.name)
+    path.unshift(await decryptFolderName(folder.name, atRestKey))
     current = folder.parentId
   }
   return path
 }
 
 /** 폴더명 경로 → folderId. 없는 폴더는 생성한다. 빈 경로 → null(루트). */
-async function ensureFolderPath(path: string[]): Promise<number | null> {
+async function ensureFolderPath(path: string[], atRestKey: CryptoKey | null): Promise<number | null> {
   let parentId: number | null = null
   for (const name of path) {
     // 폴더 수는 작으므로 전체 조회 후 메모리 필터(null parentId 인덱싱 회피)
     const all = await db.folders.toArray()
-    const match: Folder | undefined = all.find((f) => f.parentId === parentId && f.name === name)
+    // 페이로드의 name은 평문, 로컬 f.name은 암호문일 수 있다. AES-GCM은 IV가 매번 달라
+    // 암호문끼리도 비교가 성립하지 않으므로, **양쪽을 평문으로 맞춘 뒤** 비교해야 한다.
+    // 안 그러면 동기화할 때마다 같은 폴더가 새로 생긴다.
+    let match: Folder | undefined
+    for (const f of all) {
+      if (f.parentId !== parentId) continue
+      if ((await decryptFolderName(f.name, atRestKey)) === name) { match = f; break }
+    }
     if (match) {
       parentId = match.id
     } else {
       parentId = (await db.folders.add({
         parentId,
-        name,
+        name: atRestKey ? await encryptFolderName(name, atRestKey) : name,
         order: Date.now(),
         createdAt: Date.now(),
       })) as number
@@ -174,15 +184,17 @@ async function ensureFolderPath(path: string[]): Promise<number | null> {
   return parentId
 }
 
-async function itemToPayload(item: Item): Promise<SyncNotePayload> {
+async function itemToPayload(item: Item, atRestKey: CryptoKey | null): Promise<SyncNotePayload> {
   return {
     uuid: item.uuid as string,
     title: item.title,
     type: item.type,
-    tags: item.tags,
+    // 태그도 폴더명과 같은 이유로 평문화한다. 부수 효과로 version 해시가 안정된다 —
+    // AES-GCM은 IV가 매번 달라, 암호문을 그대로 해시하면 내용이 안 바뀌어도 매번 새 버전이 된다.
+    tags: await decryptTags(item.tags, atRestKey),
     content: item.content,
     pinned: item.pinned,
-    folderPath: await folderIdToPath(item.folderId),
+    folderPath: await folderIdToPath(item.folderId, atRestKey),
     order: item.order,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -190,7 +202,7 @@ async function itemToPayload(item: Item): Promise<SyncNotePayload> {
 }
 
 /** uuid 미부여 노트에 지연 부여 후 로컬 상태 목록 구성(삭제 감지 포함). */
-async function buildLocalStates(hmacKey: CryptoKey): Promise<LocalNoteState[]> {
+async function buildLocalStates(hmacKey: CryptoKey, atRestKey: CryptoKey | null): Promise<LocalNoteState[]> {
   const items = await db.items.toArray()
   const states: LocalNoteState[] = []
   const liveUuids = new Set<string>()
@@ -204,7 +216,7 @@ async function buildLocalStates(hmacKey: CryptoKey): Promise<LocalNoteState[]> {
     }
     liveUuids.add(uuid)
     const synced = await db.syncState.get(uuid)
-    const version = await hashPayload(await itemToPayload(item), hmacKey)
+    const version = await hashPayload(await itemToPayload(item, atRestKey), hmacKey)
     states.push({ uuid, version, syncedVersion: synced?.syncedVersion, updatedAt: item.updatedAt })
   }
 
@@ -233,9 +245,9 @@ async function readManifest(provider: StorageProvider, now: number): Promise<Syn
 
 async function pushNote(
   provider: StorageProvider, noteKey: CryptoKey, hmacKey: CryptoKey,
-  item: Item, manifest: SyncManifest, now: number,
+  item: Item, manifest: SyncManifest, now: number, atRestKey: CryptoKey | null,
 ): Promise<void> {
-  const payload = await itemToPayload(item)
+  const payload = await itemToPayload(item, atRestKey)
   const version = await hashPayload(payload, hmacKey)
   const file: EncryptedNoteFile = {
     format: 'devnote-note',
@@ -266,15 +278,18 @@ async function pullPayload(
 /** 페이로드를 로컬 item으로 upsert(uuid 기준). conflictLabel 지정 시 새 사본으로 생성. */
 async function applyPayload(
   payload: SyncNotePayload,
+  atRestKey: CryptoKey | null,
   conflict?: { uuid: string; label: string },
 ): Promise<void> {
   const uuid = conflict?.uuid ?? payload.uuid
-  const folderId = await ensureFolderPath(payload.folderPath)
+  const folderId = await ensureFolderPath(payload.folderPath, atRestKey)
   const fields = {
     folderId,
     title: conflict ? `${payload.title} (충돌 사본 · ${conflict.label})` : payload.title,
     type: payload.type as Item['type'],
-    tags: payload.tags,
+    // 페이로드는 평문이다 — 로컬 규칙(at-rest 암호화)에 맞춰 다시 암호화해 저장한다.
+    // 그대로 넣으면 pull 한 번에 이 기기의 태그만 평문으로 되돌아간다.
+    tags: atRestKey ? await encryptTags(payload.tags, atRestKey) : payload.tags,
     order: payload.order,
     pinned: payload.pinned,
     content: payload.content,
@@ -305,12 +320,14 @@ export async function runSync(
   dek: string,
   deviceId: string,
   now: number,
+  /** 로컬 at-rest 암호화 키(잠금 해제 시). 페이로드는 평문으로 싣고 저장 시 이 키로 재암호화한다. */
+  atRestKey: CryptoKey | null = null,
 ): Promise<SyncResult> {
   const noteKey = await importDEK(dek)
   const hmacKey = await importHmacKey(dek)
   await provider.list() // 캐시 갱신 계약
   const manifest = await readManifest(provider, now)
-  const locals = await buildLocalStates(hmacKey)
+  const locals = await buildLocalStates(hmacKey, atRestKey)
   const plan = computeSyncPlan(locals, manifest)
   const result: SyncResult = { pushed: 0, pulled: 0, conflicts: 0, tombstoned: 0, deletedLocal: 0 }
 
@@ -318,7 +335,7 @@ export async function runSync(
   for (const uuid of plan.toPush) {
     const item = await db.items.where('uuid').equals(uuid).first()
     if (!item) continue
-    await pushNote(provider, noteKey, hmacKey, item, manifest, now)
+    await pushNote(provider, noteKey, hmacKey, item, manifest, now, atRestKey)
     result.pushed++
   }
 
@@ -326,7 +343,7 @@ export async function runSync(
   for (const uuid of plan.toPull) {
     const payload = await pullPayload(provider, noteKey, uuid)
     if (!payload) continue
-    await applyPayload(payload)
+    await applyPayload(payload, atRestKey)
     await db.syncState.put({ uuid, syncedVersion: manifest.notes[uuid]?.version ?? await hashPayload(payload, hmacKey) })
     result.pulled++
   }
@@ -338,12 +355,12 @@ export async function runSync(
     if (item) {
       // 양쪽 편집 충돌: 원격본을 사본으로 보존 + 로컬을 정본으로 push (LWW=로컬 우선).
       // pushNote가 syncState/manifest를 로컬 버전으로 맞춰 다음 사이클에 수렴.
-      if (remote) await applyPayload(remote, { uuid: nanoid(16), label: deviceId })
-      await pushNote(provider, noteKey, hmacKey, item, manifest, now)
+      if (remote) await applyPayload(remote, atRestKey, { uuid: nanoid(16), label: deviceId })
+      await pushNote(provider, noteKey, hmacKey, item, manifest, now, atRestKey)
     } else if (remote) {
       // 삭제-편집 충돌(로컬 삭제 vs 원격 편집): 데이터 보존을 위해 원격 우선 — 원래 uuid로 복원.
       // syncState를 원격 버전(R)으로 맞춰 다음 사이클 buildLocalStates가 수렴(재충돌 방지).
-      await applyPayload(remote)
+      await applyPayload(remote, atRestKey)
       await db.syncState.put({ uuid, syncedVersion: manifest.notes[uuid]?.version ?? await hashPayload(remote, hmacKey) })
     } else {
       // 원격본도 사라짐 → 동기화 상태만 정리(다음 사이클 무충돌).

@@ -32,3 +32,14 @@ export function bucketVisitSeries(daily: DailyPoint[], period: ChartPeriod): Cha
   }
   return buckets
 }
+
+/**
+ * 방문 추이 차트 y축 눈금값을 위→아래 순서로 반환한다(최대값·중간값·0).
+ * 최대값이 1 이하면 중간값이 최대값 또는 0과 겹치므로 2개(최대·0)만 낸다 —
+ * 같은 숫자가 두 번 적힌 축은 눈금이 아니라 노이즈다.
+ */
+export function buildYAxisTicks(max: number): number[] {
+  const top = Math.max(1, Math.floor(max))
+  const mid = Math.round(top / 2)
+  return mid > 0 && mid < top ? [top, mid, 0] : [top, 0]
+}

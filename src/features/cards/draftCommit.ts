@@ -5,12 +5,13 @@
 // 마운트되어 있지 않아도 drafts 테이블 값만으로 완결되게 만든다.
 
 import { db } from '../../core/db'
-import { loadDraft, deleteDraft } from '../../core/draftStore'
-import { parseDraftBody } from '../../core/draft'
+import { deleteDraft, readDraft } from '../../core/draftStore'
 import { FIELD_SCHEMAS } from '../../core/types'
 import type { CardField, StructuredContent, HybridContent } from '../../core/types'
 import { serializeContent, encryptContent } from '../../core/content'
+import { encryptTags } from '../../core/metaCrypto'
 import { getEditorFieldKey } from './fieldHelpers'
+import { bumpDraftEpoch } from './draftFlushControl'
 
 /**
  * itemId의 드래프트를 읽어 items에 커밋(저장)하고 드래프트를 삭제한다.
@@ -26,17 +27,9 @@ export async function commitDraftToItem(
   encryptionEnabled: boolean,
   encryptionKey: CryptoKey | null,
 ): Promise<void> {
-  const draft = await loadDraft(itemId)
-  if (!draft) return
-
   const item = await db.items.get(itemId)
   if (!item) {
-    await deleteDraft(itemId)
-    return
-  }
-
-  const body = parseDraftBody(draft.body)
-  if (!body) {
+    bumpDraftEpoch(itemId)
     await deleteDraft(itemId)
     return
   }
@@ -45,12 +38,27 @@ export async function commitDraftToItem(
   // 평문으로 조용히 저장되는 걸 막는다. handleSave(활성 탭)는 로더가 키 없으면 아이템을
   // 아예 못 불러와 dirty가 성립하지 않아 이 경로에 도달 못 하지만, commitDraftToItem은
   // 컴포넌트 상태와 무관하게 독립 실행되므로 동일 가드가 없으면 zero-knowledge 원칙이
-  // 깨진다(security-auditor 지적).
+  // 깨진다(security-auditor 지적). draft body 자체가 암호화된 채 잠긴 경우도 아래
+  // readDraft의 'locked' 분기에서 동일하게 거부된다(둘 다 폐기 없이 재시도 가능하게 보존).
   if (encryptionEnabled && !encryptionKey) {
     throw new Error('암호화가 잠긴 상태입니다. 잠금을 해제한 뒤 다시 시도해 주세요.')
   }
 
-  const parsedTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean)
+  const result = await readDraft(itemId, encryptionKey)
+  if (result.status === 'none') return
+  if (result.status === 'locked') {
+    // encryptionEnabled=false인데 draft body만 암호화된 채 남아있는 극단 케이스(정상 플로우에선
+    // SecurityTab의 drafts.clear()가 막아줌) — 폐기하지 않고 재시도 가능하게 보존한다.
+    throw new Error('암호화가 잠긴 상태입니다. 잠금을 해제한 뒤 다시 시도해 주세요.')
+  }
+  if (result.status === 'corrupt') {
+    bumpDraftEpoch(itemId)
+    await deleteDraft(itemId)
+    return
+  }
+
+  const { draft, body } = result
+  let parsedTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean)
 
   let content: string
   if (body.kind === 'document') {
@@ -72,11 +80,13 @@ export async function commitDraftToItem(
 
   if (encryptionEnabled && encryptionKey) {
     content = await encryptContent(content, encryptionKey)
+    parsedTags = await encryptTags(parsedTags, encryptionKey)
   }
 
   await db.items.update(itemId, {
     title: draft.title, type: draft.type, tags: parsedTags,
     content, updatedAt: Date.now(),
   })
+  bumpDraftEpoch(itemId)
   await deleteDraft(itemId)
 }

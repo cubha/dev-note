@@ -10,16 +10,23 @@ import {
 import type { DraftBody } from '../core/draft'
 
 describe('isDraftPersistable', () => {
-  it('평문 content면 true', () => {
-    expect(isDraftPersistable({ content: '{"format":"structured","fields":[]}' })).toBe(true)
+  const dummyKey = {} as CryptoKey
+
+  it('평문 content면 키 유무와 무관하게 true', () => {
+    expect(isDraftPersistable({ content: '{"format":"structured","fields":[]}' }, null)).toBe(true)
+    expect(isDraftPersistable({ content: '{"format":"structured","fields":[]}' }, dummyKey)).toBe(true)
   })
 
-  it('암호화된 content면 false', () => {
-    expect(isDraftPersistable({ content: '{"enc":1,"ct":"abc"}' })).toBe(false)
+  it('암호화된 content인데 키가 없으면(잠김) false', () => {
+    expect(isDraftPersistable({ content: '{"enc":1,"ct":"abc"}' }, null)).toBe(false)
+  })
+
+  it('암호화된 content라도 키가 있으면(잠금 해제) true', () => {
+    expect(isDraftPersistable({ content: '{"enc":1,"ct":"abc"}' }, dummyKey)).toBe(true)
   })
 
   it('빈 content면 true', () => {
-    expect(isDraftPersistable({ content: '' })).toBe(true)
+    expect(isDraftPersistable({ content: '' }, null)).toBe(true)
   })
 })
 

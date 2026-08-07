@@ -8,6 +8,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import Fuse from 'fuse.js'
 import { formatForDisplay } from '@tanstack/hotkeys'
 import { db } from '../../core/db'
+import { createFolder } from '../../core/metaStore'
 import {
   commandPaletteOpenAtom,
   effectiveKeybindingsAtom,
@@ -18,6 +19,7 @@ import {
   dirtyItemsAtom,
   selectedItemsAtom,
   searchQueryAtom,
+  encryptionKeyAtom,
 } from '../../store/atoms'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { useGuardedTabClose } from '../hooks/useGuardedTabClose'
@@ -57,6 +59,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export const CommandPalette = () => {
   const isOpen = useAtomValue(commandPaletteOpenAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
   const setOpen = useSetAtom(commandPaletteOpenAtom)
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
 
@@ -131,12 +134,7 @@ export const CommandPalette = () => {
         setCardForm({ isOpen: true, editItem: null, folderId: selectedFolder })
         break
       case 'folder.new':
-        void db.folders.add({
-          parentId: null,
-          name: DEFAULT_FOLDER_NAME,
-          order: Date.now(),
-          createdAt: Date.now(),
-        })
+        void createFolder(null, DEFAULT_FOLDER_NAME, encryptionKey)
         break
       case 'tab.close':
         if (activeTab !== null) {
@@ -179,7 +177,7 @@ export const CommandPalette = () => {
   }, [
     close, setCardForm, selectedFolder, activeTab, requestClose,
     setOpenTabs, setActiveTab, setDirtyItems, selectedItems,
-    setSelectedItems, setSearchQuery,
+    setSelectedItems, setSearchQuery, encryptionKey,
   ])
 
   // ─── 키보드 핸들러 ──────────────────────────────────────────────

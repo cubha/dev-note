@@ -57,3 +57,32 @@ export function consumeSuppression(itemId: number): boolean {
   }
   return false
 }
+
+// ── 암호화 flush epoch 가드 ──────────────────────────────────────
+//
+// 암호화 카드의 flush는 saveDraftRaw 전에 encryptContent를 await해야 한다 — 평문 draft와
+// 달리 IndexedDB 요청이 같은 틱에서 동기적으로 시작되지 않으므로, 그 await 도중
+// handleSave/discard가 먼저 delete를 끝내버리면 뒤늦게 도착한 encrypt 결과가 방금 지운
+// 드래프트를 되살릴 수 있다. 모든 의도적 삭제가 epoch을 올리고, flush는 encrypt 전에 캡처한
+// epoch과 완료 후의 epoch을 비교해 달라졌으면 쓰기를 스스로 폐기한다.
+const draftEpochs = new Map<number, number>()
+// SecurityTab의 db.drafts.clear()(암호화 활성/비활성/패스프레이즈 변경)는 테이블 전체를 지우지만
+// 어떤 itemId가 영향받는지 호출부가 알 수 없다 — per-item bump로는 커버 못 하므로 전역 카운터로
+// 모든 itemId의 in-flight 쓰기를 한 번에 무효화한다. 두 카운터 다 증가만 하므로 합이 그대로면
+// 어느 쪽도 안 올랐다는 뜻 — currentDraftEpoch를 두 카운터의 합으로 정의해도 비교가 안전하다.
+let globalDraftEpoch = 0
+
+/** 이 itemId의 드래프트를 무효화하는 의도적 삭제(저장 완료·폐기·아이템 삭제)가 일어날 때 호출 */
+export function bumpDraftEpoch(itemId: number): void {
+  draftEpochs.set(itemId, (draftEpochs.get(itemId) ?? 0) + 1)
+}
+
+/** db.drafts.clear()처럼 특정 itemId 없이 테이블 전체를 무효화할 때 호출 */
+export function bumpAllDraftEpochs(): void {
+  globalDraftEpoch += 1
+}
+
+/** 현재 epoch 값 — encrypt 전에 캡처해두고, encrypt 후 재비교해 stale write를 감지한다 */
+export function currentDraftEpoch(itemId: number): number {
+  return globalDraftEpoch + (draftEpochs.get(itemId) ?? 0)
+}

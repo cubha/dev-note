@@ -5,9 +5,9 @@
 // - 메타데이터 노출 한계를 정직하게 고지(zero-knowledge = 콘텐츠 한정)
 // - 토큰·DEK는 메모리 전용. AI 기능처럼 완전 선택적(미설정 시 핵심 CRUD 무영향).
 
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useCallback, useState } from 'react'
-import { appConfigAtom, syncStatusAtom, syncLastErrorAtom, syncLastAtAtom } from '../../store/atoms'
+import { appConfigAtom, syncStatusAtom, syncLastErrorAtom, syncLastAtAtom, encryptionKeyAtom } from '../../store/atoms'
 import {
   connect,
   disconnect,
@@ -24,6 +24,10 @@ export const SyncTab = () => {
   const [status, setStatus] = useAtom(syncStatusAtom)
   const [error, setError] = useAtom(syncLastErrorAtom)
   const [lastAt, setLastAt] = useAtom(syncLastAtAtom)
+  // at-rest 키를 넘겨야 태그·폴더명이 평문 페이로드로 나가고 pull 시 로컬 키로 재암호화된다
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
+  // at-rest 암호화가 켜져 있는데 잠겨 있으면 동기화를 막는다(syncNow도 같은 조건으로 거부)
+  const atRestLocked = (config?.encryptionEnabled ?? false) && encryptionKey === null
 
   const [passphrase, setPassphrase] = useState('')
   const [mode, setMode] = useState<'setup' | 'unlock' | null>(null)
@@ -70,7 +74,7 @@ export const SyncTab = () => {
     setError(null)
     setStatus('syncing')
     try {
-      const r = await syncNow(Date.now())
+      const r = await syncNow(Date.now(), encryptionKey)
       setResult(r)
       const now = Date.now()
       setLastAt(now)
@@ -80,7 +84,7 @@ export const SyncTab = () => {
       setStatus('error')
       setError(e instanceof Error ? e.message : '동기화에 실패했습니다')
     }
-  }, [setConfig, setError, setLastAt, setStatus])
+  }, [setConfig, setError, setLastAt, setStatus, encryptionKey])
 
   const handleDisconnect = useCallback(async () => {
     await disconnect()
@@ -153,11 +157,17 @@ export const SyncTab = () => {
               <span className="inline-block size-2 rounded-full bg-green-500" />
               Google Drive 연결됨{!unlocked && ' (이 세션에서 잠금 해제 필요)'}
             </div>
+            {atRestLocked && (
+              <p className="mb-2 text-xs text-[var(--text-secondary)]">
+                🔒 암호화가 잠겨 있어 동기화할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.
+                잠긴 채로 올리면 태그·폴더명이 빈 값으로 원격에 덮어써집니다.
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => void handleSyncNow()}
-                disabled={status === 'syncing' || !unlocked}
+                disabled={status === 'syncing' || !unlocked || atRestLocked}
                 className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
               >
                 {status === 'syncing' ? '동기화 중…' : '지금 동기화'}

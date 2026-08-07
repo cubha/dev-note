@@ -36,6 +36,44 @@ info()   { echo -e "\033[0;36m  ℹ $*\033[0m"; }
 warn()   { echo -e "\033[0;33m  ⚠ $*\033[0m"; }
 header() { echo -e "\n\033[1;34m▶ $*\033[0m"; }
 
+# ─── 행(hang) 가드 러너 (F-NEW-33) ────────────────────────────
+# 장시간 명령은 $() 캡처 금지 + timeout 필수. 근거(실측): 명령이 정상 종료해도 고아 자식이
+# stdout을 물면 셸이 계속 블록되고(6002ms·exit=0) timeout은 발동조차 하지 않는다 → 124도 로그도 없음.
+# vite+vitest 워커가 정확히 그 지형이라 이 프로젝트는 1순위 대상이다.
+# `--foreground` 금지 — 그룹 킬이 꺼져 고아가 무한 대기한다(≥58s 관측).
+VERIFY_LOG_DIR="${TMPDIR:-/tmp}/verify-dev-note-$$"
+mkdir -p "$VERIFY_LOG_DIR"
+VERIFY_TIMEOUT_TSC=${VERIFY_TIMEOUT_TSC:-120}    # 실측 `tsc -b` 14s @9p
+VERIFY_TIMEOUT_LINT=${VERIFY_TIMEOUT_LINT:-120}
+VERIFY_TIMEOUT_TEST=${VERIFY_TIMEOUT_TEST:-240}
+VERIFY_TIMEOUT_BUILD=${VERIFY_TIMEOUT_BUILD:-600}
+# 불변식: fast gate(--no-build) 최악 480s < TeammateIdle hook timeout 600s
+
+run_guarded() {
+  local secs="$1" logname="$2"; shift 2
+  local log="$VERIFY_LOG_DIR/$logname" rc=0 wd=""
+  # 동결 시점 스냅샷 — timeout 그룹 킬이 증거를 지우기 전에 촬영. 서브셸 출력은 반드시 닫는다
+  # (상위가 verify.sh를 $()로 캡처할 때 워치독이 파이프를 물면 우리가 그 행을 만든다).
+  ( sleep $(( secs * 2 / 3 )); ps -ef --forest > "$VERIFY_LOG_DIR/freeze-$logname" 2>/dev/null ) >/dev/null 2>&1 &
+  wd=$!
+  timeout --kill-after=15 "$secs" "$@" > "$log" 2>&1 || rc=$?
+  kill "$wd" 2>/dev/null || true; wait "$wd" 2>/dev/null || true
+  if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+    fail "행(hang) 감지: '$*' 이 ${secs}초 내 미종료 (exit $rc)"
+    {
+      echo "=== 명령: $* (상한 ${secs}s, exit $rc)"
+      echo "=== 동결 시점 프로세스 트리 ==="
+      cat "$VERIFY_LOG_DIR/freeze-$logname" 2>/dev/null || echo "(스냅샷 없음)"
+      echo "=== 그룹 킬 생존자 (esbuild service·vite optimizer·vitest worker) ==="
+      ps -ef --forest 2>/dev/null | grep -E 'esbuild|vite|vitest|tsserver' | grep -v grep || echo "(없음)"
+      echo "=== 로그 마지막 50줄 ==="
+      tail -50 "$log" 2>/dev/null
+    } > "$VERIFY_LOG_DIR/forensic-$logname" 2>&1
+    warn "포렌식 덤프: $VERIFY_LOG_DIR/forensic-$logname"
+  fi
+  return "$rc"
+}
+
 FAIL_COUNT=0
 SPEC_FAILS=0
 
@@ -81,6 +119,19 @@ if [ -n "$CHANGED_FILES" ]; then
     # ── [Spec 3] 마스터 패스워드 저장 금지 ───────────────────
     if grep -niE '(localStorage|sessionStorage)\.' "$file" 2>/dev/null | grep -qi 'password\|masterPass'; then
       fail "[보안] 마스터 패스워드를 영구 스토리지에 저장 시도: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 3b] API 키 영구 스토리지 저장 금지 ─────────────
+    # Spec 2/3이 cryptoKey·password만 봐서 BYOK API 키가 IndexedDB에 평문으로 들어가던 경로를
+    # 통과시켰다(v18에서 제거). at-rest 암호화는 config 테이블을 덮지 않으므로 암호화를 켜도
+    # 노출된다 — localStorage/sessionStorage뿐 아니라 Dexie 쓰기(db.<table>.put/add/update)도 막는다.
+    if grep -niE '(localStorage|sessionStorage)\.(set|get)Item' "$file" 2>/dev/null | grep -qiE 'apikey|api_key'; then
+      fail "[보안] API 키를 localStorage/sessionStorage에 저장 시도: $file"
+      SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+    if grep -niE 'db\.[a-zA-Z]+\.(put|add|update|bulkPut|bulkAdd)\(' "$file" 2>/dev/null | grep -qiE 'apikey|api_key'; then
+      fail "[보안] API 키를 IndexedDB(Dexie)에 저장 시도 — 세션 메모리(atom) 전용: $file"
       SPEC_FAILS=$((SPEC_FAILS + 1))
     fi
 
@@ -150,12 +201,16 @@ fi
 # ─── TypeScript 타입 체크 ─────────────────────────────────────
 header "🔍 TypeScript 타입 체크"
 # tsconfig.json이 files:[] + references(Vite 구조)라 `tsc --noEmit`은 0파일 검사(vacuous) — `-b` 필수
-TS_OUTPUT=$(npx tsc -b --noEmit 2>&1 || true)
-TS_ERRORS=$(echo "$TS_OUTPUT" | grep -c ' error TS' || true)
+# $() 캡처 폐지(F-NEW-33): tsc가 정상 종료해도 고아 자식이 파이프를 물면 셸이 계속 블록된다
+TS_EXIT=0
+run_guarded "$VERIFY_TIMEOUT_TSC" tsc.log npx tsc -b --noEmit || TS_EXIT=$?
+TS_ERRORS=$(grep -c ' error TS' "$VERIFY_LOG_DIR/tsc.log" || true)
 TS_ERRORS=${TS_ERRORS:-0}
-if [ "${TS_ERRORS}" -gt 0 ]; then
+if [ "$TS_EXIT" -eq 124 ] || [ "$TS_EXIT" -eq 137 ]; then
+  FAIL_COUNT=$((FAIL_COUNT + 1))   # 행 자체가 실패 — 상세는 run_guarded가 보고
+elif [ "${TS_ERRORS}" -gt 0 ]; then
   fail "TypeScript 오류 ${TS_ERRORS}건"
-  echo "$TS_OUTPUT" | grep ' error TS' | head -20
+  grep ' error TS' "$VERIFY_LOG_DIR/tsc.log" | head -20
   FAIL_COUNT=$((FAIL_COUNT + TS_ERRORS))
 else
   pass "TypeScript 타입 체크 통과"
@@ -165,8 +220,9 @@ fi
 if [ "$TS_ONLY" = false ]; then
   header "🧹 ESLint 정적 분석"
   ESLINT_EXIT=0
-  npm run lint -- --max-warnings 0 2>&1 || ESLINT_EXIT=$?
+  run_guarded "$VERIFY_TIMEOUT_LINT" eslint.log npm run lint -- --max-warnings 0 || ESLINT_EXIT=$?
   if [ "$ESLINT_EXIT" -ne 0 ]; then
+    tail -30 "$VERIFY_LOG_DIR/eslint.log"
     fail "ESLint 경고 또는 오류 발견 (exit: $ESLINT_EXIT)"
     FAIL_COUNT=$((FAIL_COUNT + 1))
   else
@@ -195,9 +251,9 @@ if [ "$TS_ONLY" = false ]; then
     FAIL_COUNT=$((FAIL_COUNT + 1))
   else
     TEST_EXIT=0
-    npm run test > /tmp/verify-unittest-devnote.log 2>&1 || TEST_EXIT=$?
+    run_guarded "$VERIFY_TIMEOUT_TEST" unittest.log npm run test || TEST_EXIT=$?
     if [ "$TEST_EXIT" -ne 0 ]; then
-      fail "단위 테스트 실패 ($UNIT_RUNNER)"; tail -30 /tmp/verify-unittest-devnote.log
+      fail "단위 테스트 실패 ($UNIT_RUNNER)"; tail -30 "$VERIFY_LOG_DIR/unittest.log"
       FAIL_COUNT=$((FAIL_COUNT + 1))
     else
       pass "단위 테스트 통과 ($UNIT_RUNNER)"
@@ -212,8 +268,9 @@ fi
 if [ "$TS_ONLY" = false ] && [ "$NO_BUILD" = false ]; then
   header "🏗️  빌드 검증"
   BUILD_EXIT=0
-  npm run build 2>&1 || BUILD_EXIT=$?
+  run_guarded "$VERIFY_TIMEOUT_BUILD" build.log npm run build || BUILD_EXIT=$?
   if [ "$BUILD_EXIT" -ne 0 ]; then
+    tail -30 "$VERIFY_LOG_DIR/build.log"
     fail "빌드 실패 (exit: $BUILD_EXIT)"
     FAIL_COUNT=$((FAIL_COUNT + 1))
   else
@@ -257,6 +314,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 if [ "${FAIL_COUNT}" -eq 0 ]; then
   echo -e "\033[0;32m  ✅ 모든 검증 통과\033[0m"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  rm -rf "${VERIFY_LOG_DIR:?}"   # 통과분 로그는 누적만 됨 (실패·행일 때만 보존)
   exit 0
 else
   echo -e "\033[0;31m  ❌ 총 ${FAIL_COUNT}건 문제 발견 — 수정 후 재실행\033[0m"

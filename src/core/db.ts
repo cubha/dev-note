@@ -8,7 +8,7 @@ export type ItemType = 'server' | 'db' | 'api' | 'note' | 'document'
 export interface Folder {
   id: number
   parentId: number | null  // null = 루트
-  name: string
+  name: string             // at-rest 암호화 (metaCrypto). 표시 전 useDecryptedFolders로 복호화
   order: number
   createdAt: number
 }
@@ -16,9 +16,9 @@ export interface Folder {
 export interface Item {
   id: number
   folderId: number | null
-  title: string             // 사이드바 렌더링, 검색 인덱스
+  title: string             // 사이드바 렌더링, 검색 인덱스 (평문 유지 — 확정 설계)
   type: ItemType
-  tags: string[]            // 검색 필터
+  tags: string[]            // 원소별 at-rest 암호화 (metaCrypto). 필터는 복호화 후 메모리에서 수행
   order: number             // 정렬 순서 (인덱스 제외)
   pinned: boolean           // 즐겨찾기/핀 고정
   content: string           // JSON string (StructuredContent | LegacyContent)
@@ -40,7 +40,9 @@ export interface SyncState {
 /**
  * 탭 드래프트(미저장 편집분) — items와 분리된 테이블.
  * items에 컬럼으로 두면 write→useLiveQuery 재발화→로더가 편집 중인 값을 덮어쓰는
- * 재진입 루프가 생기므로 별도 테이블로 둔다. 암호화된 카드는 대상에서 제외(별도 작업).
+ * 재진입 루프가 생기므로 별도 테이블로 둔다.
+ * 암호화된 카드도 대상이다 — 잠금 해제 상태에서만 기록하며 body는 세션 키로 암호화한다
+ * (title/type/tags는 items와 동일하게 평문 — 사이드바·검색 인덱스 제약).
  */
 export interface DraftRow {
   itemId: number      // PK — items.id 참조
@@ -62,7 +64,9 @@ export interface AppConfig {
   showLineNumbers: boolean // 줄 번호 표시
   lastExportAt: number | null
   selectedProvider: AIProvider  // 기본: 'anthropic'
-  userApiKey: string            // 빈 문자열 = 공유 키 모드
+  // userApiKey는 여기 없다 — BYOK 키는 세션 메모리(userApiKeyAtom) 전용이다.
+  // v18 이전에는 이 필드에 평문 저장했고, at-rest 암호화를 켜도 config는 암호화 대상이
+  // 아니라 키가 그대로 노출됐다(CLAUDE.md "API 키를 클라이언트에 저장 금지" 위반).
   encryptionEnabled: boolean    // at-rest 암호화 활성화 여부
   encryptionSalt: string | null // PBKDF2 salt hex 문자열
   // ── 동기화 설정 (Phase 2 BYO-storage) — 기본 로컬, 옵트인 ──
@@ -301,6 +305,32 @@ class DevNoteDB extends Dexie {
       config:    'id',
       drafts:    'itemId',
     })
+    // v18: BYOK API 키를 config에서 완전 제거 — 세션 메모리 전용으로 전환.
+    // 이미 설치된 브라우저의 IndexedDB에는 평문 키가 남아 있으므로 업그레이드 시 지운다.
+    // 필드를 인터페이스에서 뺀 것만으로는 기존 행의 값이 사라지지 않는다.
+    this.version(18).stores({
+      folders:   '++id, parentId, name, order',
+      items:     '++id, &uuid, folderId, title, *tags, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
+    }).upgrade(async (tx) => {
+      await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        delete c.userApiKey
+      })
+    })
+    // v19: 태그·폴더명 at-rest 암호화에 따른 인덱스 정리.
+    // `*tags`와 folders.name은 암호문을 가리키게 되어 조회에 쓸 수 없다 — 실제로도 어떤
+    // 쿼리에서도 쓰이지 않았고(태그 필터·폴더 조회 모두 메모리 방식), 남겨두면 "이 필드로
+    // 조회할 수 있다"는 잘못된 신호만 준다. 데이터 변환은 여기서 하지 않는다 —
+    // 업그레이드 시점엔 키가 없어서 못 한다. 잠금 해제 시 backfillMeta가 멱등으로 처리한다.
+    this.version(19).stores({
+      folders:   '++id, parentId, order',
+      items:     '++id, &uuid, folderId, title, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
+    })
   }
 }
 
@@ -320,7 +350,6 @@ export async function ensureConfig(): Promise<AppConfig> {
     showLineNumbers: false,
     lastExportAt: null,
     selectedProvider: 'anthropic',
-    userApiKey: '',
     encryptionEnabled: false,
     encryptionSalt: null,
     syncEnabled: false,

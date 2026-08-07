@@ -10,7 +10,7 @@ import { pendingCloseAtom, appConfigAtom, encryptionKeyAtom } from '../../store/
 import { useGuardedTabClose } from '../hooks/useGuardedTabClose'
 import { deleteDrafts } from '../../core/draftStore'
 import { commitDraftToItem } from '../../features/cards/draftCommit'
-import { saveIfActive, suppressNextFlush } from '../../features/cards/draftFlushControl'
+import { saveIfActive, suppressNextFlush, bumpDraftEpoch } from '../../features/cards/draftFlushControl'
 import { Modal } from './Modal'
 import { ModalHeader } from './ModalHeader'
 import { Button } from './Button'
@@ -34,8 +34,13 @@ export const CloseConfirmDialog = () => {
   }
 
   const handleDiscard = async () => {
-    // 탭전환 cleanup-flush가 방금 지울 드래프트를 되살리지 않도록 먼저 억제
-    pending.dirtyTabIds.forEach((id) => suppressNextFlush(id))
+    // 탭전환 cleanup-flush가 방금 지울 드래프트를 되살리지 않도록 먼저 억제.
+    // bumpDraftEpoch는 그와 별개로 "이미 in-flight인" 암호화 flush(encrypt await 중)까지
+    // 잡아낸다 — suppressNextFlush는 이후에 새로 시작되는 flush만 막을 수 있다.
+    pending.dirtyTabIds.forEach((id) => {
+      suppressNextFlush(id)
+      bumpDraftEpoch(id)
+    })
     // delete 완료를 기다린 뒤 executeClose(→dirtyItemsAtom 정리) — 순서를 반대로 하면 DraftDirtySync의
     // useLiveQuery가 삭제 완료 전 시점(다른 탭의 무관한 drafts 쓰기로 재발화)의 stale 목록을 읽어
     // 이미 닫은 탭을 다시 dirty로 되살리는 레이스가 생긴다(scope-critic SubTask8 지적).

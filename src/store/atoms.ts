@@ -157,7 +157,12 @@ export const aiUsageAtom = atom<{
 /** 선택된 AI 프로바이더 (AppConfig에서 앱 시작 시 로드) */
 export const selectedProviderAtom = atom<AIProvider>('anthropic')
 
-/** 사용자 API 키 (빈 문자열 = 공유 키 모드) */
+/**
+ * 사용자 API 키 (빈 문자열 = 공유 키 모드).
+ * **세션 메모리 전용** — localStorage/IndexedDB 저장 금지(encryptionKeyAtom과 동일 규율).
+ * v18 이전에는 config.userApiKey에 평문 저장했는데, at-rest 암호화가 config 테이블을
+ * 덮지 않아 암호화를 켜도 키가 그대로 읽혔다. 부팅 시 복원하지 않으므로 매 세션 재입력한다.
+ */
 export const userApiKeyAtom = atom<string>('')
 
 // ─── 공지사항 & 가이드 ──────────────────────────────────────────

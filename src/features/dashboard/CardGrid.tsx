@@ -7,7 +7,10 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { CardContent as CardContentType } from '../../core/types'
 import { parseContent, extractSearchText } from '../../core/content'
+import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import {
+  encryptionKeyAtom,
+  appConfigAtom,
   searchQueryAtom,
   typeFilterAtom,
   tagFilterAtom,
@@ -43,8 +46,16 @@ export const CardGrid = () => {
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const sortOrder = useAtomValue(sortOrderAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
+  const encryptionEnabled = useAtomValue(appConfigAtom)?.encryptionEnabled === true
 
-  const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
+  // 태그는 암호화되어 저장되므로 데이터 소스에서 한 번에 복호화한다 — 필터·Fuse 인덱스·
+  // InfoCard 칩이 전부 이 배열을 쓰므로, 여기만 바꾸면 하위 코드는 그대로 평문으로 동작한다.
+  // 잠금 상태에서는 decryptTags가 빈 배열을 돌려주어 암호문이 화면에 새지 않는다.
+  const items = useLiveQuery(async () => {
+    const rows = await db.items.orderBy('order').toArray()
+    return Promise.all(rows.map(async (item) => ({ ...item, tags: await decryptTags(item.tags, encryptionKey) })))
+  }, [encryptionKey])
 
   // 파싱 (동기 — 암호화 제거로 즉시 처리)
   const parsedItems = useMemo<ParsedItem[]>(() => {
@@ -142,7 +153,11 @@ export const CardGrid = () => {
         folderId: item.folderId,
         title: `${item.title} (복사본)`,
         type: item.type,
-        tags: [...item.tags],
+        // item.tags는 위에서 복호화된 값이다 — 그대로 저장하면 content만 암호문인
+        // 반쪽짜리 카드가 된다. 저장 직전에 다시 암호화한다.
+        tags: encryptionEnabled && encryptionKey
+          ? await encryptTags([...item.tags], encryptionKey)
+          : [...item.tags],
         order: Date.now(),
         pinned: false,
         content: item.content,
@@ -205,9 +220,11 @@ export const CardGrid = () => {
     const [moved] = allItems.splice(fromIndex, 1)
     allItems.splice(toIndex, 0, moved)
 
-    const updates = allItems.map((it, index) => ({ ...it, order: index }))
+    // items는 표시용으로 tags가 복호화된 사본이다 — 전체 행을 bulkPut하면
+    // 화면에 보이던 모든 카드의 태그가 평문으로 DB에 덮어써진다. order만 쓴다.
+    const updates = allItems.map((it, index) => ({ key: it.id, changes: { order: index } }))
     try {
-      await db.items.bulkPut(updates)
+      await db.items.bulkUpdate(updates)
     } catch (err) {
       toast.error(`순서 변경 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
     }

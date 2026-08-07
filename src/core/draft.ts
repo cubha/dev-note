@@ -23,10 +23,11 @@ export type DraftBody = FieldsDraftBody | DocumentDraftBody
 
 /**
  * 드래프트를 디스크(IndexedDB)에 영속해도 되는 카드인지 판정.
- * 암호화된 content는 이번 범위에서 제외(별도 작업) — 평문 노출 방지.
+ * 평문 카드는 항상 가능. 암호화된 카드는 세션 키(잠금 해제 상태)가 있을 때만 —
+ * 키가 없으면 draft body를 암호화할 수 없어 평문 노출로 이어지므로 거부한다.
  */
-export function isDraftPersistable(item: { content: string }): boolean {
-  return !isEncryptedContent(item.content)
+export function isDraftPersistable(item: { content: string }, encryptionKey: CryptoKey | null): boolean {
+  return !isEncryptedContent(item.content) || encryptionKey !== null
 }
 
 /** DraftBody를 저장용 JSON 문자열로 직렬화 */

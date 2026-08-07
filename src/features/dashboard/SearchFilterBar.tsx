@@ -2,13 +2,15 @@
 //
 // 검색 입력 + 타입 필터 + 태그 필터 + 공지사항 버튼
 
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Search, Filter, Tag, Bell, X, ArrowUpDown } from 'lucide-react'
 import { db } from '../../core/db'
+import { decryptTags } from '../../core/metaCrypto'
 import type { ItemType } from '../../core/db'
 import { TYPE_META } from '../../core/types'
 import {
+  encryptionKeyAtom,
   searchQueryAtom, typeFilterAtom, tagFilterAtom, announcementOpenAtom,
   sortOrderAtom,
 } from '../../store/atoms'
@@ -24,12 +26,17 @@ export const SearchFilterBar = () => {
   const [tagFilter, setTagFilter] = useAtom(tagFilterAtom)
   const [sortOrder, setSortOrder] = useAtom(sortOrderAtom)
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
 
+  // 태그는 암호화 저장이라 복호화 후 집계한다 — 잠금 상태면 빈 목록이 되어 필터가 비활성처럼 보인다
   const allTags = useLiveQuery(async () => {
     const tagSet = new Set<string>()
-    await db.items.each(item => { for (const t of item.tags) tagSet.add(t) })
+    const rows = await db.items.toArray()
+    for (const item of rows) {
+      for (const t of await decryptTags(item.tags, encryptionKey)) tagSet.add(t)
+    }
     return [...tagSet].sort()
-  }, [])
+  }, [encryptionKey])
 
   return (
     <div className="flex items-center gap-2 pl-3 shrink-0">

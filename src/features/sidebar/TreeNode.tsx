@@ -6,6 +6,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import type { Item, ItemType } from '../../core/db'
 import { db } from '../../core/db'
+import { renameFolder } from '../../core/metaStore'
 import type { FolderNode } from './treeUtils'
 import {
   contextMenuAtom,
@@ -18,6 +19,7 @@ import {
   renamingTargetAtom,
   selectedFolderAtom,
   selectedItemsAtom,
+  encryptionKeyAtom,
 } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { DEFAULT_ITEM_TITLE, TREE_DEPTH_INDENT_PX } from '../../shared/constants'
@@ -102,6 +104,7 @@ interface TreeNodeProps {
 
 export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
   const expanded = useAtomValue(expandedFoldersAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
   const setExpanded = useSetAtom(expandedFoldersAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
   const setSelectedFolder = useSetAtom(selectedFolderAtom)
@@ -215,7 +218,7 @@ export const TreeNode = ({ node, depth, isDragging }: TreeNodeProps) => {
             <RenameInput
               key={`rename-folder-${folder.id}`}
               defaultValue={folder.name}
-              commit={(name) => db.folders.update(folder.id, { name })}
+              commit={(name) => renameFolder(folder.id, name, encryptionKey)}
               onCancel={() => setRenamingTarget(null)}
             />
           ) : (

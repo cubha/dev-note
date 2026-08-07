@@ -9,13 +9,14 @@
 //   4. 확인 → importData(rawText, mode) 실행
 
 import { useState } from 'react'
-import { useSetAtom } from 'jotai'
+import { useSetAtom, useAtomValue } from 'jotai'
 import {
   openTabsAtom,
   activeTabAtom,
   selectedFolderAtom,
   expandedFoldersAtom,
   dirtyItemsAtom,
+  encryptionKeyAtom,
 } from '../../store/atoms'
 import { db } from '../../core/db'
 import { exportData } from './export'
@@ -60,6 +61,7 @@ export const StorageButtons = () => {
   const setActiveTab       = useSetAtom(activeTabAtom)
   const setSelectedFolder  = useSetAtom(selectedFolderAtom)
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
   const setDirtyItems      = useSetAtom(dirtyItemsAtom)
 
   const showFeedback = (state: FeedbackState, durationMs = 3000) => {
@@ -192,7 +194,7 @@ export const StorageButtons = () => {
     setModalData(null)
 
     try {
-      const result = await importData(rawText, mode)
+      const result = await importData(rawText, mode, encryptionKey)
 
       // UI 상태 전체 리셋 (탭, 선택, 확장 등)
       resetUIState()

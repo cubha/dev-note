@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bucketVisitSeries } from '../shared/utils/visitChartBucket'
+import { bucketVisitSeries, buildYAxisTicks } from '../shared/utils/visitChartBucket'
 
 describe('bucketVisitSeries', () => {
   it('7d/30d/90d(day 단위 기간)는 1:1로 그대로 통과한다', () => {
@@ -62,5 +62,36 @@ describe('bucketVisitSeries', () => {
       { label: '2026-07-01', views: 0 },
       { label: '2026-07-02', views: 100 },
     ])
+  })
+})
+
+describe('buildYAxisTicks', () => {
+  it('최대값·중간값·0을 위에서 아래 순서로 낸다', () => {
+    expect(buildYAxisTicks(100)).toEqual([100, 50, 0])
+    expect(buildYAxisTicks(18)).toEqual([18, 9, 0])
+  })
+
+  it('홀수 최대값의 중간값은 반올림한다', () => {
+    expect(buildYAxisTicks(7)).toEqual([7, 4, 0])
+    expect(buildYAxisTicks(3)).toEqual([3, 2, 0])
+  })
+
+  it('최대값 1 이하는 중간값이 겹치므로 최대·0 2개만 낸다', () => {
+    expect(buildYAxisTicks(1)).toEqual([1, 0])
+    expect(buildYAxisTicks(0)).toEqual([1, 0])
+  })
+
+  it('최대값 2는 중간값 1이 겹치지 않으므로 3개를 낸다', () => {
+    expect(buildYAxisTicks(2)).toEqual([2, 1, 0])
+  })
+
+  it('눈금은 항상 정수이고 내림차순이다', () => {
+    for (const max of [1, 2, 5, 9, 13, 47, 1234]) {
+      const ticks = buildYAxisTicks(max)
+      expect(ticks.every((t) => Number.isInteger(t))).toBe(true)
+      expect([...ticks].sort((a, b) => b - a)).toEqual(ticks)
+      expect(ticks[0]).toBe(max)
+      expect(ticks[ticks.length - 1]).toBe(0)
+    }
   })
 })

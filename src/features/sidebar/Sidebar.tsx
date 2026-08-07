@@ -14,6 +14,8 @@ import {
 import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
+import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
+import { createFolder } from '../../core/metaStore'
 import {
   settingsOpenAtom,
   dragOverFolderAtom,
@@ -27,6 +29,7 @@ import {
   sidebarCollapsedAtom,
   openTabsAtom,
   dirtyItemsAtom,
+  encryptionKeyAtom,
 } from '../../store/atoms'
 import { buildTree, getRootItems, getFlatVisibleItemIds, moveItemsToFolder, reorderItems, reorderFolders } from './treeUtils'
 import { DEFAULT_FOLDER_NAME } from '../../shared/constants'
@@ -61,7 +64,8 @@ export const Sidebar = () => {
     await db.config.update(1, { theme: next })
   }
 
-  const folders = useLiveQuery(() => db.folders.orderBy('order').toArray(), [])
+  const folders = useDecryptedFolders()
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
 
   const treeNodes = useMemo(() => {
@@ -145,12 +149,7 @@ export const Sidebar = () => {
 
   // ─── 새 항목 / 폴더 생성 ──────────────────────────────────────
   const handleNewFolder = async () => {
-    await db.folders.add({
-      parentId: null,
-      name: DEFAULT_FOLDER_NAME,
-      order: Date.now(),
-      createdAt: Date.now(),
-    })
+    await createFolder(null, DEFAULT_FOLDER_NAME, encryptionKey)
   }
 
   const handleNewItem = () => {
