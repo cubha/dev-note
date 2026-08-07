@@ -60,9 +60,10 @@ export async function changeSyncPassphrase(oldPass: string, newPass: string): Pr
 }
 
 /** 1회 동기화 실행. 연결/잠금 해제 상태여야 한다. */
-export async function syncNow(now: number): Promise<SyncResult> {
+export async function syncNow(now: number, atRestKey: CryptoKey | null = null): Promise<SyncResult> {
   if (!dek) throw new Error('동기화 잠금이 해제되지 않았습니다 — 패스프레이즈로 연결해 주세요')
-  return runSync(getProvider(), dek, (await ensureConfig()).deviceId, now)
+  // at-rest 키를 넘기지 않으면 태그·폴더명이 암호문 그대로 페이로드에 실려 상대 기기가 못 읽는다
+  return runSync(getProvider(), dek, (await ensureConfig()).deviceId, now, atRestKey)
 }
 
 export async function disconnect(): Promise<void> {

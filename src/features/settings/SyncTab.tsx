@@ -5,9 +5,9 @@
 // - 메타데이터 노출 한계를 정직하게 고지(zero-knowledge = 콘텐츠 한정)
 // - 토큰·DEK는 메모리 전용. AI 기능처럼 완전 선택적(미설정 시 핵심 CRUD 무영향).
 
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useCallback, useState } from 'react'
-import { appConfigAtom, syncStatusAtom, syncLastErrorAtom, syncLastAtAtom } from '../../store/atoms'
+import { appConfigAtom, syncStatusAtom, syncLastErrorAtom, syncLastAtAtom, encryptionKeyAtom } from '../../store/atoms'
 import {
   connect,
   disconnect,
@@ -24,6 +24,8 @@ export const SyncTab = () => {
   const [status, setStatus] = useAtom(syncStatusAtom)
   const [error, setError] = useAtom(syncLastErrorAtom)
   const [lastAt, setLastAt] = useAtom(syncLastAtAtom)
+  // at-rest 키를 넘겨야 태그·폴더명이 평문 페이로드로 나가고 pull 시 로컬 키로 재암호화된다
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
 
   const [passphrase, setPassphrase] = useState('')
   const [mode, setMode] = useState<'setup' | 'unlock' | null>(null)
@@ -70,7 +72,7 @@ export const SyncTab = () => {
     setError(null)
     setStatus('syncing')
     try {
-      const r = await syncNow(Date.now())
+      const r = await syncNow(Date.now(), encryptionKey)
       setResult(r)
       const now = Date.now()
       setLastAt(now)
@@ -80,7 +82,7 @@ export const SyncTab = () => {
       setStatus('error')
       setError(e instanceof Error ? e.message : '동기화에 실패했습니다')
     }
-  }, [setConfig, setError, setLastAt, setStatus])
+  }, [setConfig, setError, setLastAt, setStatus, encryptionKey])
 
   const handleDisconnect = useCallback(async () => {
     await disconnect()
