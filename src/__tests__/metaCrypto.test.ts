@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import {
   encryptTags, decryptTags, encryptFolderName, decryptFolderName, LOCKED_FOLDER_LABEL,
+  decryptTagsStrict, decryptFolderNameStrict,
 } from '../core/metaCrypto'
 import { isEncryptedContent } from '../core/content'
 import { deriveKey, generateSalt } from '../core/crypto'
@@ -103,5 +104,35 @@ describe('encryptFolderName / decryptFolderName', () => {
   it('빈 문자열은 암호화 대상이 아니다', async () => {
     expect(await encryptFolderName('', key)).toBe('')
     expect(await decryptFolderName('', null)).toBe('')
+  })
+})
+
+describe('decryptTagsStrict / decryptFolderNameStrict — 쓰기 경로 전용, 실패 시 원본 보존을 위해 throw', () => {
+  it('decryptTagsStrict: 틀린 키로 복호화하면 예외를 던진다(조용히 제외하지 않음)', async () => {
+    const enc = await encryptTags(['prod'], key)
+    await expect(decryptTagsStrict(enc, otherKey)).rejects.toThrow()
+  })
+
+  it('decryptTagsStrict: 올바른 키면 정상 복호화된다', async () => {
+    const enc = await encryptTags(['prod', 'db'], key)
+    expect(await decryptTagsStrict(enc, key)).toEqual(['prod', 'db'])
+  })
+
+  it('decryptTagsStrict: 평문 원소는 키 무관 그대로 통과한다(백필 혼재 상태)', async () => {
+    expect(await decryptTagsStrict(['staging'], key)).toEqual(['staging'])
+  })
+
+  it('decryptFolderNameStrict: 틀린 키로 복호화하면 예외를 던진다(잠금 라벨로 대체하지 않음)', async () => {
+    const enc = await encryptFolderName('프로덕션', key)
+    await expect(decryptFolderNameStrict(enc, otherKey)).rejects.toThrow()
+  })
+
+  it('decryptFolderNameStrict: 올바른 키면 정상 복호화된다', async () => {
+    const enc = await encryptFolderName('프로덕션', key)
+    expect(await decryptFolderNameStrict(enc, key)).toBe('프로덕션')
+  })
+
+  it('decryptFolderNameStrict: 평문 폴더명은 키 무관 그대로 통과한다', async () => {
+    expect(await decryptFolderNameStrict('일반폴더', key)).toBe('일반폴더')
   })
 })
