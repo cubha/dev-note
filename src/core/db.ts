@@ -8,7 +8,7 @@ export type ItemType = 'server' | 'db' | 'api' | 'note' | 'document'
 export interface Folder {
   id: number
   parentId: number | null  // null = 루트
-  name: string
+  name: string             // at-rest 암호화 (metaCrypto). 표시 전 useDecryptedFolders로 복호화
   order: number
   createdAt: number
 }
@@ -16,9 +16,9 @@ export interface Folder {
 export interface Item {
   id: number
   folderId: number | null
-  title: string             // 사이드바 렌더링, 검색 인덱스
+  title: string             // 사이드바 렌더링, 검색 인덱스 (평문 유지 — 확정 설계)
   type: ItemType
-  tags: string[]            // 검색 필터
+  tags: string[]            // 원소별 at-rest 암호화 (metaCrypto). 필터는 복호화 후 메모리에서 수행
   order: number             // 정렬 순서 (인덱스 제외)
   pinned: boolean           // 즐겨찾기/핀 고정
   content: string           // JSON string (StructuredContent | LegacyContent)
@@ -318,6 +318,18 @@ class DevNoteDB extends Dexie {
       await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
         delete c.userApiKey
       })
+    })
+    // v19: 태그·폴더명 at-rest 암호화에 따른 인덱스 정리.
+    // `*tags`와 folders.name은 암호문을 가리키게 되어 조회에 쓸 수 없다 — 실제로도 어떤
+    // 쿼리에서도 쓰이지 않았고(태그 필터·폴더 조회 모두 메모리 방식), 남겨두면 "이 필드로
+    // 조회할 수 있다"는 잘못된 신호만 준다. 데이터 변환은 여기서 하지 않는다 —
+    // 업그레이드 시점엔 키가 없어서 못 한다. 잠금 해제 시 backfillMeta가 멱등으로 처리한다.
+    this.version(19).stores({
+      folders:   '++id, parentId, order',
+      items:     '++id, &uuid, folderId, title, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
     })
   }
 }

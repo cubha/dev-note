@@ -134,9 +134,9 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
         {atRestEncrypted && mode === 'plain' && (
           <div className="mt-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2">
             <p className="text-xs leading-relaxed text-yellow-500">
-              ⚠ 암호화를 사용 중입니다. 일반 백업은 <span className="font-medium">카드 제목 · 태그 · 폴더명</span>을
-              평문으로 저장합니다 — 카드 내용만 암호화된 채 남습니다.
-              제목·폴더 구조까지 감추려면 암호화 백업을 선택하세요.
+              ⚠ 암호화를 사용 중입니다. 일반 백업에서 <span className="font-medium">카드 제목</span>은
+              평문으로 저장됩니다 — 카드 내용·태그·폴더명은 암호화된 채 남습니다.
+              제목까지 감추려면 암호화 백업을 선택하세요.
             </p>
           </div>
         )}
