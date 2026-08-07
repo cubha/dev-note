@@ -3,6 +3,7 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../core/db'
+import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
 import {
   contextMenuAtom,
   renamingTargetAtom,
@@ -25,7 +26,7 @@ export function ContextMenu() {
   const selectedItems = useAtomValue(selectedItemsAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
 
-  const folders = useLiveQuery(() => db.folders.toArray(), [])
+  const folders = useDecryptedFolders()
   const items = useLiveQuery(() => db.items.toArray(), [])
 
   const closeMenu = () =>

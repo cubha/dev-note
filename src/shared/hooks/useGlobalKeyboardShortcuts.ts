@@ -14,6 +14,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { useHotkey } from '@tanstack/react-hotkeys'
 import type { RegisterableHotkey } from '@tanstack/react-hotkeys'
 import { db } from '../../core/db'
+import { createFolder } from '../../core/metaStore'
 import {
   selectedItemsAtom,
   cardFormAtom,
@@ -24,6 +25,7 @@ import {
   dirtyItemsAtom,
   effectiveKeybindingsAtom,
   commandPaletteOpenAtom,
+  encryptionKeyAtom,
 } from '../../store/atoms'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { useGuardedTabClose } from './useGuardedTabClose'
@@ -32,6 +34,7 @@ import { toast } from 'sonner'
 
 export const useGlobalKeyboardShortcuts = () => {
   const selectedItems = useAtomValue(selectedItemsAtom)
+  const encryptionKey = useAtomValue(encryptionKeyAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
   const setCardForm = useSetAtom(cardFormAtom)
   const setSearchQuery = useSetAtom(searchQueryAtom)
@@ -54,12 +57,7 @@ export const useGlobalKeyboardShortcuts = () => {
   // ── folder.new: 새 폴더 (루트) ───────────────────────────────
   useHotkey(keys['folder.new'], (e) => {
     e.preventDefault()
-    void db.folders.add({
-      parentId: null,
-      name: DEFAULT_FOLDER_NAME,
-      order: Date.now(),
-      createdAt: Date.now(),
-    })
+    void createFolder(null, DEFAULT_FOLDER_NAME, encryptionKey)
   })
 
   // ── tab.close: 현재 활성 탭 닫기 ────────────────────────────

@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../core/db'
+import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
 import {
   tabContextMenuAtom,
   openTabsAtom,
@@ -35,7 +36,7 @@ export const TabContextMenu = () => {
     () => (menu.tabId !== null ? db.items.get(menu.tabId) : undefined),
     [menu.tabId],
   )
-  const folders = useLiveQuery(() => db.folders.toArray(), [])
+  const folders = useDecryptedFolders()
 
   const closeMenu = () => setMenu((prev) => ({ ...prev, isOpen: false }))
 

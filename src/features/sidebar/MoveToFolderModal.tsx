@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Folder, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '../../core/db'
+import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
 import { moveItemsToFolder } from './treeUtils'
 import { Modal } from '../../shared/components/Modal'
 import { ModalHeader } from '../../shared/components/ModalHeader'
@@ -19,7 +20,7 @@ export const MoveToFolderModal = ({
   onClose,
   onMoved,
 }: MoveToFolderModalProps) => {
-  const folders = useLiveQuery(() => db.folders.orderBy('order').toArray(), [])
+  const folders = useDecryptedFolders()
   const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
 
   const handleMoveToFolder = async (targetFolderId: number) => {
