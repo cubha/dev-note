@@ -11,6 +11,7 @@ import { db } from '../../core/db'
 import { generateSalt, deriveKey, saltToHex, hexToSalt } from '../../core/crypto'
 import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
 import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
+import { backfillMeta, decryptAllMeta, reencryptMeta } from '../../core/metaStore'
 import { bumpAllDraftEpochs } from '../cards/draftFlushControl'
 
 type SecurityState = 'idle' | 'enabling' | 'unlocking' | 'disabling' | 'changing'
@@ -72,6 +73,8 @@ export function SecurityTab() {
           await db.items.update(item.id, { content: encrypted })
         }
       }
+      // 태그·폴더명도 같은 키로 암호화 — 여기를 빼면 content만 감춰지고 메타데이터는 평문으로 남는다
+      await backfillMeta(key)
 
       await db.config.update(1, { encryptionEnabled: true, encryptionSalt: saltHex })
       // 방금 암호화된 아이템의 평문 드래프트가 있었다면 isDraftPersistable이 false로
@@ -115,6 +118,15 @@ export function SecurityTab() {
       }
 
       setEncryptionKey(key)
+
+      // 백필은 DB 업그레이드가 아니라 여기서 돈다 — 업그레이드 시점엔 키가 없기 때문.
+      // 멱등이라 중간에 실패해도 다음 잠금 해제에서 이어지므로, 잠금 해제 자체는 성공 처리한다.
+      try {
+        await backfillMeta(key)
+      } catch {
+        // 백필 실패가 "패스프레이즈 오류"로 보고되면 안 된다 — 다음 해제 때 재시도된다
+      }
+
       flash('잠금이 해제되었습니다')
       resetForm()
     } catch {
@@ -156,6 +168,9 @@ export function SecurityTab() {
           await db.items.update(item.id, { content: plain })
         }
       }
+      // 태그·폴더명도 평문으로 되돌린다 — 빠뜨리면 암호화를 껐는데 태그·폴더명이
+      // 복호화 키 없이 영원히 읽을 수 없는 암호문으로 남는다
+      await decryptAllMeta(encryptionKey)
 
       await db.config.update(1, { encryptionEnabled: false, encryptionSalt: null })
       // 드래프트는 옛 키로 암호화되어 있었을 수 있어 비활성화 후엔 복호화 불가능한 좀비가 된다 — 일괄 정리.
@@ -212,6 +227,9 @@ export function SecurityTab() {
           await db.items.update(item.id, { content: reEncrypted })
         }
       }
+      // 태그·폴더명도 새 키로 교체 — 이 한 줄이 없으면 패스프레이즈 변경이
+      // 모든 태그·폴더명을 복구 불능으로 만든다(옛 키는 세션에서 사라진다)
+      await reencryptMeta(oldKey, newKey)
 
       await db.config.update(1, { encryptionSalt: newSaltHex })
       // 드래프트는 이전 키(oldKey)로 암호화되어 있어 새 키로는 복호화 불가능한 좀비가 된다 — 일괄 정리.
