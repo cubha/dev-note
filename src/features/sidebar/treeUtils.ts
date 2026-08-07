@@ -93,11 +93,12 @@ export async function moveItemsToFolder(
     ? Math.max(...targetFolderItems.map((i) => i.order)) + DEFAULT_ORDER_GAP
     : DEFAULT_ORDER_GAP
 
-  await db.items.bulkPut(
+  // 전체 행(...item)을 되쓰지 않는다 — 목록이 표시용 복호화본일 수 있어,
+  // 통째로 put하면 복호화된 tags/name이 평문으로 DB에 박힌다. 바꾸는 필드만 쓴다.
+  await db.items.bulkUpdate(
     itemsToMove.map((item, idx) => ({
-      ...item,
-      folderId: targetFolderId,
-      order: baseOrder + idx * DEFAULT_ORDER_GAP,
+      key: item.id,
+      changes: { folderId: targetFolderId, order: baseOrder + idx * DEFAULT_ORDER_GAP },
     })),
   )
 }
@@ -125,7 +126,7 @@ export async function reorderItems(
       const insertAt = overIdx === -1 ? targetGroup.length : overIdx
       const newGroup = [...targetGroup]
       newGroup.splice(insertAt, 0, ...itemsToMove.map((i) => ({ ...i, folderId: overItem.folderId })))
-      await db.items.bulkPut(newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+      await db.items.bulkUpdate(newGroup.map((item, idx) => ({ key: item.id, changes: { order: (idx + 1) * DEFAULT_ORDER_GAP } })))
     })
   } else if (activeItem.folderId === overItem.folderId) {
     const group = items.filter((i) => i.folderId === activeItem.folderId).sort((a, b) => a.order - b.order)
@@ -133,7 +134,7 @@ export async function reorderItems(
     const newIdx = group.findIndex((i) => i.id === overItemId)
     if (oldIdx === -1 || newIdx === -1) return
     const reordered = arrayMove(group, oldIdx, newIdx)
-    await db.items.bulkPut(reordered.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+    await db.items.bulkUpdate(reordered.map((item, idx) => ({ key: item.id, changes: { order: (idx + 1) * DEFAULT_ORDER_GAP } })))
   } else {
     await db.transaction('rw', db.items, async () => {
       const movedItem = { ...activeItem, folderId: overItem.folderId }
@@ -141,7 +142,7 @@ export async function reorderItems(
       const overIdx = targetGroup.findIndex((i) => i.id === overItemId)
       const newGroup = [...targetGroup]
       newGroup.splice(overIdx, 0, movedItem)
-      await db.items.bulkPut(newGroup.map((item, idx) => ({ ...item, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+      await db.items.bulkUpdate(newGroup.map((item, idx) => ({ key: item.id, changes: { order: (idx + 1) * DEFAULT_ORDER_GAP } })))
     })
   }
 }
@@ -162,7 +163,7 @@ export async function reorderFolders(
     const newIdx = group.findIndex((f) => f.id === overFolderId)
     if (oldIdx === -1 || newIdx === -1) return
     const reordered = arrayMove(group, oldIdx, newIdx)
-    await db.folders.bulkPut(reordered.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+    await db.folders.bulkUpdate(reordered.map((folder, idx) => ({ key: folder.id, changes: { order: (idx + 1) * DEFAULT_ORDER_GAP } })))
   } else {
     const newParentId = overFolder.parentId
     // 순환 참조 방지: activeFolder의 자손에 newParentId가 포함되면 이동 불가
@@ -178,7 +179,11 @@ export async function reorderFolders(
     const insertAt = overIdx === -1 ? targetGroup.length : overIdx
     const newGroup = [...targetGroup]
     newGroup.splice(insertAt, 0, movedFolder)
-    await db.folders.bulkPut(newGroup.map((folder, idx) => ({ ...folder, order: (idx + 1) * DEFAULT_ORDER_GAP })))
+    await db.folders.bulkUpdate(newGroup.map((folder, idx) => ({
+      key: folder.id,
+      // parentId는 이동 대상 폴더만 바뀐다. 전체 행 put이 아니라 변경 필드만 쓴다.
+      changes: { order: (idx + 1) * DEFAULT_ORDER_GAP, parentId: folder.parentId },
+    })))
   }
 }
 

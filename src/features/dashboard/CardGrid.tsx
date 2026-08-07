@@ -220,9 +220,11 @@ export const CardGrid = () => {
     const [moved] = allItems.splice(fromIndex, 1)
     allItems.splice(toIndex, 0, moved)
 
-    const updates = allItems.map((it, index) => ({ ...it, order: index }))
+    // items는 표시용으로 tags가 복호화된 사본이다 — 전체 행을 bulkPut하면
+    // 화면에 보이던 모든 카드의 태그가 평문으로 DB에 덮어써진다. order만 쓴다.
+    const updates = allItems.map((it, index) => ({ key: it.id, changes: { order: index } }))
     try {
-      await db.items.bulkPut(updates)
+      await db.items.bulkUpdate(updates)
     } catch (err) {
       toast.error(`순서 변경 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
     }

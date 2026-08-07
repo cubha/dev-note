@@ -62,8 +62,15 @@ export async function changeSyncPassphrase(oldPass: string, newPass: string): Pr
 /** 1회 동기화 실행. 연결/잠금 해제 상태여야 한다. */
 export async function syncNow(now: number, atRestKey: CryptoKey | null = null): Promise<SyncResult> {
   if (!dek) throw new Error('동기화 잠금이 해제되지 않았습니다 — 패스프레이즈로 연결해 주세요')
-  // at-rest 키를 넘기지 않으면 태그·폴더명이 암호문 그대로 페이로드에 실려 상대 기기가 못 읽는다
-  return runSync(getProvider(), dek, (await ensureConfig()).deviceId, now, atRestKey)
+  const cfg = await ensureConfig()
+  // 동기화 잠금(DEK)과 at-rest 잠금은 패스프레이즈도 UI 탭도 다르다 — Sync만 풀고 Security는
+  // 잠긴 상태가 정상적으로 발생한다. 그대로 진행하면 push는 태그를 빈 배열·폴더명을
+  // "잠긴 폴더" 라벨로 원격에 덮어쓰고, pull은 평문을 암호화 DB에 써서 at-rest를 우회한다.
+  // draftCommit이 같은 상태를 거부하는 것과 동일한 규율이다.
+  if (cfg.encryptionEnabled && !atRestKey) {
+    throw new Error('암호화가 잠긴 상태입니다. 설정 → 보안에서 잠금을 해제한 뒤 동기화해 주세요.')
+  }
+  return runSync(getProvider(), dek, cfg.deviceId, now, atRestKey)
 }
 
 export async function disconnect(): Promise<void> {

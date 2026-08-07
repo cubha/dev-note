@@ -26,6 +26,8 @@ export const SyncTab = () => {
   const [lastAt, setLastAt] = useAtom(syncLastAtAtom)
   // at-rest 키를 넘겨야 태그·폴더명이 평문 페이로드로 나가고 pull 시 로컬 키로 재암호화된다
   const encryptionKey = useAtomValue(encryptionKeyAtom)
+  // at-rest 암호화가 켜져 있는데 잠겨 있으면 동기화를 막는다(syncNow도 같은 조건으로 거부)
+  const atRestLocked = (config?.encryptionEnabled ?? false) && encryptionKey === null
 
   const [passphrase, setPassphrase] = useState('')
   const [mode, setMode] = useState<'setup' | 'unlock' | null>(null)
@@ -155,11 +157,17 @@ export const SyncTab = () => {
               <span className="inline-block size-2 rounded-full bg-green-500" />
               Google Drive 연결됨{!unlocked && ' (이 세션에서 잠금 해제 필요)'}
             </div>
+            {atRestLocked && (
+              <p className="mb-2 text-xs text-[var(--text-secondary)]">
+                🔒 암호화가 잠겨 있어 동기화할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.
+                잠긴 채로 올리면 태그·폴더명이 빈 값으로 원격에 덮어써집니다.
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => void handleSyncNow()}
-                disabled={status === 'syncing' || !unlocked}
+                disabled={status === 'syncing' || !unlocked || atRestLocked}
                 className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
               >
                 {status === 'syncing' ? '동기화 중…' : '지금 동기화'}

@@ -12,6 +12,7 @@ import { db } from '../../core/db'
 import type { Folder, Item } from '../../core/db'
 import { isValidExportSchema, convertLegacyItem } from './schema'
 import { isEncryptedBackup, unwrapEnvelope } from './envelope'
+import { encryptTags, encryptFolderName } from '../../core/metaCrypto'
 
 // ─── 파일 읽기 (FSAA + input 폴백) ────────────────────────────
 
@@ -149,6 +150,8 @@ export interface ImportResult {
 export async function importData(
   rawText: string,
   mode: 'append' | 'replace' = 'append',
+  /** at-rest 암호화 키(잠금 해제 시). 가져온 태그·폴더명을 이 기기 규칙에 맞춰 암호화한다. */
+  atRestKey: CryptoKey | null = null,
 ): Promise<ImportResult> {
   let parsed: unknown
   try {
@@ -167,13 +170,18 @@ export async function importData(
   // ── 폴더·항목 삽입 헬퍼 (Append / Replace 공용) ──────────────
   const insertFoldersAndItems = async () => {
     // Pass 1: 모든 폴더를 parentId=null로 추가 → 새 ID 배열 획득
-    const foldersToInsert: Omit<Folder, 'id'>[] = parsed.folders.map(
-      (f: Folder): Omit<Folder, 'id'> => ({
-        parentId: null,
-        name: f.name,
-        order: f.order,
-        createdAt: f.createdAt,
-      }),
+    // 백업 파일의 태그·폴더명은 이 기기의 암호화 상태를 모른다 — 평문 백업을 암호화된
+    // 기기로 가져오면 평문이 그대로 박힌다. encryptFolderName/encryptTags는 멱등이라
+    // 이미 암호문인 값(암호화 기기끼리의 백업)은 그대로 통과한다.
+    const foldersToInsert: Omit<Folder, 'id'>[] = await Promise.all(
+      parsed.folders.map(
+        async (f: Folder): Promise<Omit<Folder, 'id'>> => ({
+          parentId: null,
+          name: atRestKey ? await encryptFolderName(f.name, atRestKey) : f.name,
+          order: f.order,
+          createdAt: f.createdAt,
+        }),
+      ),
     )
 
     const newFolderIds = (await db.folders.bulkAdd(
@@ -201,16 +209,19 @@ export async function importData(
     }
 
     // 항목 folderId 리매핑 후 일괄 추가 (v1 → v2 변환 포함)
-    const itemsToInsert: Omit<Item, 'id'>[] = parsed.items.map(
-      (rawItem: Record<string, unknown>): Omit<Item, 'id'> => {
-        const converted = convertLegacyItem(rawItem)
-        return {
-          ...converted,
-          folderId: converted.folderId !== null
-            ? (folderIdMap.get(converted.folderId) ?? null)
-            : null,
-        }
-      },
+    const itemsToInsert: Omit<Item, 'id'>[] = await Promise.all(
+      parsed.items.map(
+        async (rawItem: Record<string, unknown>): Promise<Omit<Item, 'id'>> => {
+          const converted = convertLegacyItem(rawItem)
+          return {
+            ...converted,
+            tags: atRestKey ? await encryptTags(converted.tags, atRestKey) : converted.tags,
+            folderId: converted.folderId !== null
+              ? (folderIdMap.get(converted.folderId) ?? null)
+              : null,
+          }
+        },
+      ),
     )
 
     await db.items.bulkAdd(itemsToInsert)
