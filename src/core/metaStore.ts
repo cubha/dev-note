@@ -9,7 +9,10 @@
 // 평문으로 남아 있던 값까지 흡수한다 — 안 그러면 백필 누락분이 영구히 평문으로 남는다.
 
 import { db } from './db'
-import { encryptTags, decryptTags, encryptFolderName, decryptFolderName } from './metaCrypto'
+import {
+  encryptTags, encryptFolderName,
+  decryptTagsStrict, decryptFolderNameStrict,
+} from './metaCrypto'
 import { isEncryptedContent } from './content'
 
 /** 평문으로 남은 태그·폴더명을 암호화한다(멱등). 잠금 해제·암호화 활성 시 호출. */
@@ -29,41 +32,69 @@ export async function backfillMeta(key: CryptoKey): Promise<void> {
   }
 }
 
-/** 암호화된 태그·폴더명을 평문으로 되돌린다(멱등). 암호화 비활성화 시 호출. */
+/**
+ * 암호화된 태그·폴더명을 평문으로 되돌린다(멱등). 암호화 비활성화 시 호출.
+ *
+ * strict 복호화 + compute-then-write로 동작한다: 모든 아이템·폴더의 복호화를
+ * 메모리에서 **먼저 전부** 끝낸 뒤에야 DB에 쓴다. 순서를 바꿔 "복호화되는 대로 즉시
+ * 쓰기"를 했다면, 아이템은 성공하고 폴더에서 실패하는 경우 아이템만 평문화되고
+ * 폴더는 암호문으로 남는 반쪽 상태가 생긴다 — 실패 시 아예 아무것도 쓰지 않아야
+ * 그 상태 자체가 불가능해진다.
+ */
 export async function decryptAllMeta(key: CryptoKey): Promise<void> {
   const items = await db.items.toArray()
+  const itemUpdates: { id: number; tags: string[] }[] = []
   for (const item of items) {
     if (item.tags.some((t) => isEncryptedContent(t))) {
-      await db.items.update(item.id, { tags: await decryptTags(item.tags, key) })
+      itemUpdates.push({ id: item.id, tags: await decryptTagsStrict(item.tags, key) })
     }
   }
 
   const folders = await db.folders.toArray()
+  const folderUpdates: { id: number; name: string }[] = []
   for (const folder of folders) {
     if (isEncryptedContent(folder.name)) {
-      await db.folders.update(folder.id, { name: await decryptFolderName(folder.name, key) })
+      folderUpdates.push({ id: folder.id, name: await decryptFolderNameStrict(folder.name, key) })
     }
   }
+
+  await db.transaction('rw', db.items, db.folders, async () => {
+    for (const u of itemUpdates) await db.items.update(u.id, { tags: u.tags })
+    for (const u of folderUpdates) await db.folders.update(u.id, { name: u.name })
+  })
 }
 
 /**
  * 옛 키 암호문을 새 키 암호문으로 교체한다. 패스프레이즈 변경 시 호출.
  * content만 재암호화하고 여기를 빠뜨리면 태그·폴더명이 영구히 복구 불능이 된다.
+ *
+ * strict 복호화 + compute-then-write(decryptAllMeta와 같은 이유)로 동작한다.
+ * oldKey가 틀리면(카나리를 통과 못 한 경우까지 포함한 방어선) 계산 단계에서
+ * 던져 DB에 아무것도 쓰지 않는다 — 아이템은 새 키로 넘어갔는데 폴더는 옛 키로
+ * 남는 "키가 갈라진" 상태를 원천적으로 막는다. 평문으로 남아 있던 값은 strict에서도
+ * 그대로 통과하므로 백필 누락분 흡수는 그대로 동작한다.
  */
 export async function reencryptMeta(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
   const items = await db.items.toArray()
+  const itemUpdates: { id: number; tags: string[] }[] = []
   for (const item of items) {
     if (item.tags.length === 0) continue
-    const plain = await decryptTags(item.tags, oldKey)
-    await db.items.update(item.id, { tags: await encryptTags(plain, newKey) })
+    const plain = await decryptTagsStrict(item.tags, oldKey)
+    itemUpdates.push({ id: item.id, tags: await encryptTags(plain, newKey) })
   }
 
   const folders = await db.folders.toArray()
+  const folderUpdates: { id: number; name: string }[] = []
   for (const folder of folders) {
     if (folder.name === '') continue
-    const plain = await decryptFolderName(folder.name, oldKey)
-    await db.folders.update(folder.id, { name: await encryptFolderName(plain, newKey) })
+    const plain = await decryptFolderNameStrict(folder.name, oldKey)
+    folderUpdates.push({ id: folder.id, name: await encryptFolderName(plain, newKey) })
   }
+
+  await db.transaction('rw', db.items, db.folders, async () => {
+    for (const u of itemUpdates) await db.items.update(u.id, { tags: u.tags })
+    for (const u of folderUpdates) await db.folders.update(u.id, { name: u.name })
+  })
 }
 
 /**
