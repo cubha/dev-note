@@ -61,3 +61,19 @@ export async function encryptFolderName(name: string, key: CryptoKey): Promise<s
 export async function decryptFolderName(name: string, key: CryptoKey | null): Promise<string> {
   return (await decryptValue(name, key)) ?? LOCKED_FOLDER_LABEL
 }
+
+// ── strict 변형 — 쓰기 경로(reencryptMeta/decryptAllMeta) 전용 ─────────────
+// 위 decryptTags/decryptFolderName은 표시용이라 실패를 fallback(제외/잠금라벨)으로
+// 흡수한다. 그 fallback 값이 그대로 DB에 되쓰이면(예: 틀린 패스프레이즈로 키 재암호화)
+// 원본이 fallback 값으로 영구 대체된다. 쓰기 경로는 절대 fallback하지 않고 던진다 —
+// 실패한 항목의 update 호출 자체가 실행되지 않아야 원본이 보존된다.
+
+/** 태그 배열을 복호화한다. 하나라도 실패하면 즉시 throw(원소 제외 없음). */
+export async function decryptTagsStrict(tags: string[], key: CryptoKey): Promise<string[]> {
+  return Promise.all(tags.map((t) => (isEncryptedContent(t) ? decryptContent(t, key) : t)))
+}
+
+/** 폴더명을 복호화한다. 실패하면 즉시 throw(잠금 라벨 대체 없음). */
+export async function decryptFolderNameStrict(name: string, key: CryptoKey): Promise<string> {
+  return isEncryptedContent(name) ? decryptContent(name, key) : name
+}

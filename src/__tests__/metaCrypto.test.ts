@@ -122,6 +122,19 @@ describe('decryptTagsStrict / decryptFolderNameStrict — 쓰기 경로 전용, 
     expect(await decryptTagsStrict(['staging'], key)).toEqual(['staging'])
   })
 
+  it('decryptTagsStrict: 평문+암호문 혼재 배열도 각각 처리한다', async () => {
+    const [encProd] = await encryptTags(['prod'], key)
+    expect(await decryptTagsStrict([encProd, 'staging'], key)).toEqual(['prod', 'staging'])
+  })
+
+  it('decryptTagsStrict: 빈 배열은 그대로 빈 배열', async () => {
+    expect(await decryptTagsStrict([], key)).toEqual([])
+  })
+
+  it('decryptFolderNameStrict: 빈 문자열은 그대로 통과한다', async () => {
+    expect(await decryptFolderNameStrict('', key)).toBe('')
+  })
+
   it('decryptFolderNameStrict: 틀린 키로 복호화하면 예외를 던진다(잠금 라벨로 대체하지 않음)', async () => {
     const enc = await encryptFolderName('프로덕션', key)
     await expect(decryptFolderNameStrict(enc, otherKey)).rejects.toThrow()
