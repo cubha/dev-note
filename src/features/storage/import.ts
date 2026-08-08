@@ -167,22 +167,31 @@ export async function importData(
     throw new Error('파일 형식이 dev-note 백업 형식과 다릅니다')
   }
 
-  // ── 폴더·항목 삽입 헬퍼 (Append / Replace 공용) ──────────────
+  // ── 암호화 선계산 (트랜잭션 밖) ──────────────────────────────
+  // Dexie 트랜잭션은 non-Dexie 프라미스(WebCrypto 등)를 await하는 순간 조기 커밋된다
+  // (PSD 존 이탈). 그 상태에서 이후 Dexie 호출은 거부되거나(TransactionInactiveError),
+  // replace 모드라면 트랜잭션 안에서 이미 실행된 clear()만 durable하게 남아 기존
+  // 데이터가 전소실될 수 있다. 그래서 암호화는 전부 트랜잭션을 열기 전에 메모리에서
+  // 끝낸다 — 백업 파일의 태그·폴더명은 이 기기의 암호화 상태를 모른다: 평문 백업을
+  // 암호화된 기기로 가져오면 평문이 그대로 박힌다. encryptFolderName/encryptTags는
+  // 멱등이라 이미 암호문인 값(암호화 기기끼리의 백업)은 그대로 통과한다.
+  const encryptedFolderNames = await Promise.all(
+    parsed.folders.map((f: Folder) => (atRestKey ? encryptFolderName(f.name, atRestKey) : Promise.resolve(f.name))),
+  )
+  const convertedItems = parsed.items.map((rawItem: Record<string, unknown>) => convertLegacyItem(rawItem))
+  const encryptedItemTags = await Promise.all(
+    convertedItems.map((c) => (atRestKey ? encryptTags(c.tags, atRestKey) : Promise.resolve(c.tags))),
+  )
+
+  // ── 폴더·항목 삽입 헬퍼 (Append / Replace 공용) — 트랜잭션 안은 Dexie 호출뿐 ──
   const insertFoldersAndItems = async () => {
     // Pass 1: 모든 폴더를 parentId=null로 추가 → 새 ID 배열 획득
-    // 백업 파일의 태그·폴더명은 이 기기의 암호화 상태를 모른다 — 평문 백업을 암호화된
-    // 기기로 가져오면 평문이 그대로 박힌다. encryptFolderName/encryptTags는 멱등이라
-    // 이미 암호문인 값(암호화 기기끼리의 백업)은 그대로 통과한다.
-    const foldersToInsert: Omit<Folder, 'id'>[] = await Promise.all(
-      parsed.folders.map(
-        async (f: Folder): Promise<Omit<Folder, 'id'>> => ({
-          parentId: null,
-          name: atRestKey ? await encryptFolderName(f.name, atRestKey) : f.name,
-          order: f.order,
-          createdAt: f.createdAt,
-        }),
-      ),
-    )
+    const foldersToInsert: Omit<Folder, 'id'>[] = parsed.folders.map((f: Folder, i: number) => ({
+      parentId: null,
+      name: encryptedFolderNames[i],
+      order: f.order,
+      createdAt: f.createdAt,
+    }))
 
     const newFolderIds = (await db.folders.bulkAdd(
       foldersToInsert,
@@ -208,21 +217,14 @@ export async function importData(
       }
     }
 
-    // 항목 folderId 리매핑 후 일괄 추가 (v1 → v2 변환 포함)
-    const itemsToInsert: Omit<Item, 'id'>[] = await Promise.all(
-      parsed.items.map(
-        async (rawItem: Record<string, unknown>): Promise<Omit<Item, 'id'>> => {
-          const converted = convertLegacyItem(rawItem)
-          return {
-            ...converted,
-            tags: atRestKey ? await encryptTags(converted.tags, atRestKey) : converted.tags,
-            folderId: converted.folderId !== null
-              ? (folderIdMap.get(converted.folderId) ?? null)
-              : null,
-          }
-        },
-      ),
-    )
+    // 항목 folderId 리매핑 후 일괄 추가 (v1 → v2 변환 포함, 태그는 선계산된 값 사용)
+    const itemsToInsert: Omit<Item, 'id'>[] = convertedItems.map((converted, i) => ({
+      ...converted,
+      tags: encryptedItemTags[i],
+      folderId: converted.folderId !== null
+        ? (folderIdMap.get(converted.folderId) ?? null)
+        : null,
+    }))
 
     await db.items.bulkAdd(itemsToInsert)
   }
