@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import {
   encryptTags, decryptTags, encryptFolderName, decryptFolderName, LOCKED_FOLDER_LABEL,
-  decryptTagsStrict, decryptFolderNameStrict,
+  decryptTagsStrict, decryptFolderNameStrict, decryptTagsForDisplay, LOCKED_TAG_LABEL,
 } from '../core/metaCrypto'
 import { isEncryptedContent } from '../core/content'
 import { deriveKey, generateSalt } from '../core/crypto'
@@ -147,5 +147,31 @@ describe('decryptTagsStrict / decryptFolderNameStrict — 쓰기 경로 전용, 
 
   it('decryptFolderNameStrict: 평문 폴더명은 키 무관 그대로 통과한다', async () => {
     expect(await decryptFolderNameStrict('일반폴더', key)).toBe('일반폴더')
+  })
+})
+
+describe('decryptTagsForDisplay — 표시 전용, 조용히 사라지지 않고 잠금 라벨로 존재를 알림', () => {
+  it('전부 복호화 가능하면 라벨 없이 원래 값만 돌려준다', async () => {
+    const enc = await encryptTags(['prod', 'db'], key)
+    expect(await decryptTagsForDisplay(enc, key)).toEqual(['prod', 'db'])
+  })
+
+  it('키가 없으면 원소를 조용히 지우지 않고 잠금 라벨을 덧붙인다', async () => {
+    const enc = await encryptTags(['prod', 'db'], key)
+    expect(await decryptTagsForDisplay(enc, null)).toEqual([LOCKED_TAG_LABEL])
+  })
+
+  it('틀린 키(다른 기기에서 온 백업 등)면 잠금 라벨을 덧붙인다', async () => {
+    const enc = await encryptTags(['prod'], key)
+    expect(await decryptTagsForDisplay(enc, otherKey)).toEqual([LOCKED_TAG_LABEL])
+  })
+
+  it('일부만 복호화 가능한 혼재 상태면 보이는 태그 뒤에 라벨을 한 번만 덧붙인다', async () => {
+    const mixed = ['평문태그', ...(await encryptTags(['암호화태그'], key))]
+    expect(await decryptTagsForDisplay(mixed, null)).toEqual(['평문태그', LOCKED_TAG_LABEL])
+  })
+
+  it('빈 배열은 그대로 빈 배열이다', async () => {
+    expect(await decryptTagsForDisplay([], null)).toEqual([])
   })
 })
