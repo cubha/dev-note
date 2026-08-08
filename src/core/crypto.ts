@@ -93,3 +93,21 @@ export function hexToSalt(hex: string): Uint8Array {
   }
   return arr
 }
+
+// ─── 패스프레이즈 검증용 카나리 ─────────────────────────────
+// 암호화된 item.content가 하나도 없으면(태그·폴더명만 암호화된 상태) 기존 검증이
+// 통째로 스킵되어 틀린 패스프레이즈도 통과했다. 활성화 시점에 고정 평문을 암호화해
+// 별도로 저장해 두고, 이후 검증은 content 유무와 무관하게 이 카나리로 한다.
+const CANARY_PLAINTEXT = 'devnote-encryption-check-v1'
+
+export async function makeCanary(key: CryptoKey): Promise<string> {
+  return encrypt(CANARY_PLAINTEXT, key)
+}
+
+export async function verifyCanary(canary: string, key: CryptoKey): Promise<boolean> {
+  try {
+    return (await decrypt(canary, key)) === CANARY_PLAINTEXT
+  } catch {
+    return false
+  }
+}

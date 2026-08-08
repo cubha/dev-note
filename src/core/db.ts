@@ -69,6 +69,11 @@ export interface AppConfig {
   // 아니라 키가 그대로 노출됐다(CLAUDE.md "API 키를 클라이언트에 저장 금지" 위반).
   encryptionEnabled: boolean    // at-rest 암호화 활성화 여부
   encryptionSalt: string | null // PBKDF2 salt hex 문자열
+  // 고정 평문을 암호화해 둔 카나리 — 잠금 해제·패스프레이즈 검증 시 이걸로 우선 확인한다.
+  // v19까지는 "첫 번째 암호화된 item.content"로만 검증했는데, 태그·폴더명만 암호화되고
+  // content는 하나도 암호화 안 된 상태에서는 그 검증이 통째로 스킵되어 틀린 패스프레이즈도
+  // 통과했다(reencryptMeta/decryptAllMeta에 그대로 흘러가 원본을 덮어쓰는 사고로 이어짐).
+  encryptionCheck: string | null
   // ── 동기화 설정 (Phase 2 BYO-storage) — 기본 로컬, 옵트인 ──
   syncEnabled: boolean              // 동기화 활성화 여부
   syncProvider: 'google-drive' | null // 선택된 스토리지 프로바이더
@@ -331,6 +336,20 @@ class DevNoteDB extends Dexie {
       config:    'id',
       drafts:    'itemId',
     })
+    // v20: 패스프레이즈 검증용 카나리 필드 추가(순수 추가, 인덱스 변경 없음).
+    // 기존 행에는 필드가 없으므로 명시적으로 null을 채운다 — 다음 잠금 해제 성공 시
+    // SecurityTab이 소급 기록한다.
+    this.version(20).stores({
+      folders:   '++id, parentId, order',
+      items:     '++id, &uuid, folderId, title, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
+    }).upgrade(async (tx) => {
+      await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
+        c.encryptionCheck = null
+      })
+    })
   }
 }
 
@@ -352,6 +371,7 @@ export async function ensureConfig(): Promise<AppConfig> {
     selectedProvider: 'anthropic',
     encryptionEnabled: false,
     encryptionSalt: null,
+    encryptionCheck: null,
     syncEnabled: false,
     syncProvider: null,
     deviceId: nanoid(12),
