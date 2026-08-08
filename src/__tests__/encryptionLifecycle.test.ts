@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { db, ensureConfig } from '../core/db'
-import { changePassphraseAtomic, disableEncryptionAtomic } from '../features/settings/encryptionLifecycle'
+import { enableEncryptionAtomic, changePassphraseAtomic, disableEncryptionAtomic } from '../features/settings/encryptionLifecycle'
 import { encryptContent, decryptContent, isEncryptedContent } from '../core/content'
 import { encryptTags, encryptFolderName, decryptTags } from '../core/metaCrypto'
 import { deriveKey, generateSalt, makeCanary } from '../core/crypto'
@@ -38,6 +38,53 @@ async function seedMixedKeyMeta(): Promise<{ itemId: number; folderId: number }>
   } as Omit<Item, 'id'>)) as number
   return { itemId, folderId }
 }
+
+describe('enableEncryptionAtomic', () => {
+  beforeEach(async () => {
+    await db.items.clear()
+    await db.folders.clear()
+    await db.config.clear()
+    await ensureConfig()
+  })
+
+  it('content·태그·폴더명·config가 모두 일관되게 암호화/기록된다', async () => {
+    const folderId = (await db.folders.add({
+      parentId: null, name: '사내 인프라', order: 0, createdAt: 100,
+    } as Omit<Folder, 'id'>)) as number
+    const itemId = (await db.items.add({
+      folderId, title: '운영 DB', type: 'db', tags: ['prod'],
+      content: '{"format":"legacy","text":"x"}',
+      order: 0, pinned: false, updatedAt: 100, createdAt: 100,
+    } as Omit<Item, 'id'>)) as number
+    const canary = await makeCanary(oldKey)
+
+    await enableEncryptionAtomic(oldKey, 'salt-hex', canary)
+
+    const item = await db.items.get(itemId)
+    const folder = await db.folders.get(folderId)
+    expect(isEncryptedContent(item?.content ?? '')).toBe(true)
+    expect(await decryptContent(item?.content ?? '', oldKey)).toBe('{"format":"legacy","text":"x"}')
+    expect(await decryptTags(item?.tags ?? [], oldKey)).toEqual(['prod'])
+    expect(isEncryptedContent(folder?.name ?? '')).toBe(true)
+    const config = await db.config.get(1)
+    expect(config?.encryptionEnabled).toBe(true)
+    expect(config?.encryptionSalt).toBe('salt-hex')
+    expect(config?.encryptionCheck).toBe(canary)
+  })
+
+  it('이미 암호화된 content는 다시 암호화하지 않는다(멱등)', async () => {
+    const encrypted = await encryptContent('{"format":"legacy","text":"x"}', oldKey)
+    const itemId = (await db.items.add({
+      folderId: null, title: 't', type: 'note', tags: [],
+      content: encrypted,
+      order: 0, pinned: false, updatedAt: 100, createdAt: 100,
+    } as Omit<Item, 'id'>)) as number
+
+    await enableEncryptionAtomic(oldKey, 'salt-hex', await makeCanary(oldKey))
+
+    expect((await db.items.get(itemId))?.content).toBe(encrypted)
+  })
+})
 
 describe('changePassphraseAtomic', () => {
   beforeEach(async () => {

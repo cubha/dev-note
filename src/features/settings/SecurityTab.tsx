@@ -9,11 +9,11 @@ import { useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { db } from '../../core/db'
 import { generateSalt, deriveKey, saltToHex, hexToSalt, makeCanary } from '../../core/crypto'
-import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
 import { encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
-import { backfillMeta, decryptAllMeta, reencryptMeta } from '../../core/metaStore'
+import { backfillMeta } from '../../core/metaStore'
 import { bumpAllDraftEpochs } from '../cards/draftFlushControl'
 import { verifyPassphrase } from './passphraseVerify'
+import { enableEncryptionAtomic, changePassphraseAtomic, disableEncryptionAtomic } from './encryptionLifecycle'
 
 type SecurityState = 'idle' | 'enabling' | 'unlocking' | 'disabling' | 'changing'
 
@@ -66,21 +66,9 @@ export function SecurityTab() {
       const key = await deriveKey(passphrase, salt)
       const saltHex = saltToHex(salt)
 
-      // 기존 모든 아이템 content 암호화
-      const items = await db.items.toArray()
-      for (const item of items) {
-        if (!isEncryptedContent(item.content)) {
-          const encrypted = await encryptContent(item.content, key)
-          await db.items.update(item.id, { content: encrypted })
-        }
-      }
-      // 태그·폴더명도 같은 키로 암호화 — 여기를 빼면 content만 감춰지고 메타데이터는 평문으로 남는다
-      await backfillMeta(key)
-
-      // 카나리를 활성화 시점에 항상 기록 — 이후 암호화 대상(content/태그/폴더명)이
-      // 뭐가 됐든 검증이 스킵되는 경우가 없어진다.
+      // content·태그·폴더명 암호화 + config(카나리 포함) 기록을 원자적으로 수행한다.
       const canary = await makeCanary(key)
-      await db.config.update(1, { encryptionEnabled: true, encryptionSalt: saltHex, encryptionCheck: canary })
+      await enableEncryptionAtomic(key, saltHex, canary)
       // 방금 암호화된 아이템의 평문 드래프트가 있었다면 isDraftPersistable이 false로
       // 바뀌어 앞으로 절대 로드되지도 정리되지도 않는 좀비가 된다 — 활성화 시점에 일괄 정리.
       // bumpAllDraftEpochs는 in-flight 중이던 flush(예: 방금까지 평문으로 encrypt 없이 진행되던
@@ -170,19 +158,11 @@ export function SecurityTab() {
         return
       }
 
-      // 모든 암호화 항목 복호화
-      const items = await db.items.toArray()
-      for (const item of items) {
-        if (isEncryptedContent(item.content)) {
-          const plain = await decryptContent(item.content, encryptionKey)
-          await db.items.update(item.id, { content: plain })
-        }
-      }
-      // 태그·폴더명도 평문으로 되돌린다 — 빠뜨리면 암호화를 껐는데 태그·폴더명이
-      // 복호화 키 없이 영원히 읽을 수 없는 암호문으로 남는다
-      await decryptAllMeta(encryptionKey)
-
-      await db.config.update(1, { encryptionEnabled: false, encryptionSalt: null, encryptionCheck: null })
+      // content 평문화 + 태그·폴더명 평문화 + config 갱신을 원자적으로 수행한다.
+      // 메타 복호화가 실패하면(예: 태그·폴더명이 서로 다른 키로 섞인 상태) content도
+      // 평문으로 넘어가지 않고 config도 그대로 남는다 — content만 평문으로 새고
+      // UI는 여전히 "활성화"를 표시하는 반쪽 상태를 막는다.
+      await disableEncryptionAtomic(encryptionKey)
       // 드래프트는 옛 키로 암호화되어 있었을 수 있어 비활성화 후엔 복호화 불가능한 좀비가 된다 — 일괄 정리.
       // bumpAllDraftEpochs로 in-flight 암호화 flush가 clear() 이후 도착해 좀비를 되살리는 것도 막는다.
       await db.drafts.clear()
@@ -228,22 +208,12 @@ export function SecurityTab() {
       const newKey = await deriveKey(newPass, newSalt)
       const newSaltHex = saltToHex(newSalt)
 
-      // 기존 암호화 → 복호화 → 새 키로 재암호화
-      const items = await db.items.toArray()
-      for (const item of items) {
-        if (isEncryptedContent(item.content)) {
-          const plain = await decryptContent(item.content, oldKey)
-          const reEncrypted = await encryptContent(plain, newKey)
-          await db.items.update(item.id, { content: reEncrypted })
-        }
-      }
-      // 태그·폴더명도 새 키로 교체 — 이 한 줄이 없으면 패스프레이즈 변경이
-      // 모든 태그·폴더명을 복구 불능으로 만든다(옛 키는 세션에서 사라진다)
-      await reencryptMeta(oldKey, newKey)
-
-      // 카나리도 새 키로 갱신 — 옛 카나리가 남으면 다음 검증이 새 키를 거부한다
+      // 태그·폴더명 재암호화(먼저, 자체 원자적) → content 재암호화+config 갱신(한
+      // 트랜잭션)을 원자적으로 수행한다. 메타가 실패하면 content도 새 키로 넘어가지
+      // 않고 config도 그대로 남는다 — 순서를 반대로 하면(예전 코드) 메타 실패 시
+      // 이미 newKey로 재암호화된 content가 새 salt 없이 남아 영구 복구 불능이 된다.
       const newCanary = await makeCanary(newKey)
-      await db.config.update(1, { encryptionSalt: newSaltHex, encryptionCheck: newCanary })
+      await changePassphraseAtomic(oldKey, newKey, newSaltHex, newCanary)
       // 드래프트는 이전 키(oldKey)로 암호화되어 있어 새 키로는 복호화 불가능한 좀비가 된다 — 일괄 정리.
       // bumpAllDraftEpochs로 in-flight 암호화 flush가 clear() 이후 도착해 좀비를 되살리는 것도 막는다.
       await db.drafts.clear()
