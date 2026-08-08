@@ -7,7 +7,7 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { CardContent as CardContentType } from '../../core/types'
 import { parseContent, extractSearchText } from '../../core/content'
-import { encryptTags, decryptTags } from '../../core/metaCrypto'
+import { encryptTags, decryptTagsForDisplay, LOCKED_TAG_LABEL } from '../../core/metaCrypto'
 import {
   encryptionKeyAtom,
   appConfigAtom,
@@ -51,10 +51,11 @@ export const CardGrid = () => {
 
   // 태그는 암호화되어 저장되므로 데이터 소스에서 한 번에 복호화한다 — 필터·Fuse 인덱스·
   // InfoCard 칩이 전부 이 배열을 쓰므로, 여기만 바꾸면 하위 코드는 그대로 평문으로 동작한다.
-  // 잠금 상태에서는 decryptTags가 빈 배열을 돌려주어 암호문이 화면에 새지 않는다.
+  // decryptTagsForDisplay는 표시 전용 — 복호화 불가한 원소가 있으면 조용히 지우지 않고
+  // LOCKED_TAG_LABEL을 덧붙인다(다른 기기의 평문 백업을 키 없는 기기로 가져온 경우 등).
   const items = useLiveQuery(async () => {
     const rows = await db.items.orderBy('order').toArray()
-    return Promise.all(rows.map(async (item) => ({ ...item, tags: await decryptTags(item.tags, encryptionKey) })))
+    return Promise.all(rows.map(async (item) => ({ ...item, tags: await decryptTagsForDisplay(item.tags, encryptionKey) })))
   }, [encryptionKey])
 
   // 파싱 (동기 — 암호화 제거로 즉시 처리)
@@ -149,15 +150,20 @@ export const CardGrid = () => {
 
   const handleDuplicate = async (item: Item) => {
     try {
+      // item.tags는 표시용으로 복호화된 값이다 — 그대로 저장하면 content만 암호문인
+      // 반쪽짜리 카드가 된다. 저장 직전에 다시 암호화한다. LOCKED_TAG_LABEL은 실제
+      // 태그가 아니라 "복호화 못한 원소가 있었다"는 표시일 뿐이므로, 복제본에 실데이터로
+      // 영구 저장되지 않도록 제외한다(원본 암호문은 어차피 복제할 수 없으므로 유실은
+      // 이미 확정된 상태 — 라벨을 지우지 않으면 그 사실이 가짜 태그로 둔갑한다).
+      const visibleTags = item.tags.filter((t) => t !== LOCKED_TAG_LABEL)
+      const duplicateTags = encryptionEnabled && encryptionKey
+        ? await encryptTags([...visibleTags], encryptionKey)
+        : [...visibleTags]
       const duplicate: Omit<Item, 'id'> = {
         folderId: item.folderId,
         title: `${item.title} (복사본)`,
         type: item.type,
-        // item.tags는 위에서 복호화된 값이다 — 그대로 저장하면 content만 암호문인
-        // 반쪽짜리 카드가 된다. 저장 직전에 다시 암호화한다.
-        tags: encryptionEnabled && encryptionKey
-          ? await encryptTags([...item.tags], encryptionKey)
-          : [...item.tags],
+        tags: duplicateTags,
         order: Date.now(),
         pinned: false,
         content: item.content,
