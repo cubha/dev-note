@@ -8,10 +8,12 @@ import type { Item, Folder } from '../core/db'
 
 let key: CryptoKey
 let newKey: CryptoKey
+let wrongKey: CryptoKey
 
 beforeAll(async () => {
   key = await deriveKey('passphrase', generateSalt())
   newKey = await deriveKey('new-passphrase', generateSalt())
+  wrongKey = await deriveKey('WRONG-passphrase', generateSalt())
 })
 
 const PLAIN_CONTENT = '{"format":"structured","fields":[]}'
@@ -104,6 +106,20 @@ describe('decryptAllMeta', () => {
     expect((await db.items.get(itemId))?.tags).toEqual(['prod', 'db'])
     expect((await db.folders.get(folderId))?.name).toBe('사내 인프라')
   })
+
+  it('틀린 키로 호출하면 예외를 던지고 암호문 원본을 그대로 보존한다(데이터 파괴 방지)', async () => {
+    const { itemId, folderId } = await seed()
+    await backfillMeta(key)
+    const beforeTags = (await db.items.get(itemId))?.tags
+    const beforeName = (await db.folders.get(folderId))?.name
+
+    await expect(decryptAllMeta(wrongKey)).rejects.toThrow()
+
+    expect((await db.items.get(itemId))?.tags).toEqual(beforeTags)
+    expect((await db.folders.get(folderId))?.name).toEqual(beforeName)
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+    expect(await decryptFolderName((await db.folders.get(folderId))?.name ?? '', key)).toBe('사내 인프라')
+  })
 })
 
 describe('reencryptMeta', () => {
@@ -140,5 +156,20 @@ describe('reencryptMeta', () => {
     expect(item?.tags.every((t) => isEncryptedContent(t))).toBe(true)
     expect(await decryptTags(item?.tags ?? [], newKey)).toEqual(['prod', 'db'])
     expect(await decryptFolderName(folder?.name ?? '', newKey)).toBe('사내 인프라')
+  })
+
+  it('틀린 oldKey로 호출하면 예외를 던지고 폴더명·태그 원본을 그대로 보존한다(데이터 파괴 방지)', async () => {
+    const { itemId, folderId } = await seed()
+    await backfillMeta(key)
+    const beforeTags = (await db.items.get(itemId))?.tags
+    const beforeName = (await db.folders.get(folderId))?.name
+
+    await expect(reencryptMeta(wrongKey, newKey)).rejects.toThrow()
+
+    expect((await db.items.get(itemId))?.tags).toEqual(beforeTags)
+    expect((await db.folders.get(folderId))?.name).toEqual(beforeName)
+    // 원본이 파괴되지 않았으므로 정상 키로는 여전히 복호화된다
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+    expect(await decryptFolderName((await db.folders.get(folderId))?.name ?? '', key)).toBe('사내 인프라')
   })
 })
