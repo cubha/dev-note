@@ -137,6 +137,13 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
   }, [title, tags])
 
   const handleSave = async () => {
+    // 편집 모드에서 잠긴 카드(암호화된 content인데 키 없음)면 위 로드 effect가 71-74행에서
+    // 일찍 return해 fields를 채우지 않는다 — 그대로 저장하면 카드 내용이 빈 값으로
+    // 영구 덮어써진다(CardDetailEditor.handleSave와 동일한 원인).
+    if (isEditMode && item && isEncryptedContent(item.content) && !encryptionKey) {
+      toast.error('잠긴 카드는 저장할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.', { duration: 3000 })
+      return
+    }
     setSaving(true)
     try {
       // document 타입은 중복 검사 불필요
