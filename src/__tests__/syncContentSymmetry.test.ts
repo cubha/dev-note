@@ -113,23 +113,27 @@ describe('동기화 페이로드는 at-rest content 암호문을 그대로 싣�
     expect(item.content).toBe('{"format":"legacy","text":"평문 메모"}')
   })
 
-  it('원격의 이미 암호화된(레거시) content를 pull해도 이중 암호화하지 않는다(가드)', async () => {
-    // 원격에 v20 이전 방식(at-rest 암호문 그대로 push된) 노트가 있다고 가정
+  it('원격 페이로드의 content가 이미 암호문 형태이면 pull 시 이중 암호화하지 않는다(가드)', async () => {
+    // 구버전 클라이언트(at-rest 미사용 기기)가 실수로 암호문처럼 보이는 content를 그대로
+    // push했다고 가정 — atRestKey가 null인 기기는 content를 손대지 않고 그대로 실어 보낸다.
     await db.folders.add({ parentId: null, name: '레거시', order: 0, createdAt: 100 } as Omit<Folder, 'id'>)
     const folders = await db.folders.toArray()
-    const legacyEncrypted = await encryptContent('{"format":"legacy","text":"x"}', atRestKey)
+    const looksEncrypted = '{"enc":1,"ct":"already-ciphertext-from-another-device"}'
     await db.items.add({
       folderId: folders[0].id, title: 'legacy', type: 'note', tags: [],
-      order: 0, pinned: false, content: legacyEncrypted,
+      order: 0, pinned: false, content: looksEncrypted,
       updatedAt: 100, createdAt: 100,
     } as Omit<Item, 'id'>)
     const cloud = new FakeCloud()
     const dek = generateDEK()
-    // 구버전 동작 시뮬레이션: itemToPayload가 복호화 없이 content를 그대로 실었다고 가정하고
-    // 원격 파일을 직접 조작하는 대신, 같은 atRestKey를 쓰는 기기A가 push한 뒤 그 결과를 검증한다.
-    await runSync(cloud, dek, 'deviceA', 1000, atRestKey)
-    const payload = await readRemotePayload(cloud, dek)
-    // 페이로드는 평문이어야 한다(레거시 이중암호화 상태가 있었어도 push 시점에 정상화)
-    expect(isEncryptedContent(payload.content)).toBe(false)
+    await runSync(cloud, dek, 'deviceA', 1000, null)
+
+    // at-rest 암호화를 쓰는 기기가 pull — 이미 암호문 형태인 content를 자기 키로 한 번 더
+    // 감싸면 어느 기기의 키로도 복호화할 수 없는 상태가 된다. 가드는 그대로 저장해야 한다.
+    await reset()
+    await runSync(cloud, dek, 'deviceB', 2000, atRestKey)
+
+    const item = (await db.items.toArray())[0]
+    expect(item.content).toBe(looksEncrypted)
   })
 })
