@@ -8,6 +8,7 @@ import { nanoid } from 'nanoid'
 import { db } from '../../core/db'
 import type { Item, Folder } from '../../core/db'
 import { encrypt, decrypt } from '../../core/crypto'
+import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
 import { encryptTags, decryptTags, encryptFolderName, decryptFolderName } from '../../core/metaCrypto'
 import { importDEK, importHmacKey } from '../../core/sync-crypto'
 import {
@@ -192,7 +193,12 @@ async function itemToPayload(item: Item, atRestKey: CryptoKey | null): Promise<S
     // 태그도 폴더명과 같은 이유로 평문화한다. 부수 효과로 version 해시가 안정된다 —
     // AES-GCM은 IV가 매번 달라, 암호문을 그대로 해시하면 내용이 안 바뀌어도 매번 새 버전이 된다.
     tags: await decryptTags(item.tags, atRestKey),
-    content: item.content,
+    // content도 태그·폴더명과 대칭이어야 한다 — at-rest 암호문을 그대로 실으면 salt가
+    // 기기마다 달라 상대 기기가 절대 복호화하지 못한다. atRestKey가 없으면(암호화 미사용)
+    // content는 원래 평문이므로 손대지 않는다.
+    content: atRestKey && isEncryptedContent(item.content)
+      ? await decryptContent(item.content, atRestKey)
+      : item.content,
     pinned: item.pinned,
     folderPath: await folderIdToPath(item.folderId, atRestKey),
     order: item.order,
@@ -292,7 +298,12 @@ async function applyPayload(
     tags: atRestKey ? await encryptTags(payload.tags, atRestKey) : payload.tags,
     order: payload.order,
     pinned: payload.pinned,
-    content: payload.content,
+    // 페이로드의 content는 평문이 정상이지만, 구버전 클라이언트가 실수로 at-rest
+    // 암호문을 그대로 실어 보냈을 가능성에 대비해 이미 암호문 형태면 다시 감싸지
+    // 않는다 — 이중 암호화되면 어느 기기의 키로도 복호화할 수 없는 상태가 된다.
+    content: atRestKey && !isEncryptedContent(payload.content)
+      ? await encryptContent(payload.content, atRestKey)
+      : payload.content,
     updatedAt: payload.updatedAt,
     createdAt: payload.createdAt,
     uuid,

@@ -1,17 +1,21 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { db } from '../core/db'
 import { backfillMeta, decryptAllMeta, reencryptMeta } from '../core/metaStore'
-import { decryptTags, decryptFolderName } from '../core/metaCrypto'
+import { decryptTags, decryptFolderName, encryptTags, encryptFolderName } from '../core/metaCrypto'
 import { isEncryptedContent } from '../core/content'
 import { deriveKey, generateSalt } from '../core/crypto'
 import type { Item, Folder } from '../core/db'
 
 let key: CryptoKey
 let newKey: CryptoKey
+let wrongKey: CryptoKey
+let otherKey: CryptoKey
 
 beforeAll(async () => {
   key = await deriveKey('passphrase', generateSalt())
   newKey = await deriveKey('new-passphrase', generateSalt())
+  wrongKey = await deriveKey('WRONG-passphrase', generateSalt())
+  otherKey = await deriveKey('other-passphrase', generateSalt())
 })
 
 const PLAIN_CONTENT = '{"format":"structured","fields":[]}'
@@ -104,6 +108,35 @@ describe('decryptAllMeta', () => {
     expect((await db.items.get(itemId))?.tags).toEqual(['prod', 'db'])
     expect((await db.folders.get(folderId))?.name).toBe('사내 인프라')
   })
+
+  it('틀린 키로 호출하면 예외를 던지고 암호문 원본을 그대로 보존한다(데이터 파괴 방지)', async () => {
+    const { itemId, folderId } = await seed()
+    await backfillMeta(key)
+    const beforeTags = (await db.items.get(itemId))?.tags
+    const beforeName = (await db.folders.get(folderId))?.name
+
+    await expect(decryptAllMeta(wrongKey)).rejects.toThrow()
+
+    expect((await db.items.get(itemId))?.tags).toEqual(beforeTags)
+    expect((await db.folders.get(folderId))?.name).toEqual(beforeName)
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+    expect(await decryptFolderName((await db.folders.get(folderId))?.name ?? '', key)).toBe('사내 인프라')
+  })
+
+  it('아이템은 복호화되고 폴더만 실패해도, 이미 성공한 아이템 쓰기가 먼저 반영되지 않는다(전부-아니면-전무)', async () => {
+    // 아이템 태그는 key로, 폴더명은 다른 키(otherKey)로 암호화 — key로 decryptAllMeta를
+    // 돌리면 아이템은 복호화에 성공하지만 폴더에서 실패한다. 순차 루프였다면 아이템이
+    // 먼저 평문으로 쓰이고 나서 폴더에서 예외가 나 "부분 평문화" 상태가 남는다.
+    const { itemId, folderId } = await seed()
+    await db.items.update(itemId, { tags: await encryptTags(['prod', 'db'], key) })
+    await db.folders.update(folderId, { name: await encryptFolderName('사내 인프라', otherKey) })
+
+    await expect(decryptAllMeta(key)).rejects.toThrow()
+
+    // 아이템 태그도 손대지 않았어야 한다 — 부분 쓰기 없음
+    expect((await db.items.get(itemId))?.tags.every((t) => isEncryptedContent(t))).toBe(true)
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+  })
 })
 
 describe('reencryptMeta', () => {
@@ -140,5 +173,35 @@ describe('reencryptMeta', () => {
     expect(item?.tags.every((t) => isEncryptedContent(t))).toBe(true)
     expect(await decryptTags(item?.tags ?? [], newKey)).toEqual(['prod', 'db'])
     expect(await decryptFolderName(folder?.name ?? '', newKey)).toBe('사내 인프라')
+  })
+
+  it('틀린 oldKey로 호출하면 예외를 던지고 폴더명·태그 원본을 그대로 보존한다(데이터 파괴 방지)', async () => {
+    const { itemId, folderId } = await seed()
+    await backfillMeta(key)
+    const beforeTags = (await db.items.get(itemId))?.tags
+    const beforeName = (await db.folders.get(folderId))?.name
+
+    await expect(reencryptMeta(wrongKey, newKey)).rejects.toThrow()
+
+    expect((await db.items.get(itemId))?.tags).toEqual(beforeTags)
+    expect((await db.folders.get(folderId))?.name).toEqual(beforeName)
+    // 원본이 파괴되지 않았으므로 정상 키로는 여전히 복호화된다
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+    expect(await decryptFolderName((await db.folders.get(folderId))?.name ?? '', key)).toBe('사내 인프라')
+  })
+
+  it('아이템은 복호화되고 폴더만 실패해도, 이미 성공한 아이템 재암호화가 먼저 반영되지 않는다(전부-아니면-전무)', async () => {
+    // 아이템 태그는 key로, 폴더명은 otherKey로 암호화 — oldKey=key로 reencryptMeta를
+    // 돌리면 아이템은 복호화 성공하지만 폴더에서 실패한다. 순차 루프였다면 아이템이
+    // 먼저 newKey로 재암호화되고 폴더는 여전히 key인 "키가 갈라진" 상태가 남는다.
+    const { itemId, folderId } = await seed()
+    await db.items.update(itemId, { tags: await encryptTags(['prod', 'db'], key) })
+    await db.folders.update(folderId, { name: await encryptFolderName('사내 인프라', otherKey) })
+
+    await expect(reencryptMeta(key, newKey)).rejects.toThrow()
+
+    // 아이템 태그가 newKey로 넘어가지 않았어야 한다 — 여전히 key로만 복호화된다
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], key)).toEqual(['prod', 'db'])
+    expect(await decryptTags((await db.items.get(itemId))?.tags ?? [], newKey)).toEqual([])
   })
 })

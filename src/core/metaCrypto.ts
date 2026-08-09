@@ -13,6 +13,9 @@ import { isEncryptedContent, encryptContent, decryptContent } from './content'
 /** 잠금 상태에서 폴더명 대신 보여줄 라벨 — 카드 제목은 평문 유지지만 폴더명은 암호화 대상이다 */
 export const LOCKED_FOLDER_LABEL = '🔒 잠긴 폴더'
 
+/** 잠금 상태에서 복호화 불가한 태그가 있음을 알리는 라벨 — 표시 전용, 조용히 지우지 않는다 */
+export const LOCKED_TAG_LABEL = '🔒 잠긴 태그'
+
 // ── 값 단위 규칙 (단일 소스) ────────────────────────────────
 // 태그·폴더명은 담는 그릇만 다를 뿐 같은 규칙을 따른다. 가드를 함수마다 다시 쓰면
 // 한 곳만 빠져도 이중 암호화(멱등 깨짐)나 렌더 크래시가 나므로 여기 한 번만 둔다.
@@ -52,6 +55,22 @@ export async function decryptTags(tags: string[], key: CryptoKey | null): Promis
   return results.filter((t): t is string => t !== null)
 }
 
+/**
+ * 태그 배열을 표시용으로 복호화한다. decryptTags와 달리 복호화 실패 원소를 조용히
+ * 지우지 않는다 — 지우면 "태그가 잠긴 것"과 "원래 태그가 없는 것"을 사용자가 구분할
+ * 수 없다(예: at-rest 암호화된 기기에서 평문 백업을 export해 키 없는 기기로 import
+ * 하면 태그가 ciphertext 그대로 들어와, 종전 decryptTags로는 화면에서 조용히 사라짐).
+ * 폴더명의 LOCKED_FOLDER_LABEL과 동일한 원칙으로, 실패 원소가 하나라도 있으면 보이는
+ * 태그 뒤에 라벨을 한 번만 덧붙인다. 편집 폼(CardFormModal 등)·동기화 페이로드처럼
+ * 값이 실데이터로 취급되는 경로에는 쓰지 않는다 — 표시 전용.
+ */
+export async function decryptTagsForDisplay(tags: string[], key: CryptoKey | null): Promise<string[]> {
+  const results = await Promise.all(tags.map((t) => decryptValue(t, key)))
+  const visible = results.filter((t): t is string => t !== null)
+  const hadLocked = results.some((t) => t === null)
+  return hadLocked ? [...visible, LOCKED_TAG_LABEL] : visible
+}
+
 /** 폴더명을 암호화한다(멱등). */
 export async function encryptFolderName(name: string, key: CryptoKey): Promise<string> {
   return encryptValue(name, key)
@@ -60,4 +79,20 @@ export async function encryptFolderName(name: string, key: CryptoKey): Promise<s
 /** 폴더명을 복호화한다. 읽을 수 없으면 잠금 라벨 — 트리에는 빈칸 대신 이유가 보여야 한다. */
 export async function decryptFolderName(name: string, key: CryptoKey | null): Promise<string> {
   return (await decryptValue(name, key)) ?? LOCKED_FOLDER_LABEL
+}
+
+// ── strict 변형 — 쓰기 경로(reencryptMeta/decryptAllMeta) 전용 ─────────────
+// 위 decryptTags/decryptFolderName은 표시용이라 실패를 fallback(제외/잠금라벨)으로
+// 흡수한다. 그 fallback 값이 그대로 DB에 되쓰이면(예: 틀린 패스프레이즈로 키 재암호화)
+// 원본이 fallback 값으로 영구 대체된다. 쓰기 경로는 절대 fallback하지 않고 던진다 —
+// 실패한 항목의 update 호출 자체가 실행되지 않아야 원본이 보존된다.
+
+/** 태그 배열을 복호화한다. 하나라도 실패하면 즉시 throw(원소 제외 없음). */
+export async function decryptTagsStrict(tags: string[], key: CryptoKey): Promise<string[]> {
+  return Promise.all(tags.map((t) => (isEncryptedContent(t) ? decryptContent(t, key) : t)))
+}
+
+/** 폴더명을 복호화한다. 실패하면 즉시 throw(잠금 라벨 대체 없음). */
+export async function decryptFolderNameStrict(name: string, key: CryptoKey): Promise<string> {
+  return isEncryptedContent(name) ? decryptContent(name, key) : name
 }

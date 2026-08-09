@@ -337,6 +337,15 @@ export const CardDetailEditor = () => {
   // 저장: 필드 + 에디터 → StructuredContent → JSON
   const handleSave = useCallback(async () => {
     if (!item) return
+    // 잠긴 카드(암호화된 content인데 키 없음)면 로더가 title/tags/fields를 채우지 않고
+    // loadedItemIdRef를 이 item.id로 갱신하지도 않는다(위 로드 effect 참조) — 이 시점에
+    // 편집 버퍼가 이 item의 실제 값과 무관한(대개 activeTab 리셋으로 빈) 상태이므로, 그대로
+    // 저장하면 카드의 실제 내용이 빈 값으로 영구 덮어써진다. flushDraftNow·디바운스 자동저장은
+    // 이미 isDraftPersistable로 이 경로를 막고 있었는데 수동 저장(Ctrl+S·버튼)만 빠져 있었다.
+    if (loadedItemIdRef.current !== item.id) {
+      toast.error('잠긴 카드는 저장할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.', { duration: 3000 })
+      return
+    }
     try {
       let parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean)
       if (encryptionEnabled && encryptionKey) {

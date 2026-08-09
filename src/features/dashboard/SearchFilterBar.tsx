@@ -6,7 +6,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Search, Filter, Tag, Bell, X, ArrowUpDown } from 'lucide-react'
 import { db } from '../../core/db'
-import { decryptTags } from '../../core/metaCrypto'
+import { decryptTagsForDisplay } from '../../core/metaCrypto'
 import type { ItemType } from '../../core/db'
 import { TYPE_META } from '../../core/types'
 import {
@@ -28,12 +28,14 @@ export const SearchFilterBar = () => {
   const setAnnouncementOpen = useSetAtom(announcementOpenAtom)
   const encryptionKey = useAtomValue(encryptionKeyAtom)
 
-  // 태그는 암호화 저장이라 복호화 후 집계한다 — 잠금 상태면 빈 목록이 되어 필터가 비활성처럼 보인다
+  // 태그는 암호화 저장이라 복호화 후 집계한다. decryptTagsForDisplay는 복호화 불가한
+  // 원소를 조용히 지우지 않고 LOCKED_TAG_LABEL로 알린다 — CardGrid의 표시용 태그와
+  // 동일한 원칙이라, 이 필터로 "🔒 잠긴 태그"를 선택하면 실제로 해당 카드들이 걸러진다.
   const allTags = useLiveQuery(async () => {
     const tagSet = new Set<string>()
     const rows = await db.items.toArray()
     for (const item of rows) {
-      for (const t of await decryptTags(item.tags, encryptionKey)) tagSet.add(t)
+      for (const t of await decryptTagsForDisplay(item.tags, encryptionKey)) tagSet.add(t)
     }
     return [...tagSet].sort()
   }, [encryptionKey])
