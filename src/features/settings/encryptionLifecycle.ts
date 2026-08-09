@@ -15,21 +15,24 @@
 
 import { db } from '../../core/db'
 import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
-import { backfillMeta, reencryptMeta, decryptAllMeta } from '../../core/metaStore'
+import { computeBackfillMeta, writeMetaUpdates, reencryptMeta, decryptAllMeta } from '../../core/metaStore'
 
 /**
- * 암호화 활성화 — 태그·폴더명 먼저, content+config는 한 트랜잭션으로 커밋한다.
- * backfillMeta는 암호화만 하므로(복호화 없음) reencryptMeta/decryptAllMeta와 달리
- * 키 불일치로 실패할 현실적 경로가 없다 — 그래도 나머지 두 lifecycle 함수와 같은
- * 순서 원칙을 지켜 일관성을 유지한다(방어적 견고성, IndexedDB 쓰기 실패 등 일반적
- * 원인에 대해서도 content/config가 반쪽만 갱신되는 상태를 막는다).
+ * 암호화 활성화 — 태그·폴더명·content·config를 **전부 한 트랜잭션**으로 커밋한다.
+ *
+ * 나머지 두 lifecycle 함수와 달리 여기서는 메타를 먼저 별도 커밋하면 안 된다:
+ * 백필이 커밋된 뒤 salt·canary 기록이 실패하면, 데이터는 key로 암호화됐는데 그 key를
+ * 다시 파생할 salt가 DB에 없어 **영구 복구 불능**이 된다. 패스프레이즈 변경·비활성화는
+ * salt가 이미 존재해 재시도로 복구되지만 최초 활성화만 이 성질이 다르다
+ * (security-auditor 지적). 그래서 메타 계산도 content와 함께 트랜잭션 밖에서 끝내고,
+ * 트랜잭션 안에는 Dexie 쓰기만 남긴다.
  */
 export async function enableEncryptionAtomic(
   key: CryptoKey,
   saltHex: string,
   canary: string,
 ): Promise<void> {
-  await backfillMeta(key)
+  const metaUpdates = await computeBackfillMeta(key)
 
   const items = await db.items.toArray()
   const contentUpdates: { id: number; content: string }[] = []
@@ -39,7 +42,8 @@ export async function enableEncryptionAtomic(
     }
   }
 
-  await db.transaction('rw', db.items, db.config, async () => {
+  await db.transaction('rw', db.items, db.folders, db.config, async () => {
+    await writeMetaUpdates(metaUpdates)
     for (const u of contentUpdates) await db.items.update(u.id, { content: u.content })
     await db.config.update(1, { encryptionEnabled: true, encryptionSalt: saltHex, encryptionCheck: canary })
   })

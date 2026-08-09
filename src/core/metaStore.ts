@@ -15,21 +15,54 @@ import {
 } from './metaCrypto'
 import { isEncryptedContent } from './content'
 
-/** 평문으로 남은 태그·폴더명을 암호화한다(멱등). 잠금 해제·암호화 활성 시 호출. */
-export async function backfillMeta(key: CryptoKey): Promise<void> {
+/** 태그·폴더명 변환 결과 — 계산(암호 연산)과 쓰기(Dexie)를 분리하기 위한 중간 표현 */
+export interface MetaUpdates {
+  items: { id: number; tags: string[] }[]
+  folders: { id: number; name: string }[]
+}
+
+/**
+ * 평문으로 남은 태그·폴더명의 암호화 결과를 **계산만** 한다(멱등, DB 미수정).
+ *
+ * 쓰기를 분리한 이유: 암호화 활성화는 이 백필과 content 암호화, 그리고 salt·canary
+ * 기록이 **모두 함께** 성립해야 한다. 백필이 먼저 DB에 커밋되고 salt 기록이 실패하면,
+ * 그 키를 다시 파생할 salt가 없어 암호화된 태그·폴더명을 영영 되돌릴 수 없다
+ * (decryptAllMeta·reencryptMeta 경로는 salt가 이미 있어 재시도로 복구되지만,
+ * 최초 활성화는 salt 자체가 없다는 점에서 성격이 다르다 — security-auditor 지적).
+ */
+export async function computeBackfillMeta(key: CryptoKey): Promise<MetaUpdates> {
   const items = await db.items.toArray()
+  const itemUpdates: MetaUpdates['items'] = []
   for (const item of items) {
     if (item.tags.some((t) => !isEncryptedContent(t) && t !== '')) {
-      await db.items.update(item.id, { tags: await encryptTags(item.tags, key) })
+      itemUpdates.push({ id: item.id, tags: await encryptTags(item.tags, key) })
     }
   }
 
   const folders = await db.folders.toArray()
+  const folderUpdates: MetaUpdates['folders'] = []
   for (const folder of folders) {
     if (!isEncryptedContent(folder.name) && folder.name !== '') {
-      await db.folders.update(folder.id, { name: await encryptFolderName(folder.name, key) })
+      folderUpdates.push({ id: folder.id, name: await encryptFolderName(folder.name, key) })
     }
   }
+
+  return { items: itemUpdates, folders: folderUpdates }
+}
+
+/** 계산된 메타 변환을 쓴다. 호출부가 더 큰 트랜잭션에 합류시킬 수 있도록 트랜잭션을 열지 않는다. */
+export async function writeMetaUpdates(updates: MetaUpdates): Promise<void> {
+  for (const u of updates.items) await db.items.update(u.id, { tags: u.tags })
+  for (const u of updates.folders) await db.folders.update(u.id, { name: u.name })
+}
+
+/**
+ * 평문으로 남은 태그·폴더명을 암호화한다(멱등). 잠금 해제 시 호출.
+ * 계산을 전부 끝낸 뒤 한 트랜잭션으로 쓴다 — 형제 함수(decryptAllMeta·reencryptMeta)와 동일.
+ */
+export async function backfillMeta(key: CryptoKey): Promise<void> {
+  const updates = await computeBackfillMeta(key)
+  await db.transaction('rw', db.items, db.folders, () => writeMetaUpdates(updates))
 }
 
 /**
