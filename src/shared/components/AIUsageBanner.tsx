@@ -23,11 +23,11 @@ export function AIUsageBanner() {
       <div className="flex items-center gap-2 min-w-0">
         <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--bg-input)]">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${isLow ? 'bg-amber-500' : 'bg-[var(--accent)]'}`}
+            className={`h-full rounded-full transition-all duration-500 ${isLow ? 'bg-[var(--text-warning)]' : 'bg-[var(--accent)]'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className={`shrink-0 tabular-nums ${isLow ? 'text-amber-400' : 'text-[var(--text-secondary)]'}`}>
+        <span className={`shrink-0 tabular-nums ${isLow ? 'text-[var(--text-warning)]' : 'text-[var(--text-secondary)]'}`}>
           공유 키 · 오늘 {usage.remaining}회 남음
         </span>
       </div>

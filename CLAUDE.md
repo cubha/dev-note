@@ -97,6 +97,38 @@ src/
 - `@tailwindcss/vite` 플러그인 방식, `tailwind.config.ts` 파일 생성 금지
 - `@import "tailwindcss"` 방식 사용, v3 방식(`@tailwind base/components/utilities`) 금지
 
+### 디자인 토큰 바인딩
+
+> 규칙 자체(토큰이 Ground Truth·임의 값 금지·게이트가 강제)는 전역 `~/.claude/CLAUDE.md`
+> 「🎨 디자인 토큰 재사용」에 있다. 여기엔 **이 프로젝트의 구체 바인딩 값만** 적는다.
+
+| 항목 | 이 프로젝트의 값 |
+|---|---|
+| **Ground Truth 문서** | `docs/design/DESIGN-TOKENS.md` (이름 59/59 일치·값 불일치 0). ⚠️ `.gitignore`가 `docs/`를 제외하므로 **이 문서는 로컬 전용**이다 — 그래서 Spec 11/12의 활성 조건은 이 문서가 아니라 버전관리되는 토큰 실체(`src/index.css`)에 건다. GT 문서로 걸면 fresh clone·CI에서 규칙이 조용히 꺼진다 |
+| **토큰 실체(단일 소스)** | `src/index.css` — `@layer base` 안의 `:root`(다크 기본) · `:root[data-theme="light"]` · `@media (max-width:768px)` 내부 `:root` |
+| **값 형식** | hex + `rgba()` 리터럴. **채널삼중값(`50 13% 96%`)이 0개** |
+| **소비 형태** | `var(--x)` **직접 소비** — `hsl()` 래핑 불필요·금지. Tailwind arbitrary property로 `bg-[var(--bg-app)]` 형태, 반복 조합은 `@layer components`의 유틸 클래스(`.btn-primary` `.subtle-btn` `.label-text` 등)로 승격 |
+| **네임스페이스** | `--bg-*`(19) `--badge-*`(15) `--text-*`(12) `--accent*`(3) `--border-*`(3) `--card-*`(3) `--transition-*`(3) `--sidebar-width`(1) |
+| **동적 조립** | 카드 타입 뱃지만 `var(--badge-${colorKey}-{bg,text,accent})` 형태로 조립한다. `colorKey`는 `src/core/types.ts`의 `TYPE_META` 5종(`server` `db` `api` `note` `document`)이며 정적 검사의 사각지대다 — **타입 추가 시 index.css에 3색 세트를 반드시 함께 추가**한다 |
+| **예외 표기** | 같은 줄에 `design-lint-ignore` 주석 |
+
+**게이트** (`verify.sh`):
+
+| 게이트 | 등급 | 담당 |
+|---|---|---|
+| Spec 10 · 미정의 토큰 참조 | `fail` | `var(--x)`의 `--x`가 index.css에 없으면 브라우저가 선언을 **조용히 폐기**한다(tsc·eslint·빌드 전부 통과). 폴백 있는 참조·동적 조립은 구조적으로 제외 |
+| Spec 11 · 하드코딩 hex | `warn` | 토큰 정의 파일은 제외 |
+| Spec 12 · Tailwind arbitrary 값 | `warn` | 치수 토큰이 3개뿐이라 대부분 옮겨담을 타깃이 없다 → warn이 안정 상태 |
+| design-lint | `fail` | `docs/design/prototype/*.html` 대상. **현재 대상 없음 → 런타임 자가 스킵**(조건부 생성 금지 규약상 블록은 상주) |
+
+**현재 드리프트 실측** (2026-08-18, `bash verify.sh --full` 140파일):
+- 미정의 토큰 참조 **0건**. `--full`은 `.ts/.tsx`만 수집하므로 `.css`는 규칙 밖이지만, `src/`의 유일한 CSS인 `index.css`를 수동 대조한 결과도 **0건**(내부 참조 26 ⊂ 선언 59)
+- 하드코딩 hex **0건** (마지막 1건이던 `ImportModeModal.tsx:156` `bg-[#b83c2d]` 해소). 백로그가 비었으므로 Spec 11을 `fail`로 승격할 수 **있지만 하지 않았다** — arbitrary가 아직 30파일이라 hex만 올리면 게이트 균형이 깨지고, 브랜드색 같은 정당 예외가 뒤에 온다
+- ✅ **솔리드 파괴 버튼 3곳 통일** (2026-08-18) — `--bg-error-solid` 신설(다크 `#b83c2d` / 라이트 `#dc2626`) 후 `Sidebar:351` · `SecurityTab:360` · `ImportModeModal:156` 전부 이 토큰으로 교체. **`--text-error`를 배경 채움에 쓰던 역할 불일치가 원인**이었다 — 다크 `#f87171`은 흰 글씨 대비 **2.77:1로 AA 미달**이고, 혼자 정답이던 하드코딩 `#b83c2d`가 5.64:1이다. 실측: 흰 글씨 5.64(다크)/4.83(라이트) · 담는 면 대비 `--bg-surface` 3.14 · `--bg-sidebar` 3.39(다크), 4.83 · 4.41(라이트) — 텍스트 AA·UI 3:1 전부 충족. hover는 3곳 모두 `opacity-90`으로 통일(ImportModeModal의 `hover:bg-[#9e3326]`이 여기서 바뀐 유일한 시각 동작). ⚠️ **`--bg-error-hover`(옅은 틴트)는 이 토큰의 짝이 아니다** — 흰 글씨가 판독 불가해진다. index.css 주석으로 고정
+- Tailwind arbitrary **30파일 / 98줄**
+- 팔레트 유틸 잔존 **10줄 / 19개소** — 전부 알파 변조(`bg-red-500/10` `border-yellow-500/40` 등 배너·뱃지 틴트). 대응하는 알파 틴트 토큰이 없어 **보류**(`--bg-error-hover`는 hover 틴트지 채움색이 아니다). 해소하려면 시맨틱 틴트 토큰 세트(error/warning/success × bg/border)를 신설해야 하는데, 현재 렌더값과 동일하게 넣으면 테마 무관 상수라 토큰의 의미가 약하다 — **테마별 값을 정할 근거가 생길 때 착수**
+- `text-white`(24) · `bg-white`(2) · `bg-black/50~70`(6)은 보류 — `--text-on-active`가 테마별로 뒤집혀(다크 `#ffffff` / 라이트 `#1e3a5f`) 일괄 치환 시 대비 사고
+
 ---
 
 ## 🚫 프로젝트 절대 금지

@@ -154,7 +154,7 @@ export const SyncTab = () => {
         {syncEnabled && mode === null && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-              <span className="inline-block size-2 rounded-full bg-green-500" />
+              <span className="inline-block size-2 rounded-full bg-[var(--text-success)]" />
               Google Drive 연결됨{!unlocked && ' (이 세션에서 잠금 해제 필요)'}
             </div>
             {atRestLocked && (
@@ -203,7 +203,7 @@ export const SyncTab = () => {
             마지막 동기화: {new Date(lastAt).toLocaleString()}
           </p>
         )}
-        {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+        {error && <p className="mt-3 text-xs text-[var(--text-error)]">{error}</p>}
       </section>
 
       {/* ── 메타데이터 정직 고지 ── */}

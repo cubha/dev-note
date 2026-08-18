@@ -133,7 +133,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
         {/* 암호화 사용 중인데 일반 백업을 고른 경우 — 무엇이 평문으로 남는지 명시 */}
         {atRestEncrypted && mode === 'plain' && (
           <div className="mt-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2">
-            <p className="text-xs leading-relaxed text-yellow-500">
+            <p className="text-xs leading-relaxed text-[var(--text-warning)]">
               ⚠ 암호화를 사용 중입니다. 일반 백업에서 <span className="font-medium">카드 제목</span>은
               평문으로 저장됩니다 — 카드 내용·태그·폴더명은 암호화된 채 남습니다.
               제목까지 감추려면 암호화 백업을 선택하세요.
@@ -167,7 +167,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
               className="w-full rounded-md border border-[var(--bg-input)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-accent)]"
             />
             <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2">
-              <p className="text-xs leading-relaxed text-yellow-500">
+              <p className="text-xs leading-relaxed text-[var(--text-warning)]">
                 ⚠ 패스프레이즈를 분실하면 이 백업은 복구할 수 없습니다.
               </p>
             </div>

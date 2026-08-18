@@ -234,8 +234,8 @@ export function SecurityTab() {
   const statusBadge = !isEnabled
     ? <span className="rounded-full bg-[var(--bg-input)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">비활성화</span>
     : isUnlocked
-    ? <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-500">활성화 · 잠금 해제됨</span>
-    : <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs text-yellow-500">활성화 · 잠김</span>
+    ? <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-[var(--text-success)]">활성화 · 잠금 해제됨</span>
+    : <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs text-[var(--text-warning)]">활성화 · 잠김</span>
 
   return (
     <div className="space-y-6">
@@ -256,7 +256,7 @@ export function SecurityTab() {
       </section>
 
       {done && (
-        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm text-green-500">
+        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm text-[var(--text-success)]">
           {done}
         </div>
       )}
@@ -284,7 +284,7 @@ export function SecurityTab() {
           <div className="space-y-3">
             <PassInput label="패스프레이즈" value={passphrase} onChange={setPassphrase} placeholder="8자 이상" />
             <PassInput label="확인" value={confirm} onChange={setConfirm} placeholder="동일하게 입력" />
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {error && <p className="text-xs text-[var(--text-error)]">{error}</p>}
             <div className="flex gap-2">
               <ActionButton onClick={() => void handleEnable()} busy={busy} label="활성화" />
               <CancelButton onClick={resetForm} />
@@ -299,7 +299,7 @@ export function SecurityTab() {
           <h3 className="section-label">잠금 해제</h3>
           <div className="space-y-3">
             <PassInput label="패스프레이즈" value={passphrase} onChange={setPassphrase} placeholder="설정 시 입력한 패스프레이즈" />
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {error && <p className="text-xs text-[var(--text-error)]">{error}</p>}
             <ActionButton onClick={() => void handleUnlock()} busy={busy} label="잠금 해제" />
           </div>
         </section>
@@ -324,7 +324,7 @@ export function SecurityTab() {
                 <PassInput label="현재 패스프레이즈" value={passphrase} onChange={setPassphrase} placeholder="" />
                 <PassInput label="새 패스프레이즈" value={newPass} onChange={setNewPass} placeholder="8자 이상" />
                 <PassInput label="새 패스프레이즈 확인" value={newConfirm} onChange={setNewConfirm} placeholder="동일하게 입력" />
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p className="text-xs text-[var(--text-error)]">{error}</p>}
                 <div className="flex gap-2">
                   <ActionButton onClick={() => void handleChangePassphrase()} busy={busy} label="변경" />
                   <CancelButton onClick={resetForm} />
@@ -340,7 +340,7 @@ export function SecurityTab() {
               <button
                 type="button"
                 onClick={() => setState('disabling')}
-                className="text-sm text-red-500 hover:underline"
+                className="text-sm text-[var(--text-error)] hover:underline"
               >
                 비활성화하기
               </button>
@@ -351,13 +351,13 @@ export function SecurityTab() {
                 </p>
                 <PassInput label="패스프레이즈" value={passphrase} onChange={setPassphrase} placeholder="" />
                 <PassInput label="확인" value={confirm} onChange={setConfirm} placeholder="동일하게 입력" />
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p className="text-xs text-[var(--text-error)]">{error}</p>}
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => void handleDisable()}
                     disabled={busy}
-                    className="rounded bg-red-500 px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+                    className="rounded bg-[var(--bg-error-solid)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
                   >
                     {busy ? '처리 중...' : '비활성화'}
                   </button>

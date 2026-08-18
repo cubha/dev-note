@@ -348,7 +348,7 @@ export const Sidebar = () => {
                 <button
                   type="button"
                   onClick={handleBulkDelete}
-                  className="flex-1 rounded px-2 py-1 text-xs text-white bg-[var(--color-error,#ef4444)] hover:opacity-90 transition-opacity cursor-pointer border-none"
+                  className="flex-1 rounded px-2 py-1 text-xs text-white bg-[var(--bg-error-solid)] hover:opacity-90 transition-opacity cursor-pointer border-none"
                 >
                   삭제 확인
                 </button>

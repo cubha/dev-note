@@ -147,7 +147,7 @@ export const AdminMetrics = () => {
           </button>
         </form>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-[var(--text-error)]">{error}</p>}
 
         {data && (
           <div className="space-y-5">

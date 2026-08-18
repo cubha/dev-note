@@ -480,7 +480,7 @@ export const CardDetailEditor = () => {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {draftLocked && (
-        <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-500">
+        <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-[var(--text-warning)]">
           🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.
         </div>
       )}
