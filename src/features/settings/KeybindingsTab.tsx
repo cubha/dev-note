@@ -155,7 +155,7 @@ const KeybindingRow = ({
       {/* 에러 메시지 + 대안 칩 */}
       {rowError && (
         <div className="ml-[8.5rem] space-y-1">
-          <p className="text-[11px] text-red-400">{rowError.message}</p>
+          <p className="text-[11px] text-[var(--text-error)]">{rowError.message}</p>
           {rowError.alternatives.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {rowError.alternatives.map((alt) => (
@@ -178,7 +178,7 @@ const KeybindingRow = ({
 
       {/* 경고 메시지 */}
       {warnMessage && !rowError && (
-        <p className="ml-[8.5rem] text-[11px] text-yellow-400">{warnMessage}</p>
+        <p className="ml-[8.5rem] text-[11px] text-[var(--text-warning)]">{warnMessage}</p>
       )}
     </div>
   )
@@ -253,7 +253,7 @@ export const KeybindingsTab = () => {
         <button
           type="button"
           onClick={handleResetAll}
-          className="text-xs text-[var(--text-secondary)] hover:text-red-400 transition-colors"
+          className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-error)] transition-colors"
         >
           모두 초기화
         </button>

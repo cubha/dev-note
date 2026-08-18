@@ -100,12 +100,26 @@ fi
 # ─── Spec 검사 (CLAUDE.md 기반) ──────────────────────────────
 header "📋 Spec 검사 (CLAUDE.md 규칙)"
 
+# ── 디자인 토큰 선언 목록 수집 (루프 '전' 1회만) ────────────────
+# 이 repo의 토큰은 src/index.css의 `@layer base` 안에 들어 있어 :root가 2-space 들여쓰기돼 있다.
+# `^:root` 로 범위를 자르면 결과가 빈다 — 그래서 블록 범위가 아니라 '선언 줄' 자체를 본다.
+# (`:root` · `:root[data-theme="light"]` · @media 내부 `:root` 세 블록이 모두 자동 포함된다.)
+# 형식은 hex/rgba 리터럴이며 채널삼중값(shadcn식 `50 13% 96%`)이 0개 → hsl() 래핑 규칙은 해당 없음.
+TOKEN_CSS="src/index.css"
+DECLARED_TOKENS=""
+if [ -f "$TOKEN_CSS" ]; then
+  DECLARED_TOKENS=$(grep -oE '^[[:space:]]*--[a-zA-Z0-9_-]+[[:space:]]*:' "$TOKEN_CSS" 2>/dev/null \
+    | sed -E 's/[[:space:]]+//g; s/:$//' | sort -u || true)
+  TOKEN_COUNT=$(printf '%s\n' "$DECLARED_TOKENS" | grep -c . || true)
+  info "디자인 토큰 선언 ${TOKEN_COUNT:-0}개 수집 — $TOKEN_CSS"
+fi
+
 if [ -n "$CHANGED_FILES" ]; then
   while IFS= read -r file; do
     [ -f "$file" ] || continue
 
     # ── [Spec 1] any 타입 금지 (TypeScript Strict Mode) ──────
-    if grep -nE ': any([^a-zA-Z_]|$)' "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+    if grep -nE ': any([^a-zA-Z_]|$)' "$file" 2>/dev/null | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
       fail "[any 타입] ': any' 사용 금지 — unknown 또는 명시 타입으로 교체: $file"
       SPEC_FAILS=$((SPEC_FAILS + 1))
     fi
@@ -150,7 +164,7 @@ if [ -n "$CHANGED_FILES" ]; then
     # 예외: src/features/admin/ — admin 메트릭 대시보드(옵트인, /v1/metrics 조회). 네트워크 접점 한정
     if [[ "$file" != "src/core/ai.ts" ]] && [[ "$file" != worker/* ]] && [[ "$file" != api/* ]] \
        && [[ "$file" != src/features/sync/providers/* ]] && [[ "$file" != src/features/admin/* ]]; then
-      if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+      if grep -nE "(^|\s)fetch\(" "$file" 2>/dev/null | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
         fail "[보안] 외부 fetch() 호출 발견 — 이 앱은 완전 로컬 오프라인 전용: $file"
         SPEC_FAILS=$((SPEC_FAILS + 1))
       fi
@@ -166,7 +180,7 @@ if [ -n "$CHANGED_FILES" ]; then
 
     # ── [Spec 7] Jotai atom() 선언 위치 — atoms.ts 외 금지 ──
     if [[ "$file" != "src/store/atoms.ts" ]]; then
-      if grep -nE "= atom\(|= atom<" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+      if grep -nE "= atom\(|= atom<" "$file" 2>/dev/null | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
         fail "[Jotai] 전역 atom 선언은 src/store/atoms.ts에서만 가능: $file"
         SPEC_FAILS=$((SPEC_FAILS + 1))
       fi
@@ -181,9 +195,52 @@ if [ -n "$CHANGED_FILES" ]; then
     fi
 
     # ── [Spec 9] Tailwind v3 방식 혼용 금지 ──────────────────
-    if grep -nE "require\('tailwindcss'\)|tailwind\.config" "$file" 2>/dev/null | grep -v '^\s*//' | grep -q .; then
+    if grep -nE "require\('tailwindcss'\)|tailwind\.config" "$file" 2>/dev/null | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
       fail "[Tailwind] v3 방식(tailwind.config) 감지 — @tailwindcss/vite 플러그인 방식(v4)만 허용: $file"
       SPEC_FAILS=$((SPEC_FAILS + 1))
+    fi
+
+    # ── [Spec 10] 미정의 디자인 토큰 참조 금지 (무성 실패 클래스) ─
+    # `var(--x)`의 --x가 index.css에 없으면 CSS 명세상 브라우저가 그 선언을 '조용히' 폐기한다.
+    # tsc·eslint·빌드가 전부 통과하면서 스타일만 사라진다 → 기계 검사 외에 잡을 방법이 없다.
+    # 매칭은 같은 줄에서 `)`로 닫히는 참조만 본다. 이 한 가지로 오탐 2종이 구조적으로 제거된다:
+    #   ① 폴백 있는 참조 `var(--x, ...)` — 쉼표 때문에 미매칭(폴백이 있으면 실제로 동작한다)
+    #   ② 동적 조립 `var(--badge-${meta.colorKey}-bg)` — `$`가 이름 문자열이 아니라 미매칭
+    # ②의 실제 정합성(colorKey→선언 존재)은 정적 규칙의 사각지대이며 TYPE_META 리뷰로 담보한다.
+    if [ -n "$DECLARED_TOKENS" ]; then
+      while IFS= read -r tok; do
+        [ -n "$tok" ] || continue
+        if ! printf '%s\n' "$DECLARED_TOKENS" | grep -qx -- "$tok"; then
+          fail "[디자인 토큰] 미선언 토큰 참조 var($tok) — 브라우저가 선언을 조용히 폐기: $file"
+          SPEC_FAILS=$((SPEC_FAILS + 1))
+        fi
+      done <<< "$(grep -ohE 'var\([[:space:]]*--[a-zA-Z0-9_-]+[[:space:]]*\)' "$file" 2>/dev/null \
+                    | sed -E 's/^var\([[:space:]]*//; s/[[:space:]]*\)$//' | sort -u || true)"
+    fi
+
+    # ── [Spec 11/12] 디자인 토큰 Ground Truth 대비 하드코딩 드리프트 (warn) ─
+    # 산문 규칙만으로는 드리프트가 반드시 쌓인다(타 repo 실측 88·185곳) → 기계가 본다.
+    # severity가 warn인 이유: 이 repo엔 치수 토큰이 3개뿐(--card-min-width/--card-gap/--sidebar-width)이라
+    # arbitrary 값 대부분은 '옮겨담을 토큰 타깃 자체가 없다'. fail로 올리면 오탐이 파이프라인을 세운다.
+    # 조건은 '토큰 실체'($DECLARED_TOKENS ← src/index.css)로 건다. GT 문서(docs/design/DESIGN-TOKENS.md)로
+    # 걸면 이 repo는 .gitignore 가 docs/ 를 통째로 제외하므로 fresh clone·CI 에서 두 규칙이 조용히 꺼진다.
+    if [ -n "$DECLARED_TOKENS" ]; then
+      case "$file" in
+        *index.css|*globals.css|*tokens.css|*theme.css|*variables.css) ;;
+        *tokens.ts|*theme.ts|*tokens.js|*theme.js|*/design-tokens/*|*/design-system/*) ;;
+        *)
+          # [Spec 11] 하드코딩 hex — 정당한 예외는 같은 줄 `design-lint-ignore` 주석으로 면제
+          if grep -nE '#[0-9a-fA-F]{3,8}\b' "$file" 2>/dev/null \
+              | grep -v 'design-lint-ignore' | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
+            warn "[디자인 토큰] 하드코딩 색 — var(--*)로 교체 (정당하면 design-lint-ignore 주석): $file"
+          fi
+          # [Spec 12] Tailwind arbitrary 값이 @theme/토큰을 우회
+          if grep -nE '\[(#[0-9a-fA-F]{3,8}|[0-9]+(px|rem))\]' "$file" 2>/dev/null \
+              | grep -v 'design-lint-ignore' | grep -v '^[0-9]*:[[:space:]]*//' | grep -q .; then
+            warn "[디자인 토큰] Tailwind arbitrary 값이 토큰을 우회: $file"
+          fi
+          ;;
+      esac
     fi
 
   done <<< "$CHANGED_FILES"
@@ -196,6 +253,33 @@ if [ -n "$CHANGED_FILES" ]; then
   fi
 else
   info "변경된 파일 없음 — Spec 검사 건너뜀"
+fi
+
+# ─── 디자인 게이트 (design-lint) ──────────────────────────────
+# 결정론·0토큰. 대상/스크립트/토큰 중 하나라도 없으면 스킵(FP 방지) — design-lint 자신의 skip 계약과 동일.
+# ⚠️ 이 repo는 `FAIL_COUNT += SPEC_FAILS`를 Spec 루프의 `if [ -n "$CHANGED_FILES" ]` 블록 '안'에서만
+#    수행한다. 그래서 루프 뒤에 놓이는 이 블록은 SPEC_FAILS를 올려도 아무도 읽지 않아 ✘를 찍고도
+#    exit 0으로 샌다. 반드시 FAIL_COUNT를 직접 올린다.
+DESIGN_LINT="$HOME/.claude/skills/design-lint/scripts/design-lint.mjs"
+DESIGN_TARGETS=$(ls docs/design/prototype/*.html 2>/dev/null || true)
+
+if [ -n "$DESIGN_TARGETS" ] && [ -f "$DESIGN_LINT" ] && command -v node >/dev/null 2>&1; then
+  header "🔎 디자인 게이트 (design-lint)"
+  DL_ARGS=""
+  [ -f docs/design/DESIGN-TOKENS.md ] && DL_ARGS="--tokens docs/design/DESIGN-TOKENS.md"
+  DL_EXIT=0
+  # shellcheck disable=SC2086
+  run_guarded 60 design-lint.log node "$DESIGN_LINT" $DESIGN_TARGETS $DL_ARGS --gate || DL_EXIT=$?
+  if [ "$DL_EXIT" -eq 0 ]; then
+    pass "design-lint 통과"
+  else
+    fail "design-lint error 발견 — $VERIFY_LOG_DIR/design-lint.log 확인"
+    tail -30 "$VERIFY_LOG_DIR/design-lint.log" 2>/dev/null || true
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  fi
+  [ -f docs/design/DESIGN-TOKENS.md ] || warn "DESIGN-TOKENS.md 없음 — 토큰 위생 검사 스킵(/init-design 권장)"
+else
+  [ -n "$DESIGN_TARGETS" ] && warn "design-lint 스킵 — node 또는 스킬 스크립트 없음" || true
 fi
 
 # ─── TypeScript 타입 체크 ─────────────────────────────────────

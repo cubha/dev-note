@@ -84,7 +84,7 @@ export const InfoCard = ({
 
   return (
     <div
-      className={`card animate-fade-in cursor-pointer relative flex flex-col transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'ring-2 ring-[var(--text-active)] ring-offset-2 ring-offset-[var(--bg-base)]' : ''}`}
+      className={`card animate-fade-in cursor-pointer relative flex flex-col transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'ring-2 ring-[var(--text-active)] ring-offset-2 ring-offset-[var(--bg-app)]' : ''}`}
       data-type={item.type}
       data-pinned={item.pinned}
       draggable={isDraggable}

@@ -51,8 +51,13 @@
     --text-error: #f87171;
     --text-success: #34d399;
     --text-warning: #fbbf24;
+    /* --bg-error-hover / --bg-accent-hover 는 '텍스트만 있는 danger 항목'의 옅은 호버 틴트다.
+       솔리드 파괴 버튼의 채움색이 아니며 --bg-error-solid 의 짝도 아니다(흰 글씨가 판독 불가). */
     --bg-error-hover: #451a1a;
     --bg-accent-hover: #1e3a5f;
+    /* 솔리드 파괴 버튼 채움 전용. 흰 글씨 대비 5.64:1(AA) · 담는 면(--bg-surface 3.14 / --bg-sidebar 3.39) 3:1 충족.
+       --text-error(#f87171)를 배경에 쓰면 흰 글씨 2.77:1 로 AA 미달이라 역할을 분리했다. 호버는 opacity-90. */
+    --bg-error-solid: #b83c2d;
 
     /* ── 카드 타입 액센트 컬러 ───────────────────── */
     --badge-server-bg: rgba(59, 130, 246, 0.15);
@@ -139,6 +144,8 @@
     --text-warning: #d97706;
     --bg-error-hover: #fef2f2;
     --bg-accent-hover: #dbeafe;
+    /* 흰 글씨 대비 4.83:1(AA) · 담는 면(--bg-surface #fff 4.83 / --bg-sidebar 4.41) 3:1 충족 */
+    --bg-error-solid: #dc2626;
 
     /* 타입 뱃지 */
     --badge-server-bg: rgba(59, 130, 246, 0.10);

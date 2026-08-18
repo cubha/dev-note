@@ -10,13 +10,13 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-[var(--bg-accent)] text-white hover:opacity-90',
+  primary: 'bg-[var(--accent)] text-white hover:opacity-90',
   secondary:
     'border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]',
   ghost:
     'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] border-none',
   danger:
-    'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30',
+    'bg-red-500/10 text-[var(--text-error)] hover:bg-red-500/20 border border-red-500/30',
 }
 
 const sizeStyles: Record<NonNullable<ButtonProps['size']>, string> = {

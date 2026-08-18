@@ -325,7 +325,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
   // ── 렌더링 ────────────────────────────────────────────────
 
   return (
-    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-main)]">
+    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-app)]">
       {/* 토글 헤더 */}
       <button
         type="button"

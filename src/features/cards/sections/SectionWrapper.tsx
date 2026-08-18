@@ -156,7 +156,7 @@ export const SectionWrapper = ({
 
       {/* Smart Paste 영역 */}
       {pasteOpen && onSmartPaste && (
-        <div className="px-3 py-2 border-b border-[var(--border-default)] bg-[var(--bg-main)] space-y-2">
+        <div className="px-3 py-2 border-b border-[var(--border-default)] bg-[var(--bg-app)] space-y-2">
           <textarea
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}

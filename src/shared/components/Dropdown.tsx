@@ -62,7 +62,7 @@ export const Dropdown = ({
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none',
                   item.danger
-                    ? 'text-red-400 hover:text-red-300'
+                    ? 'text-[var(--text-error)] hover:opacity-80'
                     : value === item.value
                       ? 'text-[var(--text-primary)] font-medium'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
