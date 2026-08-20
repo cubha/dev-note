@@ -13,7 +13,7 @@ export const EmptyState = ({ onAddCard }: EmptyStateProps) => {
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--accent-glow)] border border-[var(--bg-card-border)]">
             <Database size={32} className="text-[var(--accent)]" />
           </div>
-          <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-lg">
+          <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--text-on-solid)] shadow-lg">
             <Plus size={14} strokeWidth={3} />
           </div>
         </div>
@@ -33,7 +33,7 @@ export const EmptyState = ({ onAddCard }: EmptyStateProps) => {
         <button
           type="button"
           onClick={onAddCard}
-          className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition-colors cursor-pointer border-none shadow-md shadow-[var(--accent-glow)]"
+          className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-solid)] hover:bg-[var(--accent-hover)] transition-colors cursor-pointer border-none shadow-md shadow-[var(--accent-glow)]"
         >
           <Plus size={16} />
           첫 번째 카드 추가

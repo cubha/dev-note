@@ -21,7 +21,7 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
         <button
           type="button"
           onClick={() => setShowPreview((prev) => !prev)}
-          className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer border-none text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
+          className="flex items-center gap-1 rounded px-2 py-0.5 text-[var(--font-2xs)] font-medium transition-colors cursor-pointer border-none text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
           title={showPreview ? '소스 보기' : '미리보기'}
         >
           {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}

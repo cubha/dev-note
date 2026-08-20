@@ -391,7 +391,7 @@ export const ItemRow = ({ item, depth, isDragging }: ItemRowProps) => {
     >
       <DragHandle />
       <span
-        className={`shrink-0 rounded px-1 text-[10px] font-medium ${badge.className}`}
+        className={`shrink-0 rounded px-1 text-[var(--font-3xs)] font-medium ${badge.className}`}
       >
         {badge.label}
       </span>

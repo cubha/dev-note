@@ -177,7 +177,7 @@ export function AISettingsTab() {
               type="button"
               onClick={handleSave}
               disabled={!keyInput.trim()}
-              className="shrink-0 rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+              className="btn-primary shrink-0"
             >
               {saved ? '적용됨' : '적용'}
             </button>

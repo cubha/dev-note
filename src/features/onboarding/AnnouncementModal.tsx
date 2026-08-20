@@ -59,7 +59,7 @@ export const AnnouncementModal = () => {
   return (
     <Modal
       onClose={handleClose}
-      width="w-[480px]"
+      width="w-[var(--modal-w-lg)]"
       maxHeight="max-h-[calc(100vh-64px)]"
       ariaLabel="공지사항"
     >
@@ -87,10 +87,10 @@ export const AnnouncementModal = () => {
                   >
                     {note.version}
                   </span>
-                  <span className="text-[10px] text-[var(--text-tertiary)]">
+                  <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)]">
                     {TYPE_LABEL[note.type]}
                   </span>
-                  <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">
+                  <span className="ml-auto text-[var(--font-3xs)] text-[var(--text-tertiary)]">
                     {note.date}
                   </span>
                 </div>

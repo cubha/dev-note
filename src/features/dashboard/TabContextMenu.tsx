@@ -176,7 +176,7 @@ export const TabContextMenu = () => {
       <li>
         <button role="menuitem" type="button" onClick={handleClose} className={item()}>
           <span>닫기</span>
-          <span className="ml-3 font-mono text-[10px] text-[var(--text-tertiary)]">Ctrl+W</span>
+          <span className="ml-3 font-mono text-[var(--font-3xs)] text-[var(--text-tertiary)]">Ctrl+W</span>
         </button>
       </li>
       <li>

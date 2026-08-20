@@ -35,7 +35,7 @@ export const SettingsModal = () => {
   }
 
   return (
-    <Modal onClose={handleClose} width="w-[520px]" ariaLabel="환경설정">
+    <Modal onClose={handleClose} width="w-[var(--modal-w-xl)]" ariaLabel="환경설정">
       <ModalHeader title="환경설정" onClose={handleClose} />
 
         {/* 탭 네비게이션 */}
@@ -83,7 +83,7 @@ export const SettingsModal = () => {
                           key={t}
                           className={`flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-sm transition-colors ${
                             config.theme === t
-                              ? 'bg-[var(--accent)] text-white'
+                              ? 'bg-[var(--accent)] text-[var(--text-on-solid)]'
                               : 'bg-[var(--bg-input)] text-[var(--text-primary)] hover:bg-[var(--bg-input-hover)]'
                           }`}
                         >
@@ -165,7 +165,7 @@ export const SettingsModal = () => {
                       }`}
                     >
                       <span
-                        className={`inline-block size-3.5 rounded-full bg-white shadow transition-transform ${
+                        className={`inline-block size-3.5 rounded-full bg-[var(--text-on-solid)] shadow transition-transform ${
                           config.wordWrap ? 'translate-x-4' : 'translate-x-0.5'
                         }`}
                       />
@@ -194,7 +194,7 @@ export const SettingsModal = () => {
                       }`}
                     >
                       <span
-                        className={`inline-block size-3.5 rounded-full bg-white shadow transition-transform ${
+                        className={`inline-block size-3.5 rounded-full bg-[var(--text-on-solid)] shadow transition-transform ${
                           config.showLineNumbers ? 'translate-x-4' : 'translate-x-0.5'
                         }`}
                       />

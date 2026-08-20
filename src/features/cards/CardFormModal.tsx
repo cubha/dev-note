@@ -342,7 +342,7 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
                               <Icon size={14} />
                             </div>
                             <span className="font-medium">{preset.label}</span>
-                            <span className="text-[10px] text-[var(--text-placeholder)] font-normal">{preset.description}</span>
+                            <span className="text-[var(--font-3xs)] text-[var(--text-placeholder)] font-normal">{preset.description}</span>
                           </button>
                         )
                       })}

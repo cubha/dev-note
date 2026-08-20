@@ -35,7 +35,7 @@ export const CodeSectionView = ({ section, onChange }: CodeSectionViewProps) => 
         <select
           value={section.language}
           onChange={(e) => onChange({ ...section, language: e.target.value })}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)] cursor-pointer"
+          className="text-[var(--font-3xs)] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)] cursor-pointer"
         >
           {LANGUAGES.map((lang) => (
             <option key={lang} value={lang}>{lang}</option>

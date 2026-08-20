@@ -76,7 +76,7 @@ export const CloseConfirmDialog = () => {
     : `저장하지 않은 변경사항이 있는 탭이 ${count}개 있습니다.`
 
   return (
-    <Modal onClose={handleCancel} width="w-[420px]" ariaLabel="미저장 변경사항 확인" elevated enableEsc={!saving}>
+    <Modal onClose={handleCancel} width="w-[var(--modal-w-md)]" ariaLabel="미저장 변경사항 확인" elevated enableEsc={!saving}>
       <ModalHeader title="닫기 전 확인" onClose={handleCancel} />
       <div className="p-5 space-y-4">
         <p className="text-xs text-[var(--text-secondary)]">

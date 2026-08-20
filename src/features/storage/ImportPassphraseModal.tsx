@@ -35,7 +35,7 @@ export const ImportPassphraseModal = ({ onConfirm, onCancel, errorMessage, submi
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/70"
+      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-[var(--bg-overlay)]"
       onCancel={onCancel}
       onClick={handleBackdropClick}
     >
@@ -78,7 +78,7 @@ export const ImportPassphraseModal = ({ onConfirm, onCancel, errorMessage, submi
             type="button"
             onClick={handleConfirm}
             disabled={passphrase.length === 0 || submitting}
-            className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            className="btn-primary-lg"
           >
             {submitting ? '복호화 중…' : '복호화'}
           </button>

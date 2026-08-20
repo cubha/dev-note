@@ -155,7 +155,7 @@ const KeybindingRow = ({
       {/* 에러 메시지 + 대안 칩 */}
       {rowError && (
         <div className="ml-[8.5rem] space-y-1">
-          <p className="text-[11px] text-[var(--text-error)]">{rowError.message}</p>
+          <p className="text-[var(--font-2xs)] text-[var(--text-error)]">{rowError.message}</p>
           {rowError.alternatives.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {rowError.alternatives.map((alt) => (
@@ -166,7 +166,7 @@ const KeybindingRow = ({
                     setRowError(null)
                     onSave(commandId, alt)
                   }}
-                  className="rounded border border-[var(--border-default)] bg-[var(--bg-input)] px-2 py-0.5 text-[11px] font-mono text-[var(--text-primary)] hover:bg-[var(--bg-input-hover)]"
+                  className="rounded border border-[var(--border-default)] bg-[var(--bg-input)] px-2 py-0.5 text-[var(--font-2xs)] font-mono text-[var(--text-primary)] hover:bg-[var(--bg-input-hover)]"
                 >
                   {formatForDisplay(alt)}
                 </button>
@@ -178,7 +178,7 @@ const KeybindingRow = ({
 
       {/* 경고 메시지 */}
       {warnMessage && !rowError && (
-        <p className="ml-[8.5rem] text-[11px] text-[var(--text-warning)]">{warnMessage}</p>
+        <p className="ml-[8.5rem] text-[var(--font-2xs)] text-[var(--text-warning)]">{warnMessage}</p>
       )}
     </div>
   )
