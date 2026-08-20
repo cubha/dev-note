@@ -28,9 +28,12 @@ import {
 import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
 import { useGuardedTabClose } from '../../shared/hooks/useGuardedTabClose'
+import { computeTabWindow } from './tabWindow'
 import type { Item } from '../../core/db'
 
 const OVERFLOW_BTN_W = 44
+/** 아직 렌더되지 않아 실측 폭을 모르는 탭의 추정 폭 */
+const ESTIMATED_TAB_W = 160
 
 interface SortableTabProps {
   tabId: number
@@ -127,7 +130,9 @@ export const TabBar = () => {
   const overflowRef = useRef<HTMLDivElement>(null)
   const tabContainerRef = useRef<HTMLDivElement>(null)
   const tabElsRef = useRef<Map<number, HTMLElement>>(new Map())
-  const [visibleCount, setVisibleCount] = useState(() => openTabs.length || 100)
+  // 창 밖으로 밀려 언마운트된 탭의 폭도 기억해야 다음 계산이 흔들리지 않는다(tabElsRef는 마운트된 것만 가짐)
+  const tabWidthsRef = useRef<Map<number, number>>(new Map())
+  const [tabWindow, setTabWindow] = useState(() => ({ start: 0, end: openTabs.length || 100 }))
 
   const items = useLiveQuery(
     () => db.items.where('id').anyOf(openTabs).toArray(),
@@ -138,34 +143,26 @@ export const TabBar = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
+  /** 폭을 실측해 표시 창을 재계산 — 계산 규칙 자체는 computeTabWindow가 갖는다 */
   const recalculate = useCallback(() => {
     const container = tabContainerRef.current
     if (!container) return
 
-    const available = container.offsetWidth
-    let used = 0
-    let count = 0
+    // 지금 렌더된 탭들의 실측 폭을 캐시에 반영하고, 닫힌 탭의 폭은 버린다
+    tabElsRef.current.forEach((el, id) => tabWidthsRef.current.set(id, el.offsetWidth))
+    const openSet = new Set(openTabs)
+    tabWidthsRef.current.forEach((_, id) => { if (!openSet.has(id)) tabWidthsRef.current.delete(id) })
 
-    for (let i = 0; i < openTabs.length; i++) {
-      const el = tabElsRef.current.get(openTabs[i])
-      const tabW = el ? el.offsetWidth : 160
-      const isLast = i === openTabs.length - 1
+    const next = computeTabWindow({
+      tabIds: openTabs,
+      activeTab,
+      available: container.offsetWidth,
+      widthOf: (id) => tabWidthsRef.current.get(id) ?? ESTIMATED_TAB_W,
+      overflowBtnW: OVERFLOW_BTN_W,
+    })
 
-      if (isLast) {
-        if (used + tabW <= available) count++
-      } else {
-        if (used + tabW + OVERFLOW_BTN_W <= available) {
-          used += tabW
-          count++
-        } else {
-          break
-        }
-      }
-    }
-
-    const next = Math.max(1, count)
-    setVisibleCount((prev) => (prev !== next ? next : prev))
-  }, [openTabs])
+    setTabWindow((prev) => (prev.start !== next.start || prev.end !== next.end ? next : prev))
+  }, [openTabs, activeTab])
 
   useEffect(() => {
     const container = tabContainerRef.current
@@ -210,8 +207,9 @@ export const TabBar = () => {
     }
   }
 
-  const visibleTabs = openTabs.slice(0, visibleCount)
-  const hiddenTabs = openTabs.slice(visibleCount)
+  const visibleTabs = openTabs.slice(tabWindow.start, tabWindow.end)
+  // 창이 뒤로 밀리면 앞쪽에도 숨은 탭이 생긴다 — 원래 순서대로 이어붙여 한 메뉴로 보여준다
+  const hiddenTabs = [...openTabs.slice(0, tabWindow.start), ...openTabs.slice(tabWindow.end)]
 
   return (
     <div className="flex items-stretch flex-1 min-w-0" ref={tabContainerRef}>
@@ -251,7 +249,7 @@ export const TabBar = () => {
                 type="button"
                 onClick={() => setOverflowOpen((prev) => !prev)}
                 className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
-                  overflowOpen || hiddenTabs.some((id) => id === activeTab)
+                  overflowOpen
                     ? 'bg-[var(--bg-surface-hover)] text-[var(--text-primary)]'
                     : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-secondary)]'
                 }`}
@@ -281,7 +279,7 @@ export const TabBar = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setOpenTabs(prev => [tabId, ...prev.filter(id => id !== tabId)])
+                            // 활성화만 하면 표시 창이 이 탭까지 슬라이드한다 — 순서를 바꾸지 않는다
                             setActiveTab(tabId)
                             setOverflowOpen(false)
                           }}
