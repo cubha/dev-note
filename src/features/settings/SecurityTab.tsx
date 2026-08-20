@@ -268,7 +268,7 @@ export function SecurityTab() {
           <button
             type="button"
             onClick={() => setState('enabling')}
-            className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+            className="btn-primary-lg"
           >
             암호화 설정하기
           </button>
@@ -357,7 +357,7 @@ export function SecurityTab() {
                     type="button"
                     onClick={() => void handleDisable()}
                     disabled={busy}
-                    className="rounded bg-[var(--bg-error-solid)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+                    className="btn-danger"
                   >
                     {busy ? '처리 중...' : '비활성화'}
                   </button>
@@ -425,7 +425,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+      className="btn-primary"
     >
       {busy ? '처리 중...' : label}
     </button>

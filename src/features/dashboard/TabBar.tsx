@@ -256,7 +256,7 @@ export const TabBar = () => {
                 title={`${hiddenTabs.length}개 탭 더 있음`}
               >
                 <MoreHorizontal size={14} />
-                <span className="text-[10px]">{hiddenTabs.length}</span>
+                <span className="text-[var(--font-3xs)]">{hiddenTabs.length}</span>
               </button>
 
               {overflowOpen && (

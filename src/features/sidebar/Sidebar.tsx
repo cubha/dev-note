@@ -179,7 +179,7 @@ export const Sidebar = () => {
             title="메인 화면으로 이동"
           >
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent)]">
-              <span className="text-xs font-bold text-white">D</span>
+              <span className="text-xs font-bold text-[var(--text-on-solid)]">D</span>
             </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
               DevNote
@@ -297,7 +297,7 @@ export const Sidebar = () => {
           }`}
         >
           <span>전체 카드</span>
-          {items && <span className="ml-auto text-[10px] opacity-60">{items.length}</span>}
+          {items && <span className="ml-auto text-[var(--font-3xs)] opacity-60">{items.length}</span>}
         </div>
 
         {folders === undefined || items === undefined ? (
@@ -348,7 +348,7 @@ export const Sidebar = () => {
                 <button
                   type="button"
                   onClick={handleBulkDelete}
-                  className="flex-1 rounded px-2 py-1 text-xs text-white bg-[var(--bg-error-solid)] hover:opacity-90 transition-opacity cursor-pointer border-none"
+                  className="flex-1 rounded px-2 py-1 text-xs text-[var(--text-on-solid)] bg-[var(--bg-error-solid)] hover:opacity-90 transition-opacity cursor-pointer border-none"
                 >
                   삭제 확인
                 </button>
@@ -375,7 +375,7 @@ export const Sidebar = () => {
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(true)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] transition-colors cursor-pointer bg-transparent border-none"
                 >
                   <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M3 6h18" />

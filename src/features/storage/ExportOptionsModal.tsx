@@ -52,7 +52,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/70"
+      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-[var(--bg-overlay)]"
       onCancel={onCancel}
       onClick={handleBackdropClick}
     >
@@ -89,7 +89,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 일반 백업{' '}
-                <span className="ml-1 text-[10px] font-normal text-[var(--text-secondary)]">Plain</span>
+                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Plain</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 {atRestEncrypted
@@ -121,7 +121,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 암호화 백업{' '}
-                <span className="ml-1 text-[10px] font-normal text-[var(--text-secondary)]">Encrypted</span>
+                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Encrypted</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 패스프레이즈로 파일 전체를 암호화합니다. 가져올 때 같은 패스프레이즈가 필요합니다.
@@ -186,7 +186,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
           <button
             type="button"
             onClick={handleConfirm}
-            className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)]"
+            className="btn-primary-lg"
           >
             내보내기
           </button>

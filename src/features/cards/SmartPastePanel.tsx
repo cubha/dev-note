@@ -377,14 +377,14 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
           {/* 에러 인라인 메시지 + 상세보기 버튼 */}
           {state.errorMessage && (
             <div className="flex items-center gap-2">
-              <p className="flex-1 text-[10px] text-[var(--text-error)]">
+              <p className="flex-1 text-[var(--font-3xs)] text-[var(--text-error)]">
                 {state.errorMessage}
               </p>
               {state.errorDetail && (
                 <button
                   type="button"
                   onClick={() => setErrorModalDetail(state.errorDetail)}
-                  className="shrink-0 rounded px-2 py-0.5 text-[10px] text-[var(--text-error)] hover:bg-[var(--text-error)]/10 bg-transparent border border-[var(--text-error)]/30 cursor-pointer transition-colors"
+                  className="shrink-0 rounded px-2 py-0.5 text-[var(--font-3xs)] text-[var(--text-error)] hover:bg-[var(--text-error)]/10 bg-transparent border border-[var(--text-error)]/30 cursor-pointer transition-colors"
                 >
                   상세/문의
                 </button>
@@ -396,7 +396,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
           {hasResult && isMarkdownMode && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-[var(--text-secondary)]">
+                <span className="text-[var(--font-3xs)] font-medium text-[var(--text-secondary)]">
                   변환 결과
                 </span>
               </div>
@@ -405,7 +405,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 제목 */}
                 {state.suggestedTitle && (
                   <div className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-14 shrink-0 text-[10px] text-[var(--text-secondary)]">제목</span>
+                    <span className="w-14 shrink-0 text-[var(--font-3xs)] text-[var(--text-secondary)]">제목</span>
                     <span className="flex-1 truncate text-xs font-medium text-[var(--text-primary)]">
                       {state.suggestedTitle}
                     </span>
@@ -416,7 +416,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 마크다운 콘텐츠 미리보기 */}
                 {state.fields[0]?.value && (
                   <div className="px-3 py-2">
-                    <pre className="whitespace-pre-wrap text-[11px] leading-relaxed font-mono text-[var(--text-primary)] max-h-40 overflow-y-auto m-0">
+                    <pre className="whitespace-pre-wrap text-[var(--font-2xs)] leading-relaxed font-mono text-[var(--text-primary)] max-h-40 overflow-y-auto m-0">
                       {state.fields[0].value.length > 500
                         ? state.fields[0].value.slice(0, 500) + '\n...'
                         : state.fields[0].value}
@@ -427,10 +427,10 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 태그 */}
                 {state.suggestedTags.length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-14 shrink-0 text-[10px] text-[var(--text-secondary)]">태그</span>
+                    <span className="w-14 shrink-0 text-[var(--font-3xs)] text-[var(--text-secondary)]">태그</span>
                     <div className="flex flex-wrap gap-1">
                       {state.suggestedTags.map(tag => (
-                        <span key={tag} className="rounded bg-[var(--bg-input)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                        <span key={tag} className="rounded bg-[var(--bg-input)] px-1.5 py-0.5 text-[var(--font-3xs)] text-[var(--text-secondary)]">
                           {tag}
                         </span>
                       ))}
@@ -463,7 +463,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
           {hasResult && !isDocumentMode && !isMarkdownMode && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-[var(--text-secondary)]">
+                <span className="text-[var(--font-3xs)] font-medium text-[var(--text-secondary)]">
                   추출 결과
                 </span>
                 {state.detectedType && (
@@ -477,7 +477,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 제목 */}
                 {state.suggestedTitle && (
                   <div className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-20 shrink-0 text-[10px] text-[var(--text-secondary)]">제목</span>
+                    <span className="w-20 shrink-0 text-[var(--font-3xs)] text-[var(--text-secondary)]">제목</span>
                     <span className="flex-1 truncate text-xs font-medium text-[var(--text-primary)]">
                       {state.suggestedTitle}
                     </span>
@@ -488,7 +488,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 필드 목록 */}
                 {state.fields.map((field) => (
                   <div key={field.key} className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-20 shrink-0 text-[10px] text-[var(--text-secondary)]">{field.key}</span>
+                    <span className="w-20 shrink-0 text-[var(--font-3xs)] text-[var(--text-secondary)]">{field.key}</span>
                     <span className="flex-1 truncate font-mono text-xs text-[var(--text-primary)]">
                       {field.key === 'password' ? '••••••••' : field.value}
                     </span>
@@ -499,7 +499,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 태그 */}
                 {state.suggestedTags.length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="w-20 shrink-0 text-[10px] text-[var(--text-secondary)]">태그</span>
+                    <span className="w-20 shrink-0 text-[var(--font-3xs)] text-[var(--text-secondary)]">태그</span>
                     <span className="flex-1 truncate text-xs text-[var(--text-primary)]">
                       {state.suggestedTags.join(', ')}
                     </span>
@@ -532,7 +532,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
           {hasResult && isDocumentMode && state.sections && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-[var(--text-secondary)]">
+                <span className="text-[var(--font-3xs)] font-medium text-[var(--text-secondary)]">
                   구조화 결과
                 </span>
               </div>
@@ -541,7 +541,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 제목 */}
                 {state.suggestedTitle && (
                   <div className="flex items-center gap-2 pb-1 mb-1 border-b border-[var(--border-default)]">
-                    <span className="text-[10px] text-[var(--text-secondary)]">제목</span>
+                    <span className="text-[var(--font-3xs)] text-[var(--text-secondary)]">제목</span>
                     <span className="text-xs font-medium text-[var(--text-primary)]">{state.suggestedTitle}</span>
                   </div>
                 )}
@@ -551,7 +551,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                   {state.sections.length}개 섹션
                 </p>
                 {state.sections.map((s) => (
-                  <div key={s.id} className="text-[11px] text-[var(--text-tertiary)]">
+                  <div key={s.id} className="text-[var(--font-2xs)] text-[var(--text-tertiary)]">
                     {SECTION_META[s.type as keyof typeof SECTION_META]?.emoji ?? ''} {s.title || s.type}
                   </div>
                 ))}
@@ -559,8 +559,8 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
                 {/* 태그 */}
                 {state.suggestedTags.length > 0 && (
                   <div className="flex items-center gap-1 pt-1 mt-1 border-t border-[var(--border-default)]">
-                    <span className="text-[10px] text-[var(--text-secondary)]">태그</span>
-                    <span className="text-[11px] text-[var(--text-primary)]">{state.suggestedTags.join(', ')}</span>
+                    <span className="text-[var(--font-3xs)] text-[var(--text-secondary)]">태그</span>
+                    <span className="text-[var(--font-2xs)] text-[var(--text-primary)]">{state.suggestedTags.join(', ')}</span>
                   </div>
                 )}
               </div>

@@ -109,7 +109,7 @@ export const SyncTab = () => {
             type="button"
             onClick={() => void handleStartConnect()}
             disabled={status === 'syncing'}
-            className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--text-on-solid)] disabled:opacity-50"
           >
             {status === 'syncing' ? '연결 중…' : 'Google Drive 연결'}
           </button>
@@ -135,7 +135,7 @@ export const SyncTab = () => {
                 type="button"
                 onClick={() => void handleConfirm()}
                 disabled={status === 'syncing'}
-                className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--text-on-solid)] disabled:opacity-50"
               >
                 {mode === 'setup' ? '설정하고 연결' : '잠금 해제'}
               </button>
@@ -168,7 +168,7 @@ export const SyncTab = () => {
                 type="button"
                 onClick={() => void handleSyncNow()}
                 disabled={status === 'syncing' || !unlocked || atRestLocked}
-                className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--text-on-solid)] disabled:opacity-50"
               >
                 {status === 'syncing' ? '동기화 중…' : '지금 동기화'}
               </button>

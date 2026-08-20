@@ -112,11 +112,11 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
           </button>
           {errorDetail && (
             <div className="flex items-center gap-2">
-              <p className="flex-1 text-[10px] text-[var(--text-error)]">{errorDetail.message}</p>
+              <p className="flex-1 text-[var(--font-3xs)] text-[var(--text-error)]">{errorDetail.message}</p>
               <button
                 type="button"
                 onClick={() => setErrorModalOpen(true)}
-                className="shrink-0 rounded px-2 py-0.5 text-[10px] text-[var(--text-error)] hover:bg-[var(--text-error)]/10 bg-transparent border border-[var(--text-error)]/30 cursor-pointer transition-colors"
+                className="shrink-0 rounded px-2 py-0.5 text-[var(--font-3xs)] text-[var(--text-error)] hover:bg-[var(--text-error)]/10 bg-transparent border border-[var(--text-error)]/30 cursor-pointer transition-colors"
               >
                 상세/문의
               </button>
@@ -160,7 +160,7 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
               {summary.keyPoints.length > 0 && (
                 <ul className="m-0 pl-4 space-y-0.5">
                   {summary.keyPoints.map((point, i) => (
-                    <li key={i} className="text-[11px] text-[var(--text-secondary)]">
+                    <li key={i} className="text-[var(--font-2xs)] text-[var(--text-secondary)]">
                       {point}
                     </li>
                   ))}
@@ -213,14 +213,14 @@ const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
         <span className="text-xs font-medium text-[var(--text-primary)] flex-1 truncate">
           {entry.label || '(라벨 없음)'}
         </span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-tertiary)]">
+        <span className="text-[var(--font-3xs)] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-tertiary)]">
           {entry.category === 'server' ? '서버' : entry.category === 'database' ? 'DB' : '기타'}
         </span>
       </div>
 
       {hostText && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">호스트</span>
+          <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] w-16 shrink-0">호스트</span>
           <span className="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{hostText}</span>
           <button
             type="button"
@@ -234,7 +234,7 @@ const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
 
       {entry.username && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">사용자명</span>
+          <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] w-16 shrink-0">사용자명</span>
           <span className="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{entry.username}</span>
           <button
             type="button"
@@ -248,7 +248,7 @@ const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
 
       {entry.password && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">비밀번호</span>
+          <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] w-16 shrink-0">비밀번호</span>
           <span className="text-xs font-mono text-[var(--text-secondary)] flex-1">
             {showPw ? entry.password : '••••••••'}
           </span>
@@ -271,14 +271,14 @@ const ReadOnlyCredentialCard = ({ entry }: { entry: CredentialEntry }) => {
 
       {entry.category === 'database' && entry.database && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0">DB명</span>
+          <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] w-16 shrink-0">DB명</span>
           <span className="text-xs font-mono text-[var(--text-secondary)] flex-1">{entry.database}</span>
         </div>
       )}
 
       {entry.extra && (
         <div className="flex items-start gap-2">
-          <span className="text-[10px] text-[var(--text-tertiary)] w-16 shrink-0 pt-0.5">비고</span>
+          <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] w-16 shrink-0 pt-0.5">비고</span>
           <span className="text-xs text-[var(--text-tertiary)] flex-1">{entry.extra}</span>
         </div>
       )}
@@ -321,7 +321,7 @@ const ReadOnlyUrls = ({ section }: { section: UrlSection }) => {
                       </span>
                     )}
                     {entry.method && (
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]">
+                      <span className="rounded px-1.5 py-0.5 text-[var(--font-3xs)] font-bold bg-[var(--badge-api-bg)] text-[var(--badge-api-text)]">
                         {entry.method}
                       </span>
                     )}
@@ -355,7 +355,7 @@ const ReadOnlyUrls = ({ section }: { section: UrlSection }) => {
             {hasExtra && (
               <div className="pl-2 border-l-2 border-[var(--border-subtle)] space-y-1.5">
                 {entry.note && (
-                  <p className="text-[11px] text-[var(--text-tertiary)] whitespace-pre-wrap m-0 leading-relaxed">
+                  <p className="text-[var(--font-2xs)] text-[var(--text-tertiary)] whitespace-pre-wrap m-0 leading-relaxed">
                     {entry.note}
                   </p>
                 )}
@@ -365,12 +365,12 @@ const ReadOnlyUrls = ({ section }: { section: UrlSection }) => {
                     className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-2 space-y-1"
                   >
                     {card.title && (
-                      <p className="text-[10px] font-semibold text-[var(--text-secondary)] m-0">
+                      <p className="text-[var(--font-3xs)] font-semibold text-[var(--text-secondary)] m-0">
                         {card.title}
                       </p>
                     )}
                     {card.text && (
-                      <p className="text-[10px] font-mono text-[var(--text-primary)] whitespace-pre-wrap m-0 leading-relaxed">
+                      <p className="text-[var(--font-3xs)] font-mono text-[var(--text-primary)] whitespace-pre-wrap m-0 leading-relaxed">
                         {card.text}
                       </p>
                     )}
@@ -434,7 +434,7 @@ const ReadOnlyCode = ({ section }: { section: CodeSection }) => {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)]">
+        <span className="text-[var(--font-3xs)] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)]">
           {section.language}
         </span>
         <button
@@ -545,7 +545,7 @@ export const CardFloatingView = () => {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] backdrop-blur-sm"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -577,7 +577,7 @@ export const CardFloatingView = () => {
                 {item.title || '제목 없음'}
               </h2>
               <span
-                className="text-[10px] font-semibold uppercase tracking-widest"
+                className="text-[var(--font-3xs)] font-semibold uppercase tracking-widest"
                 style={{ color: `var(--badge-${meta.colorKey}-text)` }}
               >
                 {meta.label}

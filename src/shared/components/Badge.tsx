@@ -12,13 +12,13 @@ interface BadgeProps {
 }
 
 const sizeStyles: Record<NonNullable<BadgeProps['size']>, string> = {
-  xs: 'text-[10px]',
-  sm: 'text-[11px] px-2',
+  xs: 'text-[var(--font-3xs)]',
+  sm: 'text-[var(--font-2xs)] px-2',
 }
 
 const variantStyles: Record<NonNullable<BadgeProps['variant']>, string> = {
   default: '',
-  accent: 'bg-[var(--accent)] text-white',
+  accent: 'bg-[var(--accent)] text-[var(--text-on-solid)]',
   muted: 'bg-[var(--bg-surface-hover)] text-[var(--text-tertiary)]',
 }
 

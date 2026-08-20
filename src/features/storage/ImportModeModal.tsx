@@ -45,7 +45,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-black/70"
+      className="fixed inset-0 size-full border-none bg-transparent p-0 backdrop:bg-[var(--bg-overlay)]"
       onCancel={onCancel}
       onClick={handleBackdropClick}
     >
@@ -82,7 +82,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 추가{' '}
-                <span className="ml-1 text-[10px] font-normal text-[var(--text-secondary)]">Append</span>
+                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Append</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 기존 데이터를 유지하고 가져온 항목을 추가합니다. 중복이 발생할 수 있습니다.
@@ -109,7 +109,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 대체{' '}
-                <span className="ml-1 text-[10px] font-normal text-[var(--text-secondary)]">Replace</span>
+                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Replace</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 기존 데이터를 모두 삭제하고 가져온 데이터로 대체합니다.
@@ -151,7 +151,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
           <button
             type="button"
             onClick={() => onConfirm(mode)}
-            className={`rounded px-4 py-2 text-sm font-medium text-white transition-colors ${
+            className={`rounded px-4 py-2 text-sm font-medium text-[var(--text-on-solid)] transition-colors ${
               mode === 'replace'
                 ? 'bg-[var(--bg-error-solid)] hover:opacity-90'
                 : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'

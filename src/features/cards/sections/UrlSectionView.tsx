@@ -211,7 +211,7 @@ const NoteCardRow = ({ card, onChange, onDelete }: NoteCardRowProps) => {
         value={card.title}
         onChange={(e) => onChange({ ...card, title: e.target.value })}
         placeholder="제목 (선택)"
-        className="w-full bg-transparent text-[10px] font-semibold text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border-none outline-none pr-5"
+        className="w-full bg-transparent text-[var(--font-3xs)] font-semibold text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border-none outline-none pr-5"
       />
 
       {/* 내용 */}
@@ -220,7 +220,7 @@ const NoteCardRow = ({ card, onChange, onDelete }: NoteCardRowProps) => {
         placeholder="내용을 입력하세요..."
         onChange={(val) => onChange({ ...card, text: val })}
         minHeight={44}
-        className="bg-transparent border-none px-0 py-0 rounded-none focus:border-none text-[10px] font-mono"
+        className="bg-transparent border-none px-0 py-0 rounded-none focus:border-none text-[var(--font-3xs)] font-mono"
       />
     </div>
   )

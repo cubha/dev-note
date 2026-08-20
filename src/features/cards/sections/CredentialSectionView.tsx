@@ -66,7 +66,7 @@ const CredentialRow = ({ entry, onChange, onDelete }: {
         <select
           value={entry.category}
           onChange={(e) => update({ category: e.target.value as CredentialEntry['category'] })}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)] cursor-pointer"
+          className="text-[var(--font-3xs)] px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-default)] cursor-pointer"
         >
           <option value="server">서버</option>
           <option value="database">DB</option>
@@ -87,7 +87,7 @@ const CredentialRow = ({ entry, onChange, onDelete }: {
         <FieldInput label="Port" value={entry.port} onChange={(v) => update({ port: v })} placeholder="22" />
         <FieldInput label="Username" value={entry.username} onChange={(v) => update({ username: v })} placeholder="admin" />
         <div>
-          <label className="block text-[10px] text-[var(--text-tertiary)] mb-0.5">Password</label>
+          <label className="block text-[var(--font-3xs)] text-[var(--text-tertiary)] mb-0.5">Password</label>
           <div className="relative flex items-center gap-1">
             <div className="relative flex-1">
               <input
@@ -132,7 +132,7 @@ const FieldInput = ({ label, value, onChange, placeholder }: {
 }) => {
   return (
     <div>
-      <label className="block text-[10px] text-[var(--text-tertiary)] mb-0.5">{label}</label>
+      <label className="block text-[var(--font-3xs)] text-[var(--text-tertiary)] mb-0.5">{label}</label>
       <input
         type="text"
         value={value}

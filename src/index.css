@@ -39,6 +39,9 @@
     --text-placeholder: #52525b;
     --text-dim: #71717a;
     --text-on-active: #ffffff;
+    /* 채도 높은 solid 배경(accent·--bg-error-solid) 위 텍스트·아이콘·컨트롤 전용 — 테마 무관 고정값.
+       --text-on-active와 달리 라이트 테마에서도 반전되지 않는다(반전하면 대비 사고). */
+    --text-on-solid: #ffffff;
     --text-active: #60a5fa;
     --text-dirty: #fbbf24;
 
@@ -87,6 +90,16 @@
 
     /* ── 사이드바 ─────────────────────────────────── */
     --sidebar-width: 260px;
+
+    /* ── 모달 폭 (Modal.tsx width prop) ────────────── */
+    --modal-w-sm: 360px;
+    --modal-w-md: 420px;
+    --modal-w-lg: 480px;
+    --modal-w-xl: 520px;
+
+    /* ── 타이포 — Tailwind text-xs(12px) 미만 스케일 ── */
+    --font-2xs: 11px;
+    --font-3xs: 10px;
 
     /* ── 트랜지션 ─────────────────────────────────── */
     --transition-fast: 150ms ease;
@@ -394,7 +407,7 @@
 
   /* 메타/보조 텍스트 공통 스타일 */
   .meta-text {
-    @apply text-[10px] text-[var(--text-placeholder)];
+    @apply text-[var(--font-3xs)] text-[var(--text-placeholder)];
   }
 
   /* 서브틀 아이콘/텍스트 버튼 공통 스타일 */
@@ -412,13 +425,28 @@
     @apply flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors;
   }
 
-  /* 주요 액션 버튼 (accent 배경) */
+  /* 주요 액션 버튼 (accent 배경, 툴바 사이즈) */
   .btn-primary {
-    @apply flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none transition-colors;
+    @apply flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-on-solid)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none transition-colors;
+  }
+
+  /* 주요 액션 버튼 (accent 배경, 모달 CTA 사이즈) */
+  .btn-primary-lg {
+    @apply flex items-center gap-1.5 rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--text-on-solid)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none transition-colors;
+  }
+
+  /* 파괴적 액션 버튼 (error-solid 배경, 툴바 사이즈) */
+  .btn-danger {
+    @apply flex items-center gap-1.5 rounded bg-[var(--bg-error-solid)] px-3 py-1.5 text-xs font-medium text-[var(--text-on-solid)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none transition-opacity;
+  }
+
+  /* 파괴적 액션 버튼 (error-solid 배경, 모달 CTA 사이즈) */
+  .btn-danger-lg {
+    @apply flex items-center gap-1.5 rounded bg-[var(--bg-error-solid)] px-4 py-2 text-sm font-medium text-[var(--text-on-solid)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none transition-opacity;
   }
 
   /* 섹션 헤더 레이블 */
   .section-label {
-    @apply mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-secondary)];
+    @apply mb-3 text-[var(--font-3xs)] font-semibold uppercase tracking-widest text-[var(--text-secondary)];
   }
 }

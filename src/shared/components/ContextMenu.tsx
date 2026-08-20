@@ -119,7 +119,7 @@ export function ContextMenu() {
               role="menuitem"
               type="button"
               onClick={handleMultiDelete}
-              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white"
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)]"
             >
               선택 항목 삭제 ({selectedItems.size}개)
             </button>
@@ -145,7 +145,7 @@ export function ContextMenu() {
               role="menuitem"
               type="button"
               onClick={handleDelete}
-              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] hover:text-white"
+              className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-error)] hover:bg-[var(--bg-error-hover)]"
             >
               {menu.type === 'folder' ? '폴더 및 하위 항목 삭제' : '항목 삭제'}
             </button>

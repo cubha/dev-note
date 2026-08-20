@@ -47,7 +47,7 @@ export const MoveToFolderModal = ({
   return (
     <Modal
       onClose={onClose}
-      width="w-[360px]"
+      width="w-[var(--modal-w-sm)]"
       maxHeight="max-h-[70vh]"
       ariaLabel="폴더 이동"
     >

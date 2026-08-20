@@ -563,7 +563,7 @@ export const CardDetailEditor = () => {
             disabled={!dirty}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border-none shrink-0 ${
               dirty
-                ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+                ? 'bg-[var(--accent)] text-[var(--text-on-solid)] hover:bg-[var(--accent-hover)]'
                 : 'bg-[var(--bg-surface-hover)] text-[var(--text-placeholder)] cursor-default'
             }`}
             title={`저장 (${saveKeyLabel})`}

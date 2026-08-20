@@ -10,7 +10,7 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-[var(--accent)] text-white hover:opacity-90',
+  primary: 'bg-[var(--accent)] text-[var(--text-on-solid)] hover:opacity-90',
   secondary:
     'border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]',
   ghost:

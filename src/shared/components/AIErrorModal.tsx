@@ -63,7 +63,7 @@ export const AIErrorModal = ({
   return (
     <Modal
       onClose={onClose}
-      width="w-[360px]"
+      width="w-[var(--modal-w-sm)]"
       elevated={elevated}
       enableEsc={false}
       ariaLabel={title}
@@ -98,11 +98,11 @@ export const AIErrorModal = ({
           <div className="rounded-md bg-[var(--bg-input)] px-3 py-2 space-y-1">
             <div className="flex items-center justify-between">
               <span className="meta-text">에러 코드</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">{errorDetail.code}</span>
+              <span className="font-mono text-[var(--font-3xs)] text-[var(--text-secondary)]">{errorDetail.code}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="meta-text">시각</span>
-              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+              <span className="font-mono text-[var(--font-3xs)] text-[var(--text-secondary)]">
                 {new Date(errorDetail.timestamp).toLocaleString('ko-KR')}
               </span>
             </div>

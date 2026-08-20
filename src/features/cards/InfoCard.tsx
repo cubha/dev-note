@@ -130,7 +130,7 @@ export const InfoCard = ({
             </h3>
             <div className="flex items-center gap-1.5">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[var(--font-3xs)] font-medium uppercase tracking-wider"
                 style={{ color: `var(--badge-${meta.colorKey}-text)` }}
               >
                 {meta.label}
@@ -296,7 +296,7 @@ const DocumentPreview = ({ content, searchQuery }: { content: HybridContent; sea
               <span className="font-medium truncate">{section.title || section.type}</span>
             </div>
             {summary && (
-              <p className="text-[11px] text-[var(--text-tertiary)] font-mono truncate m-0 pl-5 leading-relaxed">
+              <p className="text-[var(--font-2xs)] text-[var(--text-tertiary)] font-mono truncate m-0 pl-5 leading-relaxed">
                 {highlightByQuery(summary, searchQuery)}
               </p>
             )}
@@ -304,7 +304,7 @@ const DocumentPreview = ({ content, searchQuery }: { content: HybridContent; sea
         )
       })}
       {content.sections.length > 3 && (
-        <p className="text-[10px] text-[var(--text-tertiary)] m-0 pl-5">
+        <p className="text-[var(--font-3xs)] text-[var(--text-tertiary)] m-0 pl-5">
           +{content.sections.length - 3}개 섹션
         </p>
       )}

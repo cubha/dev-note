@@ -8,7 +8,7 @@ import { cn } from '../utils/cn'
 
 interface ModalProps {
   onClose: () => void
-  /** Tailwind width 클래스 (기본: 'w-[480px]') */
+  /** Tailwind width 클래스 (기본: 'w-[var(--modal-w-lg)]') */
   width?: string
   /** max-height 클래스 (기본: 없음) */
   maxHeight?: string
@@ -24,7 +24,7 @@ interface ModalProps {
 
 export const Modal = ({
   onClose,
-  width = 'w-[480px]',
+  width = 'w-[var(--modal-w-lg)]',
   maxHeight,
   elevated = false,
   enableEsc = true,
@@ -48,7 +48,7 @@ export const Modal = ({
     <>
       {/* 백드롭 */}
       <div
-        className={cn('fixed inset-0 bg-black/50', backdropZ)}
+        className={cn('fixed inset-0 bg-[var(--bg-overlay)]', backdropZ)}
         onClick={onClose}
         aria-hidden
       />

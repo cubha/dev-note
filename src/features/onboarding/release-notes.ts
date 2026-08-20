@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.9.3',
+    date: '2026-08-20',
+    title: '탭 표시·삭제 메뉴 대비 개선',
+    highlights: [
+      '탭이 많이 열려있을 때 새로 연 탭이 화면에 바로 보입니다 — 오버플로 메뉴 안으로 숨지 않습니다',
+      '사이드바·컨텍스트 메뉴의 삭제 항목이 라이트 테마 호버 시 텍스트가 거의 안 보이던 문제를 고쳤습니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.9.2',
     date: '2026-08-13',
     title: '잠긴 카드 편집 내용 보호',

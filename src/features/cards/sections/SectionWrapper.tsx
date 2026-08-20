@@ -173,14 +173,14 @@ export const SectionWrapper = ({
                 setPasteText('')
                 setPasteOpen(false)
               }}
-              className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer transition-colors"
+              className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[var(--font-3xs)] font-medium text-[var(--text-on-solid)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer transition-colors"
             >
               <Clipboard size={10} /> 적용
             </button>
             <button
               type="button"
               onClick={() => { setPasteText(''); setPasteOpen(false) }}
-              className="rounded-md px-2.5 py-1 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
+              className="rounded-md px-2.5 py-1 text-[var(--font-3xs)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] cursor-pointer bg-transparent border-none transition-colors"
             >
               취소
             </button>

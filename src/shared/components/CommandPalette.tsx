@@ -211,7 +211,7 @@ export const CommandPalette = () => {
     <>
       {/* 백드롭 */}
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40 bg-[var(--bg-overlay)]"
         onClick={close}
         aria-hidden
       />
@@ -246,7 +246,7 @@ export const CommandPalette = () => {
             aria-autocomplete="list"
             aria-controls="command-palette-list"
           />
-          <kbd className="rounded border border-[var(--border-default)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
+          <kbd className="rounded border border-[var(--border-default)] px-1.5 py-0.5 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
             ESC
           </kbd>
         </div>
@@ -277,13 +277,13 @@ export const CommandPalette = () => {
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="rounded bg-[var(--bg-input)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)] shrink-0">
+                  <span className="rounded bg-[var(--bg-input)] px-1.5 py-0.5 text-[var(--font-3xs)] text-[var(--text-tertiary)] shrink-0">
                     {CATEGORY_LABELS[cmd.category] ?? cmd.category}
                   </span>
                   <span className="truncate">{cmd.label}</span>
                 </div>
                 {cmd.shortcut && (
-                  <kbd className="shrink-0 rounded border border-[var(--border-default)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
+                  <kbd className="shrink-0 rounded border border-[var(--border-default)] px-1.5 py-0.5 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
                     {cmd.shortcut}
                   </kbd>
                 )}
@@ -294,15 +294,15 @@ export const CommandPalette = () => {
 
         {/* 푸터 힌트 */}
         <div className="flex items-center gap-3 border-t border-[var(--border-default)] px-4 py-2">
-          <span className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">↑↓</kbd>
             탐색
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">↵</kbd>
             실행
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">ESC</kbd>
             닫기
           </span>
