@@ -125,3 +125,157 @@ describe('computeTabWindow', () => {
     expect(ids.slice(r.start, r.end)).toContain(5)
   })
 })
+
+// ── R4~R8 앵커 기반 규칙 ─────────────────────────────────────────────
+//
+// 배경: 기존 알고리즘은 stateless라 활성 탭이 항상 창 오른쪽 끝에 강제 배치됐다.
+// 실측 결함(탭10개/폭350): 보이는 탭 8을 클릭만 해도 창이 [8,9,10]→[6,7,8]로 밀려
+// 나중에 연 9·10이 오버플로로 숨었다("먼저 연 것부터 숨는다" 규칙 위반).
+// anchorTabId/anchorIndex로 이전 창의 왼쪽 끝을 넘겨주면, 활성 탭이 그 창 안에
+// 있는 한 창이 움직이지 않아야 한다.
+
+const winA = (
+  tabIds: number[],
+  activeTab: number | null,
+  available: number,
+  anchorTabId: number | null,
+  anchorIndex: number,
+) => computeTabWindow({
+  tabIds, activeTab, available, widthOf: () => W, overflowBtnW: BTN, anchorTabId, anchorIndex,
+})
+
+describe('computeTabWindow — R4 앵커 유지(창 안 탭 클릭 시 창 고정)', () => {
+  it('보이는 탭을 클릭해도 창이 움직이지 않는다 — ②의 회귀 케이스', () => {
+    // 탭 10개, 폭 350 → 창 [8,9,10](start=7). 그 안의 탭 8을 클릭.
+    const ids = tabs(10)
+    const r = winA(ids, 8, 350, 8, 7)
+    expect(r).toEqual({ start: 7, end: 10 })
+  })
+
+  it('창 안의 다른 탭(9, 가운데)을 클릭해도 마찬가지로 고정된다', () => {
+    // 주의: 탭 7은 창 [8,9,10] 밖(왼쪽 바로 옆)이라 이 불변식의 대상이 아니다 — 탭 9로 검증한다
+    const ids = tabs(10)
+    const r = winA(ids, 9, 350, 8, 7)
+    expect(r).toEqual({ start: 7, end: 10 })
+  })
+})
+
+describe('computeTabWindow — R5 최소 이동', () => {
+  it('창 밖 뒤쪽(신규 탭)은 보이는 맨 오른쪽에 온다', () => {
+    // 창 [8,9,10](앵커=8,idx=7) 상태에서 탭 11을 새로 열어 활성화
+    const ids = tabs(11)
+    const r = winA(ids, 11, 350, 8, 7)
+    expect(ids.slice(r.start, r.end)).toContain(11)
+    expect(ids[r.end - 1]).toBe(11) // 맨 오른쪽
+  })
+
+  it('창 밖 앞쪽(오버플로 선택)은 보이는 맨 왼쪽에 온다 — ④의 과잉이동 해소', () => {
+    // 창 [8,9,10](앵커=8,idx=7) 상태에서 오버플로 메뉴의 탭 2를 선택
+    const ids = tabs(10)
+    const r = winA(ids, 2, 350, 8, 7)
+    expect(ids[r.start]).toBe(2) // 맨 왼쪽 — 맨 앞(1)까지 과잉 이동하지 않는다
+    expect(ids.slice(r.start, r.end)).toContain(2)
+  })
+})
+
+describe('computeTabWindow — R6 여유 회수', () => {
+  it('오른쪽 끝까지 보이는데 왼쪽에 여유가 있으면 되채운다', () => {
+    const ids = [1, 2, 3, 4, 5]
+    // 앵커가 뒤쪽(idx=3)에 있어도, 폭이 넉넉하면(550) 전부 보이도록 회수해야 한다
+    const r = winA(ids, 5, 550, 4, 3)
+    expect(r).toEqual({ start: 0, end: 5 })
+  })
+})
+
+describe('computeTabWindow — R8 앵커 소실 시 위치 보존', () => {
+  it('앵커 탭이 닫혀도 0으로 리셋하지 않고 index를 승계한다', () => {
+    // 이전 창 [8,9,10](앵커=8,idx=7) 상태에서 앵커 탭 8이 닫힘 → 9개 남음
+    const after = [1, 2, 3, 4, 5, 6, 7, 9, 10]
+    const r = winA(after, 9, 350, 8, 7)
+    const visible = after.slice(r.start, r.end)
+    // fallback=0이면 [6,7,9]가 되어 나중에 연 10이 숨는다(R3 위반) — 실측 검증된 결함
+    expect(visible).not.toContain(6)
+    expect(visible).toContain(10) // 나중에 연 탭이 부활한 앞쪽 탭에 밀려나면 안 된다
+    expect(visible).toContain(9)
+  })
+})
+
+describe('computeTabWindow — 시퀀스 시뮬레이션 (실사용 흐름)', () => {
+  /** 매 스텝의 출력 start를 다음 스텝의 앵커로 되먹이는 실제 TabBar 배선 재현 */
+  function simulate(available: number) {
+    let tabIds: number[] = []
+    let anchor: { id: number | null; index: number } = { id: null, index: 0 }
+    let lastWindow = { start: 0, end: 0 }
+
+    const step = (activeTab: number | null) => {
+      const r = computeTabWindow({
+        tabIds, activeTab, available, widthOf: () => W, overflowBtnW: BTN,
+        anchorTabId: anchor.id, anchorIndex: anchor.index,
+      })
+      lastWindow = r
+      anchor = { id: tabIds[r.start] ?? null, index: r.start }
+      return r
+    }
+
+    return {
+      open: (id: number) => { tabIds = [...tabIds, id]; return step(id) },
+      click: (id: number) => step(id),
+      close: (id: number) => { tabIds = tabIds.filter((x) => x !== id); return step(id) },
+      resize: (newAvailable: number, activeTab: number | null) => {
+        available = newAvailable
+        return step(activeTab)
+      },
+      get tabIds() { return tabIds },
+      get window() { return lastWindow },
+    }
+  }
+
+  it('open×10 → click 8 → click 9 → 오버플로에서 2 선택 → 새 탭 11 → 앵커 탭 닫기 → 폭 확대', () => {
+    const s = simulate(350)
+    for (let i = 1; i <= 10; i++) s.open(i)
+    expect(s.tabIds.slice(s.window.start, s.window.end)).toEqual([8, 9, 10])
+
+    // 불변식 1: 보이는 탭을 클릭하면 {start,end}가 변하지 않는다 (탭 7은 창 밖이라 대상에서 제외)
+    const w1 = s.click(8)
+    expect(w1).toEqual({ start: 7, end: 10 })
+    const w2 = s.click(9)
+    expect(w2).toEqual({ start: 7, end: 10 })
+
+    // 오버플로에서 2 선택 — 창이 앞으로 이동
+    const w3 = s.click(2)
+    expect(s.tabIds[w3.start]).toBe(2)
+
+    // 새 탭 11 — 보이는 맨 오른쪽에 위치
+    const w4 = s.open(11)
+    expect(s.tabIds[w4.end - 1]).toBe(11)
+
+    // 불변식 2: 창이 뒤로 밀리는 동안 숨김(뒤쪽) 집합은 커지지 않는다 — 숨김은 왼쪽에서만 자란다
+    const hiddenBefore = s.tabIds.length - w3.end
+    const hiddenAfterRight = s.tabIds.length - w4.end
+    expect(hiddenAfterRight).toBeLessThanOrEqual(hiddenBefore + 1) // 새 탭 1개 추가분 이상 뒤쪽이 밀리지 않는다
+
+    // 앵커 탭(현재 창의 맨 왼쪽) 닫기 — 위치 보존(R8) 확인
+    const anchorId = s.tabIds[s.window.start]
+    const w5 = s.close(anchorId)
+    expect(s.tabIds.slice(w5.start, w5.end)).not.toContain(1) // 먼저 닫힌 앞쪽 탭이 부활하지 않는다
+
+    // 폭 확대 — R6 여유 회수로 왼쪽이 다시 채워질 수 있다(활성 탭은 여전히 포함)
+    const w6 = s.resize(2000, s.tabIds[s.tabIds.length - 1])
+    expect(w6).toEqual({ start: 0, end: s.tabIds.length })
+  })
+
+  it('idempotence — 동일 입력을 반복 계산해도 고정점에서 흔들리지 않는다', () => {
+    const ids = tabs(12)
+    let anchor: { id: number | null; index: number } = { id: null, index: 0 }
+    let prev: { start: number; end: number } | null = null
+    for (let i = 0; i < 5; i++) {
+      const r = computeTabWindow({
+        tabIds: ids, activeTab: 9, available: 350, widthOf: () => W, overflowBtnW: BTN,
+        anchorTabId: anchor.id, anchorIndex: anchor.index,
+      })
+      if (prev) expect(r).toEqual(prev)
+      prev = r
+      anchor = { id: ids[r.start] ?? null, index: r.start }
+    }
+  })
+})

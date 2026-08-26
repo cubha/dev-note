@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.9.4',
+    date: '2026-08-26',
+    title: '탭 표시 안정화',
+    highlights: [
+      '탭이 많이 열려 있을 때, 이미 보이는 탭을 클릭해도 탭 목록이 흔들리지 않습니다',
+      '숨겨진 탭을 오버플로 메뉴에서 선택하면 필요한 만큼만 화면이 이동합니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.9.3',
     date: '2026-08-20',
     title: '탭 표시·삭제 메뉴 대비 개선',

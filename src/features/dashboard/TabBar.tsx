@@ -133,6 +133,8 @@ export const TabBar = () => {
   // 창 밖으로 밀려 언마운트된 탭의 폭도 기억해야 다음 계산이 흔들리지 않는다(tabElsRef는 마운트된 것만 가짐)
   const tabWidthsRef = useRef<Map<number, number>>(new Map())
   const [tabWindow, setTabWindow] = useState(() => ({ start: 0, end: openTabs.length || 100 }))
+  // 이전 창의 왼쪽 끝 — 탭 클릭만으로 창이 움직이지 않게 하는 기준점(R4). ref라 갱신해도 리렌더를 유발하지 않는다
+  const anchorRef = useRef<{ id: number | null; index: number }>({ id: null, index: 0 })
 
   const items = useLiveQuery(
     () => db.items.where('id').anyOf(openTabs).toArray(),
@@ -159,7 +161,10 @@ export const TabBar = () => {
       available: container.offsetWidth,
       widthOf: (id) => tabWidthsRef.current.get(id) ?? ESTIMATED_TAB_W,
       overflowBtnW: OVERFLOW_BTN_W,
+      anchorTabId: anchorRef.current.id,
+      anchorIndex: anchorRef.current.index,
     })
+    anchorRef.current = { id: openTabs[next.start] ?? null, index: next.start }
 
     setTabWindow((prev) => (prev.start !== next.start || prev.end !== next.end ? next : prev))
   }, [openTabs, activeTab])
