@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { db } from '../../core/db'
 import type { ItemType, Item } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
@@ -16,6 +17,7 @@ import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
 import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
+import { publishItem } from '../../core/publishItem'
 import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
@@ -353,11 +355,11 @@ export const CardDetailEditor = () => {
       }
 
       if (type === 'document') {
-        // document 타입: title/tags 저장 + DocumentEditor content 저장 통합
-        await db.items.update(item.id, {
-          title, type, tags: parsedTags, updatedAt: Date.now(),
-        })
-        setOriginal(prev => prev ? { ...prev, title, type, tags } : null)
+        // document 타입: title/tags 저장(publishItem 경유 — draft였다면 여기서 넘버링+해제) +
+        // DocumentEditor content 저장 통합
+        const { finalTitle } = await publishItem(item.id, { title, type, tags: parsedTags, updatedAt: Date.now() })
+        if (finalTitle !== title) setTitle(finalTitle)
+        setOriginal(prev => prev ? { ...prev, title: finalTitle, type, tags } : null)
         if (docEditorRef.current) {
           await docEditorRef.current.save()
         }
@@ -367,6 +369,9 @@ export const CardDetailEditor = () => {
         dirtyRef.current = false
         bumpDraftEpoch(item.id)
         await deleteDraft(item.id)
+        if (finalTitle !== title) {
+          toast.success(`저장됨 — 제목이 '${finalTitle}'으로 저장되었습니다`, { duration: 2500 })
+        }
         return
       }
 
@@ -387,22 +392,25 @@ export const CardDetailEditor = () => {
         content = await encryptContent(content, encryptionKey)
       }
 
-      await db.items.update(item.id, {
-        title, type, tags: parsedTags,
-        content,
-        updatedAt: Date.now(),
+      // publishItem 경유 — 이 카드가 draft(미저장 새 카드)였다면 여기서 넘버링 적용 + draft 해제
+      const { finalTitle } = await publishItem(item.id, {
+        title, type, tags: parsedTags, content, updatedAt: Date.now(),
       })
+      if (finalTitle !== title) setTitle(finalTitle)
       // 원본 스냅샷 갱신 → dirty가 자동으로 false 됨(리렌더 이후). setOriginal 커밋을 기다리지 않고
       // dirtyRef를 즉시 갱신해, 그 사이 flush가 끼어들어 방금 지운 드래프트를 되살리는 레이스를 막는다.
       setOriginal({
-        title, type, tags,
+        title: finalTitle, type, tags,
         fields: JSON.stringify(fields.map(f => [f.key, f.value])),
         editorText,
       })
       dirtyRef.current = false
       bumpDraftEpoch(item.id)
       await deleteDraft(item.id)
-      toast.success('저장됨', { duration: 1500 })
+      toast.success(
+        finalTitle !== title ? `저장됨 — 제목이 '${finalTitle}'으로 저장되었습니다` : '저장됨',
+        { duration: finalTitle !== title ? 2500 : 1500 },
+      )
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     }
@@ -482,6 +490,11 @@ export const CardDetailEditor = () => {
       {draftLocked && (
         <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-[var(--text-warning)]">
           🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.
+        </div>
+      )}
+      {!draftLocked && isDraft(item) && (
+        <div className="mx-6 mt-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          아직 저장되지 않아 목록·검색에 표시되지 않습니다. 저장하면 목록에 추가됩니다.
         </div>
       )}
       {/* ── Meta (제목 / 타입 / 태그) ────── */}

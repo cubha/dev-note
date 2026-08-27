@@ -13,6 +13,7 @@ export const uniquifyTitle = (title: string, taken: Set<string>): string => {
   return `${base} (${n})`
 }
 
+// eslint-disable-next-line no-control-regex -- 파일명 예약 제어문자(0x00-0x1f, 0x80-0x9f) 제거는 의도된 것
 const RESERVED_CHARS = /[/\\:*?"<>|\x00-\x1f\x80-\x9f]/g
 const WINDOWS_RESERVED = new Set([
   'CON', 'PRN', 'AUX', 'NUL',

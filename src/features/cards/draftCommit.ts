@@ -12,6 +12,7 @@ import { serializeContent, encryptContent } from '../../core/content'
 import { encryptTags } from '../../core/metaCrypto'
 import { getEditorFieldKey } from './fieldHelpers'
 import { bumpDraftEpoch } from './draftFlushControl'
+import { publishItem } from '../../core/publishItem'
 
 /**
  * itemId의 드래프트를 읽어 items에 커밋(저장)하고 드래프트를 삭제한다.
@@ -83,7 +84,9 @@ export async function commitDraftToItem(
     parsedTags = await encryptTags(parsedTags, encryptionKey)
   }
 
-  await db.items.update(itemId, {
+  // publishItem 경유 — 이 아이템이 draft(미저장 새 카드)였다면 발행 시점에 넘버링 적용 +
+  // draft 플래그 해제까지 여기서 함께 처리된다(발행 경로 3곳 중 하나, F1).
+  await publishItem(itemId, {
     title: draft.title, type: draft.type, tags: parsedTags,
     content, updatedAt: Date.now(),
   })
