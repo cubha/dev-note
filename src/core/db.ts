@@ -26,6 +26,9 @@ export interface Item {
   createdAt: number
   // ── 동기화 (Phase 2 BYO-storage) — 옵트인. 미동기화 노트는 undefined ──
   uuid?: string             // 기기 간 안정적 식별자 ({uuid}.enc). 동기화 시 지연 부여
+  // 미저장 새 카드 표시 — true면 목록/사이드바/검색에서 제외되고 탭에서만 보인다.
+  // isDraft(item) 술어(core/cardState.ts) 한 곳에서만 판정한다(undefined도 non-draft로 취급).
+  draft?: boolean
 }
 
 /**
@@ -349,6 +352,16 @@ class DevNoteDB extends Dexie {
       await tx.table('config').toCollection().modify((c: Record<string, unknown>) => {
         c.encryptionCheck = null
       })
+    })
+    // v21: draft(미저장 새 카드) 플래그 추가. boolean은 IndexedDB 유효 키가 아니라
+    // 인덱스에 넣을 수 없다 — items 문자열은 v20과 동일하게 두고 메모리에서 필터한다.
+    // 필드가 optional이라 업그레이드 스크립트도 불필요(기존 행은 undefined = non-draft).
+    this.version(21).stores({
+      folders:   '++id, parentId, order',
+      items:     '++id, &uuid, folderId, title, type, order, pinned, updatedAt',
+      syncState: 'uuid',
+      config:    'id',
+      drafts:    'itemId',
     })
   }
 }
