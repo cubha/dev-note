@@ -1,130 +1,33 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { useLiveQuery } from 'dexie-react-hooks'
-import Fuse from 'fuse.js'
-import type { FuseResultMatch } from 'fuse.js'
 import { db } from '../../core/db'
 import type { Item } from '../../core/db'
-import type { CardContent as CardContentType } from '../../core/types'
-import { parseContent, extractSearchText } from '../../core/content'
-import { isDraft } from '../../core/cardState'
-import { encryptTags, decryptTagsForDisplay, LOCKED_TAG_LABEL } from '../../core/metaCrypto'
+import { encryptTags, LOCKED_TAG_LABEL } from '../../core/metaCrypto'
 import {
   encryptionKeyAtom,
   appConfigAtom,
-  searchQueryAtom,
-  typeFilterAtom,
-  tagFilterAtom,
   selectedFolderAtom,
   cardFormAtom,
   openTabsAtom,
   activeTabAtom,
   dirtyItemsAtom,
-  sortOrderAtom,
 } from '../../store/atoms'
 import { openTab, removeItemsFromState } from '../../store/tabHelpers'
+import { useCardSearch } from './useCardSearch'
 import { InfoCard } from '../cards/InfoCard'
 import { EmptyState } from '../cards/EmptyState'
 import { toast } from 'sonner'
 
-interface ParsedItem {
-  item: Item
-  content: CardContentType
-  searchText: string
-}
-
-interface DisplayItem extends ParsedItem {
-  matches?: readonly FuseResultMatch[]
-}
-
 export const CardGrid = () => {
-  const searchQuery = useAtomValue(searchQueryAtom)
-  const typeFilter = useAtomValue(typeFilterAtom)
-  const tagFilter = useAtomValue(tagFilterAtom)
   const selectedFolder = useAtomValue(selectedFolderAtom)
   const setCardForm = useSetAtom(cardFormAtom)
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
-  const sortOrder = useAtomValue(sortOrderAtom)
   const encryptionKey = useAtomValue(encryptionKeyAtom)
   const encryptionEnabled = useAtomValue(appConfigAtom)?.encryptionEnabled === true
 
-  // 태그는 암호화되어 저장되므로 데이터 소스에서 한 번에 복호화한다 — 필터·Fuse 인덱스·
-  // InfoCard 칩이 전부 이 배열을 쓰므로, 여기만 바꾸면 하위 코드는 그대로 평문으로 동작한다.
-  // decryptTagsForDisplay는 표시 전용 — 복호화 불가한 원소가 있으면 조용히 지우지 않고
-  // LOCKED_TAG_LABEL을 덧붙인다(다른 기기의 평문 백업을 키 없는 기기로 가져온 경우 등).
-  // draft(미저장 새 카드)는 그리드에서 제외 — F1
-  const items = useLiveQuery(async () => {
-    const rows = (await db.items.orderBy('order').toArray()).filter((item) => !isDraft(item))
-    return Promise.all(rows.map(async (item) => ({ ...item, tags: await decryptTagsForDisplay(item.tags, encryptionKey) })))
-  }, [encryptionKey])
-
-  // 파싱 (동기 — 암호화 제거로 즉시 처리)
-  const parsedItems = useMemo<ParsedItem[]>(() => {
-    if (!items) return []
-    return items.map((item) => {
-      const content = parseContent(item.content)
-      return { item, content, searchText: extractSearchText(content) }
-    })
-  }, [items])
-
-  // 필터링
-  const filteredItems = useMemo(() => {
-    let result = parsedItems
-
-    if (selectedFolder !== null) {
-      result = result.filter((d) => d.item.folderId === selectedFolder)
-    }
-    if (typeFilter) {
-      result = result.filter((d) => d.item.type === typeFilter)
-    }
-    if (tagFilter) {
-      result = result.filter((d) => d.item.tags.includes(tagFilter))
-    }
-
-    result = [...result].sort((a, b) => {
-      // 핀 고정 항상 우선
-      if (a.item.pinned && !b.item.pinned) return -1
-      if (!a.item.pinned && b.item.pinned) return 1
-      // sortOrder에 따른 세부 정렬
-      switch (sortOrder) {
-        case 'updatedAt':
-          return b.item.updatedAt - a.item.updatedAt
-        case 'title':
-          return a.item.title.localeCompare(b.item.title, 'ko')
-        default:
-          return a.item.order - b.item.order
-      }
-    })
-
-    return result
-  }, [parsedItems, selectedFolder, typeFilter, tagFilter, sortOrder])
-
-  // Fuse.js 인스턴스 (filteredItems 변경 시에만 재생성)
-  const fuse = useMemo(
-    () =>
-      new Fuse(filteredItems, {
-        keys: [
-          { name: 'item.title', weight: 0.6 },
-          { name: 'item.tags', weight: 0.2 },
-          { name: 'searchText', weight: 0.2 },
-        ],
-        threshold: 0.4,
-        includeScore: true,
-        includeMatches: true,
-      }),
-    [filteredItems],
-  )
-
-  // 검색
-  const displayItems = useMemo((): DisplayItem[] => {
-    if (!searchQuery.trim()) return filteredItems
-    return fuse.search(searchQuery).map((result) => ({
-      ...result.item,
-      matches: result.matches,
-    }))
-  }, [filteredItems, searchQuery, fuse])
+  const { items, displayItems, searchQuery, typeFilter, tagFilter } = useCardSearch()
 
   const handleEdit = (item: Item) => {
     openTab(item.id, setOpenTabs, setActiveTab)

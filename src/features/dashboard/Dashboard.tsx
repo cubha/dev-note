@@ -6,6 +6,7 @@ import { CardFormModal } from '../cards/CardFormModal'
 import { CardDetailEditor } from '../cards/CardDetailEditor'
 import { CardFloatingView } from '../cards/CardFloatingView'
 import { TabContextMenu } from './TabContextMenu'
+import { SearchResultsOverlay } from './SearchResultsOverlay'
 
 export const Dashboard = () => {
   const cardForm = useAtomValue(cardFormAtom)
@@ -37,6 +38,7 @@ export const Dashboard = () => {
       )}
       <CardFloatingView />
       <TabContextMenu />
+      <SearchResultsOverlay />
     </main>
   )
 }
