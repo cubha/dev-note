@@ -7,6 +7,7 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { CardContent as CardContentType } from '../../core/types'
 import { parseContent, extractSearchText } from '../../core/content'
+import { isDraft } from '../../core/cardState'
 import { encryptTags, decryptTagsForDisplay, LOCKED_TAG_LABEL } from '../../core/metaCrypto'
 import {
   encryptionKeyAtom,
@@ -53,8 +54,9 @@ export const CardGrid = () => {
   // InfoCard 칩이 전부 이 배열을 쓰므로, 여기만 바꾸면 하위 코드는 그대로 평문으로 동작한다.
   // decryptTagsForDisplay는 표시 전용 — 복호화 불가한 원소가 있으면 조용히 지우지 않고
   // LOCKED_TAG_LABEL을 덧붙인다(다른 기기의 평문 백업을 키 없는 기기로 가져온 경우 등).
+  // draft(미저장 새 카드)는 그리드에서 제외 — F1
   const items = useLiveQuery(async () => {
-    const rows = await db.items.orderBy('order').toArray()
+    const rows = (await db.items.orderBy('order').toArray()).filter((item) => !isDraft(item))
     return Promise.all(rows.map(async (item) => ({ ...item, tags: await decryptTagsForDisplay(item.tags, encryptionKey) })))
   }, [encryptionKey])
 

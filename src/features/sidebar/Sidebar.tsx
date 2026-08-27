@@ -14,6 +14,7 @@ import {
 import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
 import { createFolder } from '../../core/metaStore'
 import {
@@ -66,7 +67,11 @@ export const Sidebar = () => {
 
   const folders = useDecryptedFolders()
   const encryptionKey = useAtomValue(encryptionKeyAtom)
-  const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
+  // draft(미저장 새 카드)는 트리에서 제외 — F1
+  const items = useLiveQuery(
+    () => db.items.orderBy('order').toArray().then((all) => all.filter((i) => !isDraft(i))),
+    [],
+  )
 
   const treeNodes = useMemo(() => {
     if (folders === undefined || items === undefined) return []

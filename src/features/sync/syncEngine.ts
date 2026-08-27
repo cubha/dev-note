@@ -9,6 +9,7 @@ import { db } from '../../core/db'
 import type { Item, Folder } from '../../core/db'
 import { encrypt, decrypt } from '../../core/crypto'
 import { encryptContent, decryptContent, isEncryptedContent } from '../../core/content'
+import { isDraft } from '../../core/cardState'
 import { encryptTags, decryptTags, encryptFolderName, decryptFolderName } from '../../core/metaCrypto'
 import { importDEK, importHmacKey } from '../../core/sync-crypto'
 import {
@@ -209,7 +210,9 @@ async function itemToPayload(item: Item, atRestKey: CryptoKey | null): Promise<S
 
 /** uuid 미부여 노트에 지연 부여 후 로컬 상태 목록 구성(삭제 감지 포함). */
 async function buildLocalStates(hmacKey: CryptoKey, atRestKey: CryptoKey | null): Promise<LocalNoteState[]> {
-  const items = await db.items.toArray()
+  // draft(미저장 새 카드)는 push 대상에서 제외 — uuid 지연부여도 함께 건너뛰어
+  // syncState 진입 자체가 없으므로 이후 tombstone(삭제 전파) 오탐도 발생하지 않는다.
+  const items = (await db.items.toArray()).filter((i) => !isDraft(i))
   const states: LocalNoteState[] = []
   const liveUuids = new Set<string>()
 

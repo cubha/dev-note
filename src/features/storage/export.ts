@@ -9,6 +9,7 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { ExportSchema } from './schema'
 import { isEncryptedContent } from '../../core/content'
+import { isDraft } from '../../core/cardState'
 import { wrapEnvelope } from './envelope'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
@@ -95,11 +96,13 @@ function toExportItem(item: Item): Omit<Item, 'id'> {
 // ─── 내보내기 진입점 ───────────────────────────────────────────
 
 export async function exportData(passphrase?: string): Promise<void> {
-  const [folders, items, config] = await Promise.all([
+  const [folders, allItems, config] = await Promise.all([
     db.folders.toArray(),
     db.items.toArray(),
     db.config.get(1),
   ])
+  // draft(미저장 새 카드)는 백업에 넣지 않는다 — import 시 draft 플래그 없이 부활해 영구 노출됨
+  const items = allItems.filter((i) => !isDraft(i))
 
   const exportedAt = Date.now()
   const hasEncryptedItems = items.some((item) => isEncryptedContent(item.content))
@@ -131,7 +134,7 @@ export async function exportSelectedItems(
   const allFolders = await db.folders.toArray()
 
   const selectedItemsData = await db.items.bulkGet(itemIds)
-  const validItems = selectedItemsData.filter((i): i is Item => i !== undefined)
+  const validItems = selectedItemsData.filter((i): i is Item => i !== undefined && !isDraft(i))
   const config = await db.config.get(1)
 
   // 항목이 참조하는 폴더 및 그 조상 폴더 ID 수집

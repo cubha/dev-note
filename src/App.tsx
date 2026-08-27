@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner'
 import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import { db, ensureConfig } from './core/db'
 import type { AppConfig } from './core/db'
+import { isDraft } from './core/cardState'
 import {
   appConfigAtom,
   contextMenuAtom,
@@ -74,7 +75,8 @@ async function requestPersistentStorage(): Promise<void> {
 
 /** 백업 알림 체크 (세션당 1회) */
 async function checkBackupReminder(config: AppConfig): Promise<void> {
-  const itemCount = await db.items.count()
+  // draft(미저장 새 카드)는 유령 개수로 알림을 앞당길 수 있어 카운트에서 제외
+  const itemCount = await db.items.filter((i) => !isDraft(i)).count()
   const daysSinceExport = config.lastExportAt
     ? Math.floor((Date.now() - config.lastExportAt) / (1000 * 60 * 60 * 24))
     : null

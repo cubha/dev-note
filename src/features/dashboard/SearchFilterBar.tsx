@@ -7,6 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Search, Filter, Tag, Bell, X, ArrowUpDown } from 'lucide-react'
 import { db } from '../../core/db'
 import { decryptTagsForDisplay } from '../../core/metaCrypto'
+import { isDraft } from '../../core/cardState'
 import type { ItemType } from '../../core/db'
 import { TYPE_META } from '../../core/types'
 import {
@@ -33,7 +34,7 @@ export const SearchFilterBar = () => {
   // 동일한 원칙이라, 이 필터로 "🔒 잠긴 태그"를 선택하면 실제로 해당 카드들이 걸러진다.
   const allTags = useLiveQuery(async () => {
     const tagSet = new Set<string>()
-    const rows = await db.items.toArray()
+    const rows = (await db.items.toArray()).filter((item) => !isDraft(item))
     for (const item of rows) {
       for (const t of await decryptTagsForDisplay(item.tags, encryptionKey)) tagSet.add(t)
     }
