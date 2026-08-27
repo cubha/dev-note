@@ -102,6 +102,17 @@ export default async function handler(request: Request): Promise<Response> {
       })
     }
 
+    // 실패 사유별 분포(D2) — KEYS로 m:fail:code:* 열거 후 MGET. 버킷 집계는 클라이언트
+    // (core/errorBuckets.ts)에서 수행 — 여기는 raw per-code 카운트만 반환한다.
+    const failCodeKeys = ((await redis(['KEYS', 'm:fail:code:*'])) as string[] | null) ?? []
+    const failCodes: Record<string, number> = {}
+    if (failCodeKeys.length > 0) {
+      const counts = ((await redis(['MGET', ...failCodeKeys])) as unknown[] | null) ?? []
+      failCodeKeys.forEach((k, i) => {
+        failCodes[k.replace('m:fail:code:', '')] = toNum(counts[i])
+      })
+    }
+
     // 최근 7일 일별 호출/실패
     const dates = lastNDates(7)
     const dailyCallKeys = dates.map((d) => `m:calls:${d}`)
@@ -115,7 +126,7 @@ export default async function handler(request: Request): Promise<Response> {
     }))
 
     return json(
-      { callsTotal, failTotal, failRate: callsTotal > 0 ? failTotal / callsTotal : 0, models, daily },
+      { callsTotal, failTotal, failRate: callsTotal > 0 ? failTotal / callsTotal : 0, models, daily, failCodes },
       200,
       origin,
     )

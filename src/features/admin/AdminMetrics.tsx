@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { SHARED_API_URL } from '../../store/atoms'
 import { bucketVisitSeries, buildYAxisTicks, type ChartPeriod } from '../../shared/utils/visitChartBucket'
+import { bucketFailures } from '../../core/errorBuckets'
 
 const PERIOD_OPTIONS: Array<{ value: ChartPeriod; label: string }> = [
   { value: '7d', label: '7일' },
@@ -22,6 +23,7 @@ interface Metrics {
   failRate: number
   models: Record<string, number>
   daily: Array<{ date: string; calls: number; fail: number }>
+  failCodes?: Record<string, number>
 }
 
 interface Visits {
@@ -182,6 +184,23 @@ export const AdminMetrics = () => {
                 )}
               </div>
             </section>
+
+            {/* 실패 사유별 (D2) */}
+            {data.failCodes && Object.keys(data.failCodes).length > 0 && (
+              <section>
+                <h2 className="mb-2 text-sm font-semibold">실패 사유</h2>
+                <div className="rounded border border-[var(--border-default)]">
+                  {bucketFailures(
+                    Object.entries(data.failCodes).map(([code, count]) => ({ code, count })),
+                  ).map((b) => (
+                    <div key={b.bucket} className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-sm last:border-0">
+                      <span title={b.codes.join(', ')}>{b.label}</span>
+                      <span className="tabular-nums text-[var(--text-secondary)]">{b.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* 최근 7일 */}
             <section>
