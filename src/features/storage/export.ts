@@ -11,6 +11,7 @@ import type { ExportSchema } from './schema'
 import { isEncryptedContent } from '../../core/content'
 import { isDraft } from '../../core/cardState'
 import { wrapEnvelope } from './envelope'
+import { saveTextFile } from './fileSave'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
 
@@ -25,42 +26,9 @@ function formatDateForFilename(ts: number): string {
 // ─── 파일 저장 (FSAA + Blob 폴백) ─────────────────────────────
 
 async function saveToFile(content: string, fileName: string): Promise<void> {
-  if ('showSaveFilePicker' in window) {
-    const fsaaWindow = window as Window & {
-      showSaveFilePicker: (opts: {
-        suggestedName?: string
-        types?: Array<{ description: string; accept: Record<string, string[]> }>
-        startIn?: string
-      }) => Promise<{
-        createWritable: () => Promise<{
-          write: (data: string) => Promise<void>
-          close: () => Promise<void>
-        }>
-      }>
-    }
-
-    const handle = await fsaaWindow.showSaveFilePicker({
-      suggestedName: fileName,
-      types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
-      startIn: 'downloads',
-    })
-    const writable = await handle.createWritable()
-    await writable.write(content)
-    await writable.close()
-  } else {
-    const blob = new Blob([content], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = fileName
-    anchor.style.display = 'none'
-    document.body.appendChild(anchor)
-    anchor.click()
-    requestAnimationFrame(() => {
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(url)
-    })
-  }
+  await saveTextFile({
+    content, fileName, mimeType: 'application/json', description: 'JSON Backup', extension: '.json',
+  })
 }
 
 // ─── 백업 직렬화 (평문 / 봉투 암호화 분기) ───────────────────

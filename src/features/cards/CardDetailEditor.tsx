@@ -18,13 +18,16 @@ import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
 import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
 import { publishItem } from '../../core/publishItem'
+import { cardToMarkdown } from '../../core/cardMarkdown'
+import { sanitizeFilename } from '../../core/naming'
+import { saveTextFile } from '../storage/fileSave'
 import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema } from './fieldHelpers'
 import { Dropdown } from '../../shared/components/Dropdown'
 import { DocumentEditor } from './DocumentEditor'
@@ -35,12 +38,6 @@ import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
 const DRAFT_DEBOUNCE_MS = 500
 
 const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
-
-type FSAAWindow = Window & {
-  showSaveFilePicker: (opts: unknown) => Promise<{
-    createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }>
-  }>
-}
 
 // ── Main component ──────────────────────────────────
 
@@ -423,36 +420,30 @@ export const CardDetailEditor = () => {
     return () => registerActiveFlush(null)
   }, [item, flushDraftNow, handleSave])
 
-  // .md 다운로드 (Custom 타입)
+  // .md 다운로드 — DB에 저장된 값 기준(F3, 문서 상 결정: 미저장 편집분은 "저장 후 내보내기"로
+  // 우회 — document 타입도 docEditorRef 없이 item.content → parseContent만으로 완결된다).
+  // 잠긴(암호화된) 카드는 평문 파일이라 명시적으로 거부한다.
   const handleDownloadMd = useCallback(() => {
-    const filename = `${title || 'note'}.md`
-    const blob = new Blob([editorText], { type: 'text/markdown;charset=utf-8' })
-
-    if ('showSaveFilePicker' in window) {
-      void (async () => {
-        try {
-          const handle = await (window as FSAAWindow).showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }],
-          })
-          const writable = await handle.createWritable()
-          await writable.write(blob)
-          await writable.close()
-          toast.success(`${filename} 저장됨`, { duration: 2000 })
-        } catch {
-          // 취소 시 무시
-        }
-      })()
-    } else {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success(`${filename} 다운로드됨`, { duration: 2000 })
+    if (!item) return
+    if (isEncryptedContent(item.content) && !encryptionKey) {
+      toast.error('잠긴 카드는 md로 저장할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.', { duration: 3000 })
+      return
     }
-  }, [title, editorText])
+    void (async () => {
+      try {
+        let rawContent = item.content
+        if (isEncryptedContent(rawContent)) {
+          rawContent = await decryptContent(rawContent, encryptionKey!)
+        }
+        const md = cardToMarkdown(item, parseContent(rawContent))
+        const filename = `${sanitizeFilename(item.title || DEFAULT_ITEM_TITLE)}.md`
+        await saveTextFile({ content: md, fileName: filename, mimeType: 'text/markdown', description: 'Markdown', extension: '.md' })
+        toast.success(`${filename} 저장됨`, { duration: 2000 })
+      } catch {
+        // 취소(FSAA 피커) 시 무시
+      }
+    })()
+  }, [item, encryptionKey])
 
   useHotkey(keys['card.save'], (e) => {
     e.preventDefault()
@@ -556,18 +547,16 @@ export const CardDetailEditor = () => {
             className="flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
           />
 
-          {/* .md 다운로드 (Markdown) */}
-          {type === 'note' && (
-            <button
-              type="button"
-              onClick={handleDownloadMd}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-accent)] transition-colors cursor-pointer shrink-0"
-              title=".md 파일로 다운로드"
-            >
-              <Download size={13} />
-              .md
-            </button>
-          )}
+          {/* .md 다운로드 — F3: note 전용에서 전 타입으로 확대 */}
+          <button
+            type="button"
+            onClick={handleDownloadMd}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-accent)] transition-colors cursor-pointer shrink-0"
+            title=".md 파일로 저장"
+          >
+            <Download size={13} />
+            .md
+          </button>
 
           {/* 저장 버튼 */}
           <button
