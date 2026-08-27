@@ -45,13 +45,18 @@ export const SettingsModal = () => {
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`-mb-px mr-4 border-b-2 pb-2 pt-2.5 text-xs font-medium transition-colors ${
+              className={`-mb-px mr-4 flex items-center gap-1.5 border-b-2 pb-2 pt-2.5 text-xs font-medium transition-colors ${
                 activeTab === tab
                   ? 'border-[var(--accent)] text-[var(--text-primary)]'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               {tab === 'general' ? '일반' : tab === 'ai' ? 'AI' : tab === 'keybindings' ? '단축키' : tab === 'security' ? '보안' : '동기화'}
+              {tab === 'sync' && (
+                <span className="rounded bg-[var(--badge-note-bg)] px-1 py-0.5 text-[var(--font-3xs)] text-[var(--text-warning)]">
+                  실험
+                </span>
+              )}
             </button>
           ))}
         </div>
