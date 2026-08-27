@@ -10,6 +10,8 @@ import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import { parseContent, serializeContent, createEmptyStructuredContent, createEmptyHybridContent, createSection, DOCUMENT_PRESETS, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { checkDuplicates } from '../../core/duplicate-check'
+import { isCardEmpty } from '../../core/cardState'
+import { publishItem } from '../../core/publishItem'
 import { openTabsAtom, activeTabAtom, encryptionKeyAtom, appConfigAtom } from '../../store/atoms'
 import { openTab } from '../../store/tabHelpers'
 import { SmartPastePanel } from './SmartPastePanel'
@@ -159,17 +161,15 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
         }
       }
 
-      let content: string
+      let contentObj: StructuredContent | HybridContent
       if (type === 'document') {
-        if (docSections && docSections.length > 0) {
-          const hybrid: HybridContent = { format: 'hybrid', sections: docSections }
-          content = serializeContent(hybrid)
-        } else {
-          content = serializeContent(createEmptyHybridContent())
-        }
+        contentObj = docSections && docSections.length > 0
+          ? { format: 'hybrid', sections: docSections }
+          : createEmptyHybridContent()
       } else {
-        content = serializeContent({ format: 'structured', fields } as StructuredContent)
+        contentObj = { format: 'structured', fields } as StructuredContent
       }
+      let content = serializeContent(contentObj)
       if (encryptionEnabled && encryptionKey) {
         content = await encryptContent(content, encryptionKey)
       }
@@ -191,6 +191,8 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
           updatedAt: now,
         })
       } else {
+        // F1: 항상 draft로 생성한다 — 비어있지 않을 때만 곧바로 publishItem으로 발행한다.
+        // (빈 채로 add()하면 목록/검색에서 안 보이는 채 탭에만 남는다 — 저장 전 조회 불가 요구사항)
         const newId = await db.items.add({
           folderId,
           title: title.trim(),
@@ -201,9 +203,18 @@ export const CardFormModal = ({ item, folderId, onClose }: CardFormModalProps) =
           content,
           updatedAt: now,
           createdAt: now,
+          draft: true,
         })
         onClose()
         if (typeof newId === 'number') {
+          if (!isCardEmpty(title.trim(), contentObj)) {
+            const { finalTitle } = await publishItem(newId, {
+              title: title.trim(), type, tags: parsedTags, content, updatedAt: now,
+            })
+            if (finalTitle !== title.trim()) {
+              toast.success(`저장됨 — 제목이 '${finalTitle}'으로 저장되었습니다`, { duration: 2500 })
+            }
+          }
           openTab(newId, setOpenTabs, setActiveTab)
         }
         return

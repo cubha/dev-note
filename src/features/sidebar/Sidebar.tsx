@@ -14,6 +14,7 @@ import {
 import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
 import { createFolder } from '../../core/metaStore'
 import {
@@ -35,6 +36,7 @@ import { buildTree, getRootItems, getFlatVisibleItemIds, moveItemsToFolder, reor
 import { DEFAULT_FOLDER_NAME } from '../../shared/constants'
 import { SortableItemRow, SortableFolderNode } from './TreeNode'
 import { StorageButtons } from '../storage/StorageButtons'
+import { exportSelectedAsMarkdown } from '../storage/exportMarkdown'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { IconButton } from '../../shared/components/IconButton'
 import { MoveToFolderModal } from './MoveToFolderModal'
@@ -66,7 +68,11 @@ export const Sidebar = () => {
 
   const folders = useDecryptedFolders()
   const encryptionKey = useAtomValue(encryptionKeyAtom)
-  const items = useLiveQuery(() => db.items.orderBy('order').toArray(), [])
+  // draft(미저장 새 카드)는 트리에서 제외 — F1
+  const items = useLiveQuery(
+    () => db.items.orderBy('order').toArray().then((all) => all.filter((i) => !isDraft(i))),
+    [],
+  )
 
   const treeNodes = useMemo(() => {
     if (folders === undefined || items === undefined) return []
@@ -165,6 +171,25 @@ export const Sidebar = () => {
       removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
     } catch (err) {
       toast.error(`삭제 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+    }
+  }
+
+  const handleBulkExportMarkdown = async () => {
+    const ids = Array.from(selectedItems)
+    try {
+      const { exported, skippedLocked } = await exportSelectedAsMarkdown(ids, encryptionKey)
+      if (exported > 0) {
+        toast.success(`${exported}개 카드를 md로 내보냈습니다`, { duration: 2500 })
+      }
+      if (skippedLocked > 0) {
+        toast.warning(`잠긴 카드 ${skippedLocked}개는 건너뛰었습니다 — 잠금 해제 후 다시 시도해 주세요.`, { duration: 3500 })
+      }
+      if (exported === 0 && skippedLocked === 0) {
+        toast.info('내보낼 카드가 없습니다.', { duration: 2000 })
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      toast.error(`내보내기 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
     }
   }
 
@@ -371,6 +396,19 @@ export const Sidebar = () => {
                     <path d="M9 14l3-3 3 3" />
                   </svg>
                   이동
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkExportMarkdown()}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+                  title="선택한 카드를 md로 내보내기"
+                >
+                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M12 15V3" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M20 21H4" />
+                  </svg>
+                  md
                 </button>
                 <button
                   type="button"

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { db } from '../../core/db'
 import type { ItemType, Item } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
 import type { CardField, StructuredContent } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
@@ -16,13 +17,17 @@ import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
 import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
+import { publishItem } from '../../core/publishItem'
+import { cardToMarkdown } from '../../core/cardMarkdown'
+import { sanitizeFilename } from '../../core/naming'
+import { saveTextFile } from '../storage/fileSave'
 import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
-import { ICON_MAP } from '../../shared/constants'
+import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema } from './fieldHelpers'
 import { Dropdown } from '../../shared/components/Dropdown'
 import { DocumentEditor } from './DocumentEditor'
@@ -33,12 +38,6 @@ import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
 const DRAFT_DEBOUNCE_MS = 500
 
 const ALL_TYPES: ItemType[] = ['server', 'db', 'api', 'note', 'document']
-
-type FSAAWindow = Window & {
-  showSaveFilePicker: (opts: unknown) => Promise<{
-    createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }>
-  }>
-}
 
 // ── Main component ──────────────────────────────────
 
@@ -353,11 +352,11 @@ export const CardDetailEditor = () => {
       }
 
       if (type === 'document') {
-        // document 타입: title/tags 저장 + DocumentEditor content 저장 통합
-        await db.items.update(item.id, {
-          title, type, tags: parsedTags, updatedAt: Date.now(),
-        })
-        setOriginal(prev => prev ? { ...prev, title, type, tags } : null)
+        // document 타입: title/tags 저장(publishItem 경유 — draft였다면 여기서 넘버링+해제) +
+        // DocumentEditor content 저장 통합
+        const { finalTitle } = await publishItem(item.id, { title, type, tags: parsedTags, updatedAt: Date.now() })
+        if (finalTitle !== title) setTitle(finalTitle)
+        setOriginal(prev => prev ? { ...prev, title: finalTitle, type, tags } : null)
         if (docEditorRef.current) {
           await docEditorRef.current.save()
         }
@@ -367,6 +366,9 @@ export const CardDetailEditor = () => {
         dirtyRef.current = false
         bumpDraftEpoch(item.id)
         await deleteDraft(item.id)
+        if (finalTitle !== title) {
+          toast.success(`저장됨 — 제목이 '${finalTitle}'으로 저장되었습니다`, { duration: 2500 })
+        }
         return
       }
 
@@ -387,22 +389,25 @@ export const CardDetailEditor = () => {
         content = await encryptContent(content, encryptionKey)
       }
 
-      await db.items.update(item.id, {
-        title, type, tags: parsedTags,
-        content,
-        updatedAt: Date.now(),
+      // publishItem 경유 — 이 카드가 draft(미저장 새 카드)였다면 여기서 넘버링 적용 + draft 해제
+      const { finalTitle } = await publishItem(item.id, {
+        title, type, tags: parsedTags, content, updatedAt: Date.now(),
       })
+      if (finalTitle !== title) setTitle(finalTitle)
       // 원본 스냅샷 갱신 → dirty가 자동으로 false 됨(리렌더 이후). setOriginal 커밋을 기다리지 않고
       // dirtyRef를 즉시 갱신해, 그 사이 flush가 끼어들어 방금 지운 드래프트를 되살리는 레이스를 막는다.
       setOriginal({
-        title, type, tags,
+        title: finalTitle, type, tags,
         fields: JSON.stringify(fields.map(f => [f.key, f.value])),
         editorText,
       })
       dirtyRef.current = false
       bumpDraftEpoch(item.id)
       await deleteDraft(item.id)
-      toast.success('저장됨', { duration: 1500 })
+      toast.success(
+        finalTitle !== title ? `저장됨 — 제목이 '${finalTitle}'으로 저장되었습니다` : '저장됨',
+        { duration: finalTitle !== title ? 2500 : 1500 },
+      )
     } catch (err) {
       toast.error(`저장 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, { duration: 3000 })
     }
@@ -415,36 +420,30 @@ export const CardDetailEditor = () => {
     return () => registerActiveFlush(null)
   }, [item, flushDraftNow, handleSave])
 
-  // .md 다운로드 (Custom 타입)
+  // .md 다운로드 — DB에 저장된 값 기준(F3, 문서 상 결정: 미저장 편집분은 "저장 후 내보내기"로
+  // 우회 — document 타입도 docEditorRef 없이 item.content → parseContent만으로 완결된다).
+  // 잠긴(암호화된) 카드는 평문 파일이라 명시적으로 거부한다.
   const handleDownloadMd = useCallback(() => {
-    const filename = `${title || 'note'}.md`
-    const blob = new Blob([editorText], { type: 'text/markdown;charset=utf-8' })
-
-    if ('showSaveFilePicker' in window) {
-      void (async () => {
-        try {
-          const handle = await (window as FSAAWindow).showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }],
-          })
-          const writable = await handle.createWritable()
-          await writable.write(blob)
-          await writable.close()
-          toast.success(`${filename} 저장됨`, { duration: 2000 })
-        } catch {
-          // 취소 시 무시
-        }
-      })()
-    } else {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success(`${filename} 다운로드됨`, { duration: 2000 })
+    if (!item) return
+    if (isEncryptedContent(item.content) && !encryptionKey) {
+      toast.error('잠긴 카드는 md로 저장할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.', { duration: 3000 })
+      return
     }
-  }, [title, editorText])
+    void (async () => {
+      try {
+        let rawContent = item.content
+        if (isEncryptedContent(rawContent)) {
+          rawContent = await decryptContent(rawContent, encryptionKey!)
+        }
+        const md = cardToMarkdown(item, parseContent(rawContent))
+        const filename = `${sanitizeFilename(item.title || DEFAULT_ITEM_TITLE)}.md`
+        await saveTextFile({ content: md, fileName: filename, mimeType: 'text/markdown', description: 'Markdown', extension: '.md' })
+        toast.success(`${filename} 저장됨`, { duration: 2000 })
+      } catch {
+        // 취소(FSAA 피커) 시 무시
+      }
+    })()
+  }, [item, encryptionKey])
 
   useHotkey(keys['card.save'], (e) => {
     e.preventDefault()
@@ -482,6 +481,11 @@ export const CardDetailEditor = () => {
       {draftLocked && (
         <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-[var(--text-warning)]">
           🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.
+        </div>
+      )}
+      {!draftLocked && isDraft(item) && (
+        <div className="mx-6 mt-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          아직 저장되지 않아 목록·검색에 표시되지 않습니다. 저장하면 목록에 추가됩니다.
         </div>
       )}
       {/* ── Meta (제목 / 타입 / 태그) ────── */}
@@ -543,18 +547,16 @@ export const CardDetailEditor = () => {
             className="flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-input)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-accent)] focus:outline-none transition-colors"
           />
 
-          {/* .md 다운로드 (Markdown) */}
-          {type === 'note' && (
-            <button
-              type="button"
-              onClick={handleDownloadMd}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-accent)] transition-colors cursor-pointer shrink-0"
-              title=".md 파일로 다운로드"
-            >
-              <Download size={13} />
-              .md
-            </button>
-          )}
+          {/* .md 다운로드 — F3: note 전용에서 전 타입으로 확대 */}
+          <button
+            type="button"
+            onClick={handleDownloadMd}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-accent)] transition-colors cursor-pointer shrink-0"
+            title=".md 파일로 저장"
+          >
+            <Download size={13} />
+            .md
+          </button>
 
           {/* 저장 버튼 */}
           <button

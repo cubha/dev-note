@@ -9,7 +9,9 @@ import { db } from '../../core/db'
 import type { Item } from '../../core/db'
 import type { ExportSchema } from './schema'
 import { isEncryptedContent } from '../../core/content'
+import { isDraft } from '../../core/cardState'
 import { wrapEnvelope } from './envelope'
+import { saveTextFile } from './fileSave'
 
 // ─── 날짜 포맷 유틸 ────────────────────────────────────────────
 
@@ -24,42 +26,9 @@ function formatDateForFilename(ts: number): string {
 // ─── 파일 저장 (FSAA + Blob 폴백) ─────────────────────────────
 
 async function saveToFile(content: string, fileName: string): Promise<void> {
-  if ('showSaveFilePicker' in window) {
-    const fsaaWindow = window as Window & {
-      showSaveFilePicker: (opts: {
-        suggestedName?: string
-        types?: Array<{ description: string; accept: Record<string, string[]> }>
-        startIn?: string
-      }) => Promise<{
-        createWritable: () => Promise<{
-          write: (data: string) => Promise<void>
-          close: () => Promise<void>
-        }>
-      }>
-    }
-
-    const handle = await fsaaWindow.showSaveFilePicker({
-      suggestedName: fileName,
-      types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
-      startIn: 'downloads',
-    })
-    const writable = await handle.createWritable()
-    await writable.write(content)
-    await writable.close()
-  } else {
-    const blob = new Blob([content], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = fileName
-    anchor.style.display = 'none'
-    document.body.appendChild(anchor)
-    anchor.click()
-    requestAnimationFrame(() => {
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(url)
-    })
-  }
+  await saveTextFile({
+    content, fileName, mimeType: 'application/json', description: 'JSON Backup', extension: '.json',
+  })
 }
 
 // ─── 백업 직렬화 (평문 / 봉투 암호화 분기) ───────────────────
@@ -95,11 +64,13 @@ function toExportItem(item: Item): Omit<Item, 'id'> {
 // ─── 내보내기 진입점 ───────────────────────────────────────────
 
 export async function exportData(passphrase?: string): Promise<void> {
-  const [folders, items, config] = await Promise.all([
+  const [folders, allItems, config] = await Promise.all([
     db.folders.toArray(),
     db.items.toArray(),
     db.config.get(1),
   ])
+  // draft(미저장 새 카드)는 백업에 넣지 않는다 — import 시 draft 플래그 없이 부활해 영구 노출됨
+  const items = allItems.filter((i) => !isDraft(i))
 
   const exportedAt = Date.now()
   const hasEncryptedItems = items.some((item) => isEncryptedContent(item.content))
@@ -131,7 +102,7 @@ export async function exportSelectedItems(
   const allFolders = await db.folders.toArray()
 
   const selectedItemsData = await db.items.bulkGet(itemIds)
-  const validItems = selectedItemsData.filter((i): i is Item => i !== undefined)
+  const validItems = selectedItemsData.filter((i): i is Item => i !== undefined && !isDraft(i))
   const config = await db.config.get(1)
 
   // 항목이 참조하는 폴더 및 그 조상 폴더 ID 수집

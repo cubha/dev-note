@@ -8,6 +8,7 @@
 import { db } from './db'
 import type { ItemType } from './db'
 import { parseContent } from './content'
+import { isDraft } from './cardState'
 
 export interface DuplicateMatch {
   itemId: number
@@ -48,6 +49,7 @@ export const checkDuplicates = async (
 
   for (const item of existingItems) {
     if (excludeId !== undefined && item.id === excludeId) continue
+    if (isDraft(item)) continue // draft(보이지도 않는 카드)와의 중복 경고는 무의미
 
     const content = parseContent(item.content)
     if (content.format !== 'structured') continue

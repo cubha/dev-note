@@ -11,9 +11,29 @@ import {
 } from '../../store/atoms'
 import {
   closeTab, closeOtherTabs, closeTabsToRight, closeTabsToLeft, closeAllTabs,
-  computeDirtyTargets,
+  computeDirtyTargets, computeClosingTabs,
 } from '../../store/tabHelpers'
 import type { CloseKind } from '../../store/tabHelpers'
+import { db } from '../../core/db'
+import { isDraft, isCardEmpty } from '../../core/cardState'
+import { parseContent } from '../../core/content'
+import { loadDraft } from '../../core/draftStore'
+
+/**
+ * 닫히는 탭 중 "빈 draft"(한 번도 저장 안 된 새 카드, 미저장 편집분도 없음)만 골라
+ * DB에서 완전히 삭제한다. drafts 행이 남아있으면(타이핑은 했지만 Ctrl+S 안 함) 그 편집분을
+ * 잃게 되므로 건드리지 않는다 — CloseConfirmDialog.handleDiscard가 deleteDrafts를 먼저
+ * await 하므로 "저장 안 함" 흐름에서는 이 시점에 이미 drafts 행이 없다.
+ */
+async function cleanupEmptyDrafts(ids: number[]): Promise<void> {
+  for (const id of ids) {
+    const item = await db.items.get(id)
+    if (!item || !isDraft(item)) continue
+    if (await loadDraft(id)) continue
+    if (!isCardEmpty(item.title, parseContent(item.content))) continue
+    await db.items.delete(id)
+  }
+}
 
 export function useGuardedTabClose() {
   const openTabs = useAtomValue(openTabsAtom)
@@ -26,6 +46,7 @@ export function useGuardedTabClose() {
 
   /** confirm 없이 즉시 실행 — CloseConfirmDialog의 저장/저장안함 처리 후에도 사용 */
   const executeClose = useCallback((kind: CloseKind, tabId: number | null) => {
+    const closingIds = computeClosingTabs(kind, tabId, openTabs)
     switch (kind) {
       case 'single':
         if (tabId !== null) closeTab(tabId, openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems)
@@ -43,6 +64,7 @@ export function useGuardedTabClose() {
         closeAllTabs(setOpenTabs, setActiveTab, setDirtyItems)
         break
     }
+    if (closingIds.length > 0) void cleanupEmptyDrafts(closingIds)
   }, [openTabs, activeTab, setOpenTabs, setActiveTab, setDirtyItems])
 
   /** 닫기 요청 — dirty 탭이 있으면 confirm 등록, 없으면 즉시 실행 */

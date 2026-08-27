@@ -13,8 +13,37 @@ type Setter<T> = (update: SetStateAction<T>) => void
 export type CloseKind = 'single' | 'others' | 'right' | 'left' | 'all'
 
 /**
+ * 지정된 닫기 동작(kind)이 실제로 닫게 될 탭 전체(dirty 여부 무관)를 반환.
+ * close*() 각 함수의 candidate 계산과 동일 규칙 — 단일 소스.
+ */
+export function computeClosingTabs(
+  kind: CloseKind,
+  tabId: number | null,
+  openTabs: number[],
+): number[] {
+  switch (kind) {
+    case 'single':
+      return tabId !== null && openTabs.includes(tabId) ? [tabId] : []
+    case 'others':
+      return tabId === null ? [] : openTabs.filter((id) => id !== tabId)
+    case 'right': {
+      if (tabId === null) return []
+      const idx = openTabs.indexOf(tabId)
+      return idx === -1 ? [] : openTabs.slice(idx + 1)
+    }
+    case 'left': {
+      if (tabId === null) return []
+      const idx = openTabs.indexOf(tabId)
+      return idx === -1 ? [] : openTabs.slice(0, idx)
+    }
+    case 'all':
+      return openTabs
+  }
+}
+
+/**
  * 지정된 닫기 동작(kind)이 실제로 닫게 될 탭 중 dirty(미저장)인 것만 반환.
- * 빈 배열이면 confirm 없이 즉시 닫아도 안전 — close*() 각 함수의 candidate 계산과 동일 규칙.
+ * 빈 배열이면 confirm 없이 즉시 닫아도 안전.
  */
 export function computeDirtyTargets(
   kind: CloseKind,
@@ -22,36 +51,7 @@ export function computeDirtyTargets(
   openTabs: number[],
   dirtyItems: Set<number>,
 ): number[] {
-  let candidates: number[]
-
-  switch (kind) {
-    case 'single': {
-      candidates = tabId !== null && openTabs.includes(tabId) ? [tabId] : []
-      break
-    }
-    case 'others': {
-      candidates = tabId === null ? [] : openTabs.filter((id) => id !== tabId)
-      break
-    }
-    case 'right': {
-      if (tabId === null) { candidates = []; break }
-      const idx = openTabs.indexOf(tabId)
-      candidates = idx === -1 ? [] : openTabs.slice(idx + 1)
-      break
-    }
-    case 'left': {
-      if (tabId === null) { candidates = []; break }
-      const idx = openTabs.indexOf(tabId)
-      candidates = idx === -1 ? [] : openTabs.slice(0, idx)
-      break
-    }
-    case 'all': {
-      candidates = openTabs
-      break
-    }
-  }
-
-  return candidates.filter((id) => dirtyItems.has(id))
+  return computeClosingTabs(kind, tabId, openTabs).filter((id) => dirtyItems.has(id))
 }
 
 /**

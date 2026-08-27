@@ -42,7 +42,8 @@ export const sidebarMobileOpenAtom = atom<boolean>(false)
 
 // ─── 검색 ─────────────────────────────────────────────────────
 
-export const searchOpenAtom  = atom<boolean>(false)
+// 검색 결과 오버레이(F2)는 activeTab !== null && searchQuery.trim() !== ''로 파생 판정한다
+// (SearchResultsOverlay.tsx) — 별도 열림 atom을 두지 않는다.
 export const searchQueryAtom = atom<string>('')
 
 // ─── 앱 설정 (DB에서 로드 후 저장) ───────────────────────────

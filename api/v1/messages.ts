@@ -286,14 +286,22 @@ function normalizeOpenAIResponse(
 
 // ── 에러 분류 ───────────────────────────────────────────────
 
+// D2: 총계/일별과 함께 code별 카운터도 기록 — /v1/metrics가 KEYS m:fail:code:*로 열거해
+// 대시보드 실패 사유 버킷(core/errorBuckets.ts)의 원자재가 된다.
+async function recordFail(code: string): Promise<void> {
+  await recordMetrics(['m:fail:total', `m:fail:code:${code}`], [`m:fail:${todayStr()}`])
+}
+
 async function classifyByokError(status: number, origin: string, providerName: string): Promise<Response> {
-  await recordMetrics(['m:fail:total'], [`m:fail:${todayStr()}`])
   if (status === 401 || status === 403) {
+    await recordFail('byok_auth_error')
     return jsonError('입력한 API 키가 올바르지 않습니다.', 401, origin, 'byok_auth_error')
   }
   if (status === 429) {
+    await recordFail('byok_quota_exceeded')
     return jsonError('입력한 키의 사용량 한도를 초과했습니다.', 429, origin, 'byok_quota_exceeded')
   }
+  await recordFail('unknown')
   return jsonError(`${providerName} API 오류 (${status})`, status, origin, 'unknown')
 }
 
@@ -304,8 +312,8 @@ interface AnthropicError {
 async function classifyAnthropicError(
   status: number, body: string, origin: string, requestId: string, retries: number,
 ): Promise<Response> {
-  await recordMetrics(['m:fail:total'], [`m:fail:${todayStr()}`])
   if (body.includes('<!DOCTYPE') || body.includes('<html')) {
+    await recordFail('cloudflare_challenge')
     return jsonError(
       `Cloudflare WAF 차단이 감지되었습니다. (${retries}회 재시도 후 실패, request-id: ${requestId})`,
       403, origin, 'cloudflare_challenge',
@@ -319,19 +327,22 @@ async function classifyAnthropicError(
   const msg = parsed.error?.message ?? ''
   const debug = ` (retries: ${retries}, request-id: ${requestId})`
 
-  if (status === 401) return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}${debug}`, 401, origin, 'auth_error')
-  if (status === 403) return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}${debug}`, 403, origin, 'permission_error')
-  if (status === 429) return jsonError(`Anthropic API 호출 한도를 초과했습니다.${debug}`, 429, origin, 'anthropic_rate_limit')
-  if (status === 529) return jsonError(`Claude 서버가 과부하 상태입니다.${debug}`, 503, origin, 'overloaded')
+  if (status === 401) { await recordFail('auth_error'); return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}${debug}`, 401, origin, 'auth_error') }
+  if (status === 403) { await recordFail('permission_error'); return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}${debug}`, 403, origin, 'permission_error') }
+  if (status === 429) { await recordFail('anthropic_rate_limit'); return jsonError(`Anthropic API 호출 한도를 초과했습니다.${debug}`, 429, origin, 'anthropic_rate_limit') }
+  if (status === 529) { await recordFail('overloaded'); return jsonError(`Claude 서버가 과부하 상태입니다.${debug}`, 503, origin, 'overloaded') }
 
   if (status === 400) {
-    if (msg.toLowerCase().includes('credit')) return jsonError('API 크레딧이 소진되었습니다.', 402, origin, 'credit_exhausted')
+    if (msg.toLowerCase().includes('credit')) { await recordFail('credit_exhausted'); return jsonError('API 크레딧이 소진되었습니다.', 402, origin, 'credit_exhausted') }
     if (type === 'invalid_request_error' && msg.toLowerCase().includes('token')) {
+      await recordFail('input_too_long')
       return jsonError('입력 텍스트가 너무 깁니다. 텍스트를 줄여주세요.', 400, origin, 'input_too_long')
     }
+    await recordFail('invalid_request')
     return jsonError(`요청 오류: ${msg.slice(0, 200)}`, 400, origin, 'invalid_request')
   }
 
+  await recordFail('unknown')
   return jsonError(`Claude API 오류 (${status}): ${msg.slice(0, 200)}${debug}`, status, origin, 'unknown')
 }
 

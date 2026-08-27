@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test'
 
 test.describe('앱 전역 키보드 단축키', () => {
   test.beforeEach(async ({ page }) => {
+    // 첫 방문 시 뜨는 공지사항 모달 백드롭이 body 클릭·단축키를 가로챈다 — 미리 dismiss 처리.
+    // 각 테스트의 Escape 폴백만으로는 부족하다(keybinding-recorder.spec.ts와 동일 처리).
+    await page.addInitScript(() => {
+      localStorage.setItem('dev-note-announcement-dismissed', Date.now().toString())
+    })
     await page.goto('/')
     // 앱 로드 대기 — 검색 입력 필드가 렌더링될 때까지
     await page.waitForSelector('input[placeholder*="검색"]', { timeout: 10000 })
@@ -62,14 +67,7 @@ test.describe('앱 전역 키보드 단축키', () => {
     await expect(searchInput).toBeVisible()
   })
 
-  test('Ctrl+W → 카드 탭 열고 닫기', async ({ page }) => {
-    // 모달(공지사항 등)이 떠있으면 닫기
-    const overlay = page.locator('[aria-hidden="true"].fixed')
-    if (await overlay.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(300)
-    }
-
+  test('Ctrl+Alt+W → 카드 탭 열고 닫기', async ({ page }) => {
     // 카드 추가 (사이드바 버튼 사용)
     const addButton = page.locator('button', { hasText: '새 카드 추가' })
     if (await addButton.isVisible()) {
@@ -99,8 +97,8 @@ test.describe('앱 전역 키보드 단축키', () => {
       const hasTab = await tabBar.isVisible().catch(() => false)
 
       if (hasTab) {
-        // Ctrl+W로 탭 닫기
-        await page.keyboard.press('Control+w')
+        // tab.close 기본 바인딩 = Mod+Alt+W (src/core/keybindings.ts)
+        await page.keyboard.press('Control+Alt+w')
         await page.waitForTimeout(300)
       }
     }
@@ -109,37 +107,23 @@ test.describe('앱 전역 키보드 단축키', () => {
     await expect(page.locator('input[placeholder*="검색"]')).toBeVisible()
   })
 
-  test('Ctrl+N → 카드 생성 모달이 열림', async ({ page }) => {
-    // 모달이 떠있으면 닫기
-    const overlay = page.locator('[aria-hidden="true"].fixed')
-    if (await overlay.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(300)
-    }
-
+  test('Ctrl+Alt+N → 카드 생성 모달이 열림', async ({ page }) => {
     // body에 포커스 (input이 아닌 곳)
     await page.click('body')
     await page.waitForTimeout(200)
 
-    // Ctrl+N 누르기
-    await page.keyboard.press('Control+n')
+    // card.new 기본 바인딩 = Mod+Alt+N (src/core/keybindings.ts)
+    await page.keyboard.press('Control+Alt+n')
     await page.waitForTimeout(500)
 
     // 카드 생성 모달 — placeholder "예: Production 서버" 입력 필드로 판단
     const titleInput = page.locator('input[placeholder*="Production"]').first()
     const modalOpened = await titleInput.isVisible({ timeout: 3000 }).catch(() => false)
-    console.log(`Ctrl+N 후 카드 생성 모달 열림: ${modalOpened}`)
+    console.log(`Ctrl+Alt+N 후 카드 생성 모달 열림: ${modalOpened}`)
     expect(modalOpened).toBe(true)
   })
 
-  test('Ctrl+Shift+N → 새 폴더가 사이드바에 생성됨', async ({ page }) => {
-    // 모달이 떠있으면 닫기
-    const overlay = page.locator('[aria-hidden="true"].fixed')
-    if (await overlay.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(300)
-    }
-
+  test('Ctrl+Alt+F → 새 폴더가 사이드바에 생성됨', async ({ page }) => {
     // 기존 '새 폴더' 텍스트 개수 카운트
     const foldersBefore = await page.locator('text=새 폴더').count()
 
@@ -147,13 +131,13 @@ test.describe('앱 전역 키보드 단축키', () => {
     await page.click('body')
     await page.waitForTimeout(200)
 
-    // Ctrl+Shift+N 누르기
-    await page.keyboard.press('Control+Shift+n')
+    // folder.new 기본 바인딩 = Mod+Alt+F (src/core/keybindings.ts)
+    await page.keyboard.press('Control+Alt+f')
     await page.waitForTimeout(500)
 
     // 사이드바에 '새 폴더'가 추가되었는지 확인
     const foldersAfter = await page.locator('text=새 폴더').count()
-    console.log(`Ctrl+Shift+N 전 폴더 수: ${foldersBefore}, 후: ${foldersAfter}`)
+    console.log(`Ctrl+Alt+F 전 폴더 수: ${foldersBefore}, 후: ${foldersAfter}`)
     expect(foldersAfter).toBeGreaterThan(foldersBefore)
   })
 })

@@ -96,6 +96,11 @@ export const SyncTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* 실험적 기능 고지 — 실계정 Drive 업로드 라운드트립 수동 검증이 아직 완료되지 않음 */}
+      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+        ⚠️ 이 기능은 아직 실험 단계입니다. 사용 전 다른 방법(설정 → 내보내기)으로 별도 백업을 남겨두는 것을 권장합니다.
+      </div>
+
       {/* ── 연결 섹션 ── */}
       <section>
         <h3 className="section-label">클라우드 동기화 (선택)</h3>

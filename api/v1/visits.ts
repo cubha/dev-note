@@ -40,6 +40,48 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+// ── Rate Limit (D1 — admin 토큰 무제한 시도 방지) ──────────────
+const ADMIN_DAILY_LIMIT = 30
+
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  return forwarded?.split(',')[0]?.trim() ?? 'unknown'
+}
+
+// **fail-closed** — metrics.ts와 동일 이유. 특히 이 엔드포인트는 데이터 소스가 GoatCounter라
+// KV와 무관하게 동작하므로, KV만 미설정된 배포에서 fail-open이면 X-Admin-Token을 정말로
+// 무제한 시도할 수 있게 된다(계측이 KV 의존이라 무해하다는 논리가 여기엔 성립하지 않는다).
+type RateLimitVerdict = 'ok' | 'limited' | 'unavailable'
+
+async function checkAdminRateLimit(ip: string): Promise<RateLimitVerdict> {
+  const url = process.env.KV_REST_API_URL
+  const token = process.env.KV_REST_API_TOKEN
+  if (!url || !token) return 'unavailable'
+
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `rl:visits:${ip}:${today}`
+
+  try {
+    const getRes = await fetch(`${url}/get/${key}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const getData = await getRes.json() as { result: string | null }
+    const count = getData.result ? parseInt(getData.result, 10) : 0
+
+    if (count >= ADMIN_DAILY_LIMIT) return 'limited'
+
+    await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['INCR', key], ['EXPIRE', key, 90000]]),
+    })
+
+    return 'ok'
+  } catch {
+    return 'unavailable'
+  }
+}
+
 function toNum(v: unknown): number {
   const n = typeof v === 'string' ? parseInt(v, 10) : typeof v === 'number' ? v : 0
   return Number.isFinite(n) ? n : 0
@@ -90,6 +132,16 @@ export default async function handler(request: Request): Promise<Response> {
   }
   if (request.method !== 'GET') {
     return json({ error: 'Method Not Allowed' }, 405, origin)
+  }
+
+  // ── rate limit (토큰 정답 여부와 무관하게 IP당 제한 — 무제한 시도 차단) ──
+  const ip = getClientIp(request)
+  const verdict = await checkAdminRateLimit(ip)
+  if (verdict === 'limited') {
+    return json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429, origin)
+  }
+  if (verdict === 'unavailable') {
+    return json({ error: '요청 제한을 확인할 수 없어 요청을 거부했습니다 (KV 미설정 또는 장애)' }, 503, origin)
   }
 
   // ── admin 토큰 게이트 (metrics.ts와 동일) ──────────────────

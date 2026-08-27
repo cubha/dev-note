@@ -19,6 +19,7 @@ import {
   encryptionKeyAtom,
 } from '../../store/atoms'
 import { db } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import { exportData } from './export'
 import {
   importFromFile,
@@ -112,7 +113,7 @@ export const StorageButtons = () => {
     const preview = await parseImportPreview(plainText)
     const [currentFolders, currentItems] = await Promise.all([
       db.folders.count(),
-      db.items.count(),
+      db.items.filter((i) => !isDraft(i)).count(),
     ])
     setModalData({ rawText: plainText, preview, currentFolders, currentItems })
   }

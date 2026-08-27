@@ -53,6 +53,51 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+// ── Rate Limit (D1 — admin 토큰 무제한 시도 방지) ──────────────
+// messages.ts/error-report.ts와 동일 패턴. 이 엔드포인트는 그 어느 쪽도 갖고 있지
+// 않았다 — X-Admin-Token을 무제한으로 시도할 수 있는 사각지대였다.
+const ADMIN_DAILY_LIMIT = 30
+
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  return forwarded?.split(',')[0]?.trim() ?? 'unknown'
+}
+
+// 이 게이트는 **fail-closed**다. KV 미설정·장애 시 통과시키면(fail-open) 정확히 이 게이트가
+// 막으려던 상황 — 토큰 무제한 대입 — 이 그대로 열린다. 토큰 브루트포스 방어가 목적인 게이트를
+// 방어가 불가능한 순간에 꺼버리면 게이트를 둔 의미가 없다.
+// admin 전용 저트래픽 경로라 가용성 손실(관리자 대시보드 일시 불가)이 그 대가로 타당하다.
+type RateLimitVerdict = 'ok' | 'limited' | 'unavailable'
+
+async function checkAdminRateLimit(ip: string): Promise<RateLimitVerdict> {
+  const url = process.env.KV_REST_API_URL
+  const token = process.env.KV_REST_API_TOKEN
+  if (!url || !token) return 'unavailable'
+
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `rl:metrics:${ip}:${today}`
+
+  try {
+    const getRes = await fetch(`${url}/get/${key}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const getData = await getRes.json() as { result: string | null }
+    const count = getData.result ? parseInt(getData.result, 10) : 0
+
+    if (count >= ADMIN_DAILY_LIMIT) return 'limited'
+
+    await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['INCR', key], ['EXPIRE', key, 90000]]),
+    })
+
+    return 'ok'
+  } catch {
+    return 'unavailable'
+  }
+}
+
 function toNum(v: unknown): number {
   const n = typeof v === 'string' ? parseInt(v, 10) : typeof v === 'number' ? v : 0
   return Number.isFinite(n) ? n : 0
@@ -75,6 +120,16 @@ export default async function handler(request: Request): Promise<Response> {
   }
   if (request.method !== 'GET') {
     return json({ error: 'Method Not Allowed' }, 405, origin)
+  }
+
+  // ── rate limit (토큰 정답 여부와 무관하게 IP당 제한 — 무제한 시도 차단) ──
+  const ip = getClientIp(request)
+  const verdict = await checkAdminRateLimit(ip)
+  if (verdict === 'limited') {
+    return json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429, origin)
+  }
+  if (verdict === 'unavailable') {
+    return json({ error: '요청 제한을 확인할 수 없어 요청을 거부했습니다 (KV 미설정 또는 장애)' }, 503, origin)
   }
 
   // ── admin 토큰 게이트 ──────────────────────────────────────
@@ -102,6 +157,17 @@ export default async function handler(request: Request): Promise<Response> {
       })
     }
 
+    // 실패 사유별 분포(D2) — KEYS로 m:fail:code:* 열거 후 MGET. 버킷 집계는 클라이언트
+    // (core/errorBuckets.ts)에서 수행 — 여기는 raw per-code 카운트만 반환한다.
+    const failCodeKeys = ((await redis(['KEYS', 'm:fail:code:*'])) as string[] | null) ?? []
+    const failCodes: Record<string, number> = {}
+    if (failCodeKeys.length > 0) {
+      const counts = ((await redis(['MGET', ...failCodeKeys])) as unknown[] | null) ?? []
+      failCodeKeys.forEach((k, i) => {
+        failCodes[k.replace('m:fail:code:', '')] = toNum(counts[i])
+      })
+    }
+
     // 최근 7일 일별 호출/실패
     const dates = lastNDates(7)
     const dailyCallKeys = dates.map((d) => `m:calls:${d}`)
@@ -115,7 +181,7 @@ export default async function handler(request: Request): Promise<Response> {
     }))
 
     return json(
-      { callsTotal, failTotal, failRate: callsTotal > 0 ? failTotal / callsTotal : 0, models, daily },
+      { callsTotal, failTotal, failRate: callsTotal > 0 ? failTotal / callsTotal : 0, models, daily, failCodes },
       200,
       origin,
     )

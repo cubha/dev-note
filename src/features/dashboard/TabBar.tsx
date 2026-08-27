@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { db } from '../../core/db'
+import { isDraft } from '../../core/cardState'
 import {
   openTabsAtom, activeTabAtom, dirtyItemsAtom, tabContextMenuAtom,
 } from '../../store/atoms'
@@ -70,6 +71,7 @@ const SortableTab = ({
   const item = items?.find((i) => i.id === tabId)
   const isActive = activeTab === tabId
   const isDirty = dirtyItems.has(tabId)
+  const isNewDraft = item ? isDraft(item) : false
   const Icon = item ? ICON_MAP[item.type] : FileText
 
   return (
@@ -92,6 +94,7 @@ const SortableTab = ({
         onClick={() => setActiveTab(tabId)}
         onMouseDown={(e) => handleMiddleClick(e, tabId)}
         onContextMenu={(e) => handleTabContextMenu(e, tabId)}
+        title={isNewDraft ? '미저장 — 저장해야 목록에 표시됩니다' : undefined}
         className={`flex items-center gap-1.5 pl-3 pr-1 text-xs font-medium cursor-pointer border-none bg-transparent ${
           isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] group-hover/tab:text-[var(--text-secondary)]'
         }`}
@@ -100,6 +103,9 @@ const SortableTab = ({
         <span className="max-w-[100px] truncate">
           {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
         </span>
+        {isNewDraft && (
+          <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-tertiary)]" />
+        )}
         {isDirty && (
           <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
         )}
@@ -270,6 +276,7 @@ export const TabBar = () => {
                     const item = items?.find((i) => i.id === tabId)
                     const isActive = activeTab === tabId
                     const isDirty = dirtyItems.has(tabId)
+                    const isNewDraft = item ? isDraft(item) : false
                     const Icon = item ? ICON_MAP[item.type] : FileText
 
                     return (
@@ -295,6 +302,9 @@ export const TabBar = () => {
                           <span className="flex-1 text-xs text-left truncate">
                             {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
                           </span>
+                          {isNewDraft && (
+                            <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-tertiary)]" />
+                          )}
                           {isDirty && (
                             <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
                           )}
