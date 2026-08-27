@@ -63,10 +63,16 @@ function getClientIp(request: Request): string {
   return forwarded?.split(',')[0]?.trim() ?? 'unknown'
 }
 
-async function checkAdminRateLimit(ip: string): Promise<boolean> {
+// 이 게이트는 **fail-closed**다. KV 미설정·장애 시 통과시키면(fail-open) 정확히 이 게이트가
+// 막으려던 상황 — 토큰 무제한 대입 — 이 그대로 열린다. 토큰 브루트포스 방어가 목적인 게이트를
+// 방어가 불가능한 순간에 꺼버리면 게이트를 둔 의미가 없다.
+// admin 전용 저트래픽 경로라 가용성 손실(관리자 대시보드 일시 불가)이 그 대가로 타당하다.
+type RateLimitVerdict = 'ok' | 'limited' | 'unavailable'
+
+async function checkAdminRateLimit(ip: string): Promise<RateLimitVerdict> {
   const url = process.env.KV_REST_API_URL
   const token = process.env.KV_REST_API_TOKEN
-  if (!url || !token) return true // 미설정 시 스킵(계측 자체가 KV 의존이라 이 경로에선 무해)
+  if (!url || !token) return 'unavailable'
 
   const today = new Date().toISOString().slice(0, 10)
   const key = `rl:metrics:${ip}:${today}`
@@ -78,7 +84,7 @@ async function checkAdminRateLimit(ip: string): Promise<boolean> {
     const getData = await getRes.json() as { result: string | null }
     const count = getData.result ? parseInt(getData.result, 10) : 0
 
-    if (count >= ADMIN_DAILY_LIMIT) return false
+    if (count >= ADMIN_DAILY_LIMIT) return 'limited'
 
     await fetch(`${url}/pipeline`, {
       method: 'POST',
@@ -86,9 +92,9 @@ async function checkAdminRateLimit(ip: string): Promise<boolean> {
       body: JSON.stringify([['INCR', key], ['EXPIRE', key, 90000]]),
     })
 
-    return true
+    return 'ok'
   } catch {
-    return true
+    return 'unavailable'
   }
 }
 
@@ -118,8 +124,12 @@ export default async function handler(request: Request): Promise<Response> {
 
   // ── rate limit (토큰 정답 여부와 무관하게 IP당 제한 — 무제한 시도 차단) ──
   const ip = getClientIp(request)
-  if (!(await checkAdminRateLimit(ip))) {
+  const verdict = await checkAdminRateLimit(ip)
+  if (verdict === 'limited') {
     return json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429, origin)
+  }
+  if (verdict === 'unavailable') {
+    return json({ error: '요청 제한을 확인할 수 없어 요청을 거부했습니다 (KV 미설정 또는 장애)' }, 503, origin)
   }
 
   // ── admin 토큰 게이트 ──────────────────────────────────────
