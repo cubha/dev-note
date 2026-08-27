@@ -40,6 +40,43 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+// ── Rate Limit (D1 — admin 토큰 무제한 시도 방지) ──────────────
+const ADMIN_DAILY_LIMIT = 30
+
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  return forwarded?.split(',')[0]?.trim() ?? 'unknown'
+}
+
+async function checkAdminRateLimit(ip: string): Promise<boolean> {
+  const url = process.env.KV_REST_API_URL
+  const token = process.env.KV_REST_API_TOKEN
+  if (!url || !token) return true
+
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `rl:visits:${ip}:${today}`
+
+  try {
+    const getRes = await fetch(`${url}/get/${key}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const getData = await getRes.json() as { result: string | null }
+    const count = getData.result ? parseInt(getData.result, 10) : 0
+
+    if (count >= ADMIN_DAILY_LIMIT) return false
+
+    await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['INCR', key], ['EXPIRE', key, 90000]]),
+    })
+
+    return true
+  } catch {
+    return true
+  }
+}
+
 function toNum(v: unknown): number {
   const n = typeof v === 'string' ? parseInt(v, 10) : typeof v === 'number' ? v : 0
   return Number.isFinite(n) ? n : 0
@@ -90,6 +127,12 @@ export default async function handler(request: Request): Promise<Response> {
   }
   if (request.method !== 'GET') {
     return json({ error: 'Method Not Allowed' }, 405, origin)
+  }
+
+  // ── rate limit (토큰 정답 여부와 무관하게 IP당 제한 — 무제한 시도 차단) ──
+  const ip = getClientIp(request)
+  if (!(await checkAdminRateLimit(ip))) {
+    return json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429, origin)
   }
 
   // ── admin 토큰 게이트 (metrics.ts와 동일) ──────────────────
