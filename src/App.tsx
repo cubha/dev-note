@@ -28,6 +28,7 @@ import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
 import { GuideModal } from './features/onboarding/GuideModal'
 import { CommandPalette } from './shared/components/CommandPalette'
 import { CloseConfirmDialog } from './shared/components/CloseConfirmDialog'
+import { ConfirmHost } from './shared/components/ConfirmHost'
 import { DraftDirtySync } from './features/dashboard/DraftDirtySync'
 import { SessionPersist } from './features/dashboard/SessionPersist'
 import { shouldShowAnnouncement } from './features/onboarding/announcement-utils'
@@ -230,6 +231,7 @@ export default function App() {
       <SettingsModal />
       <CommandPalette />
       <CloseConfirmDialog />
+      <ConfirmHost />
       <DraftDirtySync />
       <SessionPersist />
       <AnnouncementModal />

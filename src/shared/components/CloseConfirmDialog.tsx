@@ -11,9 +11,7 @@ import { useGuardedTabClose } from '../hooks/useGuardedTabClose'
 import { deleteDrafts } from '../../core/draftStore'
 import { commitDraftToItem } from '../../features/cards/draftCommit'
 import { saveIfActive, suppressNextFlush, bumpDraftEpoch } from '../../features/cards/draftFlushControl'
-import { Modal } from './Modal'
-import { ModalHeader } from './ModalHeader'
-import { Button } from './Button'
+import { ConfirmDialog } from './ConfirmDialog'
 
 export const CloseConfirmDialog = () => {
   const [pending, setPendingClose] = useAtom(pendingCloseAtom)
@@ -75,25 +73,27 @@ export const CloseConfirmDialog = () => {
     ? '이 탭에 저장하지 않은 변경사항이 있습니다.'
     : `저장하지 않은 변경사항이 있는 탭이 ${count}개 있습니다.`
 
+  // 셸은 공용 ConfirmDialog — 다른 확인 대화상자와 크기가 같고, 저장 중 라벨 변경("저장"→"저장 중...")이나
+  // 탭 개수 단복수 문구로도 크기가 변하지 않는다. 핸들러·가드(saving 중 취소 차단, enableEsc={!saving})는
+  // 이전과 동일하다 — phantom close 레이스 방지 로직이라 건드리지 않는다.
   return (
-    <Modal onClose={handleCancel} width="w-[var(--modal-w-md)]" ariaLabel="미저장 변경사항 확인" elevated enableEsc={!saving}>
-      <ModalHeader title="닫기 전 확인" onClose={handleCancel} />
-      <div className="p-5 space-y-4">
-        <p className="text-xs text-[var(--text-secondary)]">
-          {message} 저장하지 않고 닫으면 변경사항이 사라집니다.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>
-            취소
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => void handleDiscard()} disabled={saving}>
-            저장 안 함
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => void handleSaveAndClose()} disabled={saving}>
-            {saving ? '저장 중...' : '저장'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+    <ConfirmDialog
+      title="닫기 전 확인"
+      ariaLabel="미저장 변경사항 확인"
+      onClose={handleCancel}
+      enableEsc={!saving}
+      actions={[
+        { label: '취소', tone: 'cancel', onClick: handleCancel, disabled: saving },
+        { label: '저장 안 함', tone: 'danger', onClick: () => void handleDiscard(), disabled: saving },
+        {
+          label: saving ? '저장 중...' : '저장',
+          tone: 'primary',
+          onClick: () => void handleSaveAndClose(),
+          disabled: saving,
+        },
+      ]}
+    >
+      {message} 저장하지 않고 닫으면 변경사항이 사라집니다.
+    </ConfirmDialog>
   )
 }

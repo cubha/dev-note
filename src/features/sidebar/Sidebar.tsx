@@ -16,6 +16,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { db } from '../../core/db'
 import { isDraft } from '../../core/cardState'
 import { useDecryptedFolders } from '../../shared/hooks/useDecryptedFolders'
+import { useConfirm } from '../../shared/hooks/useConfirm'
 import { createFolder } from '../../core/metaStore'
 import {
   settingsOpenAtom,
@@ -56,8 +57,8 @@ export const Sidebar = () => {
   const setOpenTabs = useSetAtom(openTabsAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
 
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [movingFolder, setMovingFolder] = useState(false)
+  const confirm = useConfirm()
 
   const handleThemeToggle = async () => {
     if (!config) return
@@ -92,11 +93,6 @@ export const Sidebar = () => {
     const flat = getFlatVisibleItemIds(treeNodes, rootItems, expanded)
     setFlatVisibleItemIds(flat)
   }, [treeNodes, rootItems, expanded, setFlatVisibleItemIds])
-
-  // ─── 선택 해제 시 confirm 상태 초기화 ─────────────────────────
-  useEffect(() => {
-    if (selectedItems.size === 0) setConfirmingDelete(false)
-  }, [selectedItems.size])
 
   // ─── DnD 센서 설정 ────────────────────────────────────────────
   // distance: 5px — 클릭과 드래그 구분
@@ -164,8 +160,16 @@ export const Sidebar = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedItems)
+    // 확인은 공용 ConfirmDialog로 받는다. 예전에는 액션바 안에서 인라인으로 확인 UI를 펼쳤는데,
+    // 그러면 클릭 한 번에 액션바가 1단→2단으로 커져(고정 레이아웃 규약 위반) 사이드바가 흔들렸다.
+    const confirmed = await confirm({
+      title: '카드 삭제',
+      message: `${ids.length}개 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      destructive: true,
+    })
+    if (!confirmed) return
     setSelectedItems(new Set<number>())
-    setConfirmingDelete(false)
     try {
       await db.items.bulkDelete(ids)
       removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
@@ -357,74 +361,50 @@ export const Sidebar = () => {
       {/* 다중 선택 액션 바 */}
       {selectedItems.size > 0 && (
         <div className="border-t border-[var(--border-default)] px-3 py-2">
-          {confirmingDelete ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-[var(--text-secondary)] text-center">
-                {selectedItems.size}개 카드를 삭제하시겠습니까?
-              </p>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(false)}
-                  className="flex-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkDelete}
-                  className="flex-1 rounded px-2 py-1 text-xs text-[var(--text-on-solid)] bg-[var(--bg-error-solid)] hover:opacity-90 transition-opacity cursor-pointer border-none"
-                >
-                  삭제 확인
-                </button>
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-[var(--text-secondary)]">
+              {selectedItems.size}개 선택됨
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMovingFolder(true)}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+              >
+                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                  <path d="M12 11v6" />
+                  <path d="M9 14l3-3 3 3" />
+                </svg>
+                이동
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleBulkExportMarkdown()}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+                title="선택한 카드를 md로 내보내기"
+              >
+                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M12 15V3" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M20 21H4" />
+                </svg>
+                md
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleBulkDelete()}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] transition-colors cursor-pointer bg-transparent border-none"
+              >
+                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                </svg>
+                일괄 삭제
+              </button>
             </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-secondary)]">
-                {selectedItems.size}개 선택됨
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setMovingFolder(true)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
-                >
-                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-                    <path d="M12 11v6" />
-                    <path d="M9 14l3-3 3 3" />
-                  </svg>
-                  이동
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleBulkExportMarkdown()}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
-                  title="선택한 카드를 md로 내보내기"
-                >
-                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M12 15V3" />
-                    <path d="M7 10l5 5 5-5" />
-                    <path d="M20 21H4" />
-                  </svg>
-                  md
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(true)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] transition-colors cursor-pointer bg-transparent border-none"
-                >
-                  <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                  </svg>
-                  일괄 삭제
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
