@@ -2,13 +2,15 @@
   "name": "dev-note",
   "private": true,
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.9.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:e2e": "vite --port 3002 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {

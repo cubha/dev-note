@@ -61,9 +61,18 @@ async function restoreSession(
   if (merged.length === 0) return // 복원할 것도 강제로 열 것도 없으면 빈 상태 그대로(초기값과 동일)
 
   setOpenTabs(merged)
-  const candidateActive = snapshot?.activeTab ?? null
-  setActiveTab(candidateActive !== null && merged.includes(candidateActive)
-    ? candidateActive
+
+  // ⚠ activeTab === null 은 "값이 없음"이 아니라 **"사용자가 메인 화면에 있었다"는 명시적 상태**다.
+  // 이걸 stale id(삭제된 카드를 가리키던 경우)와 똑같이 취급해 마지막 탭으로 폴백하면,
+  // 메인 화면에서 새로고침만 했는데 열어본 적 없는 카드가 열린다.
+  // snapshot 자체가 없을 때(최초 부팅·기록 손상)는 어디에 있었는지 알 수 없으므로 종전대로 마지막 탭을 연다.
+  if (!snapshot) {
+    setActiveTab(merged[merged.length - 1])
+    return
+  }
+  if (snapshot.activeTab === null) return // 메인 화면 유지 (activeTabAtom 초기값이 null)
+  setActiveTab(merged.includes(snapshot.activeTab)
+    ? snapshot.activeTab
     : merged[merged.length - 1])
 }
 
