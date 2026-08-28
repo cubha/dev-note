@@ -3,8 +3,8 @@
 // 공통 모달 컴포넌트 — 백드롭 + fixed+translate 중앙 정렬 컨테이너
 // CardFormModal처럼 flex-center 레이아웃이 필요한 경우는 이 컴포넌트를 사용하지 않는다
 
-import { useEffect } from 'react'
 import { cn } from '../utils/cn'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 interface ModalProps {
   onClose: () => void
@@ -35,22 +35,9 @@ export const Modal = ({
   const backdropZ = elevated ? 'z-[60]' : 'z-40'
   const modalZ = elevated ? 'z-[70]' : 'z-50'
 
-  // ⚠ window/bubble이 아니라 **document의 capture 단계**여야 한다.
-  // @tanstack/react-hotkeys(escape.clear)가 document에서 Escape를 처리하며 전파를 끊어서,
-  // window 버블 리스너에는 이벤트가 도달하지 않는다(실측: doc-capture·doc-bubble만 발화,
-  // win-bubble 미발화). 그래서 이 컴포넌트를 쓰는 모든 모달의 Escape 닫기가 동작하지 않았다.
-  // capture로 먼저 받고 stopPropagation으로 끊어야 모달 뒤에서 escape.clear(선택 해제·검색 초기화)가
-  // 같이 발화하는 것도 막힌다.
-  useEffect(() => {
-    if (!enableEsc) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      e.stopPropagation()
-      onClose()
-    }
-    document.addEventListener('keydown', onKeyDown, true)
-    return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, [enableEsc, onClose])
+  // Escape 처리는 useEscapeKey 하나로 모은다 — capture 단계 요구와 중첩 시 최상단 우선 규칙이
+  // 그 훅 안에 있다(직접 addEventListener 금지, 사유는 useEscapeKey.ts 주석).
+  useEscapeKey(onClose, enableEsc)
 
   return (
     <>

@@ -13,6 +13,7 @@ import { guideOpenAtom } from '../../store/atoms'
 import { GUIDE_STEPS, type GuideStep } from './guide-steps'
 import { Button } from '../../shared/components/Button'
 import { Modal } from '../../shared/components/Modal'
+import { useEscapeKey } from '../../shared/hooks/useEscapeKey'
 import { ModalHeader } from '../../shared/components/ModalHeader'
 
 const ICON_MAP: Record<GuideStep['icon'], LucideIcon> = {
@@ -56,22 +57,22 @@ export const GuideModal = () => {
     }
   }, [step, total, handleClose])
 
-  // 키보드: ESC, 좌/우 화살표
+  // ESC — Modal의 처리를 끄고(enableEsc={false}) 여기서 잡는다. 중첩 시 최상단 우선 규칙을
+  // 공유해야 하므로 직접 리스너를 달지 않고 공통 훅을 쓴다.
+  useEscapeKey(handleClose, isOpen)
+
+  // 좌/우 화살표
   useEffect(() => {
     if (!isOpen) return
-    // Escape는 react-hotkeys(escape.clear)가 document에서 전파를 끊어 window 버블까지 오지 않는다
-    // (Modal.tsx 주석 참조). 이 모달은 enableEsc={false}로 Modal의 처리를 끄고 직접 잡으므로,
-    // 여기서도 document capture로 받아야 한다 — window 리스너였던 동안 ESC 닫기가 무동작이었다.
+    // 좌/우 화살표만 여기서 처리한다. Escape는 useEscapeKey 담당 — react-hotkeys가 전파를 끊어
+    // window 버블로는 안 오고, 중첩 시 최상단 우선 규칙도 필요하다(useEscapeKey.ts 주석).
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        handleClose()
-      } else if (e.key === 'ArrowLeft') handlePrev()
+      if (e.key === 'ArrowLeft') handlePrev()
       else if (e.key === 'ArrowRight') handleNext()
     }
-    document.addEventListener('keydown', onKeyDown, true)
-    return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, [isOpen, handleClose, handlePrev, handleNext])
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, handlePrev, handleNext])
 
   // 열릴 때 step 리셋
   useEffect(() => {
