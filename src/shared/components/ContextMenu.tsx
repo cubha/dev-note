@@ -12,6 +12,7 @@ import {
   dirtyItemsAtom,
   selectedItemsAtom,
 } from '../../store/atoms'
+import { useConfirm } from '../hooks/useConfirm'
 import { collectDescendants } from '../../features/sidebar/treeUtils'
 import { exportSelectedItems } from '../../features/storage/export'
 import { removeItemsFromState } from '../../store/tabHelpers'
@@ -28,6 +29,7 @@ export function ContextMenu() {
 
   const folders = useDecryptedFolders()
   const items = useLiveQuery(() => db.items.toArray(), [])
+  const confirm = useConfirm()
 
   const closeMenu = () =>
     setMenu((prev) => ({ ...prev, isOpen: false }))
@@ -51,11 +53,18 @@ export function ContextMenu() {
   const handleDelete = async () => {
     if (menu.targetId === null || !folders || !items) return
 
+    // 확인 대화상자를 await 하는 동안 컨텍스트 메뉴가 떠 있으면 대화상자 옆에 그대로 보인다.
+    // 대상 id는 이미 지역 변수로 잡았으므로 먼저 닫아도 안전하다.
     if (menu.type === 'folder') {
       const { folderIds, itemIds } = collectDescendants(folders, items, menu.targetId)
-      const confirmed = window.confirm(`폴더와 하위 카드 ${itemIds.length}개를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)
-      if (!confirmed) return
       closeMenu()
+      const confirmed = await confirm({
+        title: '폴더 삭제',
+        message: `폴더와 하위 카드 ${itemIds.length}개를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+        confirmLabel: '삭제',
+        destructive: true,
+      })
+      if (!confirmed) return
       removeItemsFromState(itemIds, setOpenTabs, setActiveTab, setDirtyItems)
       await db.transaction('rw', db.folders, db.items, async () => {
         await db.folders.bulkDelete(folderIds)
@@ -63,9 +72,14 @@ export function ContextMenu() {
       })
     } else if (menu.type === 'item') {
       const id = menu.targetId
-      const confirmed = window.confirm('이 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')
-      if (!confirmed) return
       closeMenu()
+      const confirmed = await confirm({
+        title: '카드 삭제',
+        message: '이 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+        confirmLabel: '삭제',
+        destructive: true,
+      })
+      if (!confirmed) return
       removeItemsFromState([id], setOpenTabs, setActiveTab, setDirtyItems)
       await db.items.delete(id)
     }
@@ -74,9 +88,14 @@ export function ContextMenu() {
   // ── 다중 선택 항목 일괄 삭제 ────────────────────────────────
   const handleMultiDelete = async () => {
     const ids = Array.from(selectedItems)
-    const confirmed = window.confirm(`${ids.length}개 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)
-    if (!confirmed) return
     closeMenu()
+    const confirmed = await confirm({
+      title: '카드 삭제',
+      message: `${ids.length}개 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      destructive: true,
+    })
+    if (!confirmed) return
     removeItemsFromState(ids, setOpenTabs, setActiveTab, setDirtyItems)
     setSelectedItems(new Set<number>())
     await db.items.bulkDelete(ids)

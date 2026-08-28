@@ -26,6 +26,42 @@ export interface PendingCloseAction {
 /** 닫기 confirm 대기 상태 (null = 닫혀있음) */
 export const pendingCloseAtom = atom<PendingCloseAction | null>(null)
 
+// ─── 공용 확인 대화상자 (window.confirm 대체) ─────────────────
+
+/** useConfirm() 호출부가 넘기는 옵션. 라벨 미지정 시 ConfirmHost가 기본값을 채운다. */
+export interface ConfirmOptions {
+  title: string
+  message: string
+  confirmLabel?: string
+  cancelLabel?: string
+  /** true면 확인 버튼이 솔리드 파괴 스타일(삭제 등) */
+  destructive?: boolean
+}
+
+/**
+ * 대기 중인 확인 요청. `resolve`는 호출부의 await를 푸는 유일한 통로이므로
+ * **모든 종료 경로에서 반드시 호출**되어야 한다(안 하면 호출부가 조용히 영원히 멈춘다).
+ */
+export interface ConfirmRequest extends ConfirmOptions {
+  resolve: (confirmed: boolean) => void
+}
+
+/** 확인 대화상자 대기 상태 (null = 닫혀있음) */
+export const confirmRequestAtom = atom<ConfirmRequest | null>(null)
+
+/**
+ * 사용자의 응답을 기다리는 확인 대화상자가 떠 있는가.
+ *
+ * ⚠ 이 atom이 필요한 이유: 예전 `window.confirm`은 **JS 메인 스레드를 동기적으로 멈춰서**
+ * 확인창이 떠 있는 동안 어떤 keydown 핸들러도 실행될 수 없었다. Promise 기반 자체 대화상자로
+ * 바꾸면서 그 암묵적 차단이 사라졌고, 확인창이 떠 있는 채로 전역 단축키가 그대로 동작한다.
+ * 그래서 **파괴적 전역 단축키는 이 값으로 반드시 가드해야 한다** — 안 하면 "삭제하시겠습니까?"가
+ * 떠 있는 상태에서 Delete 키 한 번으로 확인 없이 삭제가 실행된다(security-auditor 지적).
+ */
+export const blockingDialogOpenAtom = atom(
+  (get) => get(confirmRequestAtom) !== null || get(pendingCloseAtom) !== null,
+)
+
 // ─── 사이드바 ─────────────────────────────────────────────────
 
 /** 사이드바에서 선택된 폴더 ID (null = 루트) */

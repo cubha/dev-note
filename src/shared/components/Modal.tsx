@@ -35,13 +35,21 @@ export const Modal = ({
   const backdropZ = elevated ? 'z-[60]' : 'z-40'
   const modalZ = elevated ? 'z-[70]' : 'z-50'
 
+  // ⚠ window/bubble이 아니라 **document의 capture 단계**여야 한다.
+  // @tanstack/react-hotkeys(escape.clear)가 document에서 Escape를 처리하며 전파를 끊어서,
+  // window 버블 리스너에는 이벤트가 도달하지 않는다(실측: doc-capture·doc-bubble만 발화,
+  // win-bubble 미발화). 그래서 이 컴포넌트를 쓰는 모든 모달의 Escape 닫기가 동작하지 않았다.
+  // capture로 먼저 받고 stopPropagation으로 끊어야 모달 뒤에서 escape.clear(선택 해제·검색 초기화)가
+  // 같이 발화하는 것도 막힌다.
   useEffect(() => {
     if (!enableEsc) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      onClose()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [enableEsc, onClose])
 
   return (

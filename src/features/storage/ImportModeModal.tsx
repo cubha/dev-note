@@ -118,27 +118,65 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
           </label>
         </div>
 
-        {/* 암호화 파일 안내 */}
-        {importPreview.encrypted && (
-          <div className="mt-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-[var(--text-warning)]">
-              이 백업 파일에는 암호화된 콘텐츠가 포함되어 있습니다. 가져온 후 보안 탭에서 패스프레이즈를 입력하면 콘텐츠를 볼 수 있습니다.
-            </p>
-          </div>
-        )}
+        {/* 안내 슬롯 2개 — **항상 렌더하고 높이를 고정**한다(--import-note-h).
+            조건부로 나타났다 사라지게 두면 라디오를 바꾸는 것만으로 모달 높이가 변한다(고정 레이아웃 규약 위반).
+            내용만 교체하므로 빈 여백도 생기지 않는다. 넘치면 슬롯 안에서 스크롤. */}
 
-        {/* Replace 경고 */}
-        {mode === 'replace' && hasExistingData && (
-          <div className="mt-3 rounded-md border border-[var(--text-warning)] bg-[var(--bg-error-hover)] px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-[var(--text-warning)]">
-              ⚠ 현재 데이터{' '}
-              <span className="font-medium">
-                {currentStats.folders}개 폴더, {currentStats.items}개 항목
-              </span>
-              이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
-            </p>
-          </div>
-        )}
+        {/* 파일 암호화 여부 안내 */}
+        <div
+          className={`mt-3 h-[var(--import-note-h)] overflow-y-auto rounded-md border px-3 py-2.5 ${
+            importPreview.encrypted
+              ? 'border-yellow-500/40 bg-yellow-500/10'
+              : 'border-[var(--border-default)] bg-[var(--bg-input)]'
+          }`}
+        >
+          <p
+            className={`text-xs leading-relaxed ${
+              importPreview.encrypted ? 'text-[var(--text-warning)]' : 'text-[var(--text-secondary)]'
+            }`}
+          >
+            {importPreview.encrypted
+              ? '🔒 암호화된 콘텐츠가 포함된 백업입니다. 가져온 후 보안 탭에서 패스프레이즈를 입력하면 볼 수 있습니다.'
+              : '🔓 암호화되지 않은 백업입니다. 콘텐츠가 그대로 저장됩니다.'}
+          </p>
+        </div>
+
+        {/* 선택한 모드가 기존 데이터에 미치는 영향 */}
+        <div
+          className={`mt-3 h-[var(--import-note-h)] overflow-y-auto rounded-md border px-3 py-2.5 ${
+            mode === 'replace' && hasExistingData
+              ? 'border-[var(--text-warning)] bg-[var(--bg-error-hover)]'
+              : 'border-[var(--border-default)] bg-[var(--bg-input)]'
+          }`}
+        >
+          <p
+            className={`text-xs leading-relaxed ${
+              mode === 'replace' && hasExistingData
+                ? 'text-[var(--text-warning)]'
+                : 'text-[var(--text-secondary)]'
+            }`}
+          >
+            {mode === 'replace' && hasExistingData ? (
+              <>
+                ⚠ 현재 데이터{' '}
+                <span className="font-medium">
+                  {currentStats.folders}개 폴더, {currentStats.items}개 항목
+                </span>
+                이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+              </>
+            ) : hasExistingData ? (
+              <>
+                현재 데이터{' '}
+                <span className="font-medium">
+                  {currentStats.folders}개 폴더, {currentStats.items}개 항목
+                </span>
+                은 그대로 유지되고 가져온 항목이 추가됩니다.
+              </>
+            ) : (
+              '기존 데이터가 없어 두 방식의 결과가 같습니다.'
+            )}
+          </p>
+        </div>
 
         <div className="mt-5 flex justify-end gap-2">
           <button

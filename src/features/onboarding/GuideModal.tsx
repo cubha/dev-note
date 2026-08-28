@@ -59,13 +59,18 @@ export const GuideModal = () => {
   // 키보드: ESC, 좌/우 화살표
   useEffect(() => {
     if (!isOpen) return
+    // Escape는 react-hotkeys(escape.clear)가 document에서 전파를 끊어 window 버블까지 오지 않는다
+    // (Modal.tsx 주석 참조). 이 모달은 enableEsc={false}로 Modal의 처리를 끄고 직접 잡으므로,
+    // 여기서도 document capture로 받아야 한다 — window 리스너였던 동안 ESC 닫기가 무동작이었다.
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-      else if (e.key === 'ArrowLeft') handlePrev()
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        handleClose()
+      } else if (e.key === 'ArrowLeft') handlePrev()
       else if (e.key === 'ArrowRight') handleNext()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [isOpen, handleClose, handlePrev, handleNext])
 
   // 열릴 때 step 리셋

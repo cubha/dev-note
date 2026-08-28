@@ -26,6 +26,7 @@ import {
   effectiveKeybindingsAtom,
   commandPaletteOpenAtom,
   encryptionKeyAtom,
+  blockingDialogOpenAtom,
 } from '../../store/atoms'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { useGuardedTabClose } from './useGuardedTabClose'
@@ -35,6 +36,7 @@ import { toast } from 'sonner'
 export const useGlobalKeyboardShortcuts = () => {
   const selectedItems = useAtomValue(selectedItemsAtom)
   const encryptionKey = useAtomValue(encryptionKeyAtom)
+  const blockingDialogOpen = useAtomValue(blockingDialogOpenAtom)
   const setSelectedItems = useSetAtom(selectedItemsAtom)
   const setCardForm = useSetAtom(cardFormAtom)
   const setSearchQuery = useSetAtom(searchQueryAtom)
@@ -96,6 +98,9 @@ export const useGlobalKeyboardShortcuts = () => {
 
   // ── selection.delete: 선택 항목 삭제 ────────────────────────
   useHotkey(keys['selection.delete'], (e) => {
+    // 확인 대화상자가 떠 있는 동안에는 절대 실행하지 않는다 — 그 대화상자가 묻고 있는 바로 그
+    // 삭제를 확인 없이 실행해 게이트를 무력화한다(blockingDialogOpenAtom 주석 참조).
+    if (blockingDialogOpen) return
     const isInputFocused =
       document.activeElement instanceof HTMLInputElement ||
       document.activeElement instanceof HTMLTextAreaElement

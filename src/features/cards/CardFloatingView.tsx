@@ -521,14 +521,20 @@ export const CardFloatingView = () => {
   const [cardView, setCardView] = useAtom(cardViewAtom)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  // ESC 키 닫기
+  // ESC 키 닫기 — Modal.tsx와 동일한 이유로 **document capture**여야 한다.
+  // @tanstack/react-hotkeys(escape.clear)가 document에서 Escape 전파를 끊어서 window 버블에는
+  // 이벤트가 도달하지 않는다(실측: doc-capture·doc-bubble만 발화). window 리스너였던 동안
+  // 이 오버레이의 ESC 닫기는 무동작이었다. stopPropagation은 뒤에서 선택 해제·검색 초기화가
+  // 같이 발화하는 것도 막는다.
   useEffect(() => {
     if (!cardView) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCardView(null)
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setCardView(null)
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    document.addEventListener('keydown', handler, true)
+    return () => document.removeEventListener('keydown', handler, true)
   }, [cardView, setCardView])
 
   if (!cardView) return null

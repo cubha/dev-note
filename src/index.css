@@ -97,6 +97,17 @@
     --modal-w-lg: 480px;
     --modal-w-xl: 520px;
 
+    /* ── 확인 대화상자 고정 치수 (ConfirmDialog.tsx) ──
+       모든 확인/경고 대화상자는 내용·상태와 무관하게 이 크기로 고정된다. 본문이 길면
+       대화상자가 커지는 게 아니라 본문 영역이 스크롤된다. 버튼도 라벨 길이("저장"↔"저장 중...")로
+       크기가 변하면 안 되므로 폭·높이를 함께 고정한다. */
+    --modal-h-confirm: 200px;
+    --confirm-btn-w: 96px;
+    --confirm-btn-h: 30px;
+    /* ImportModeModal 안내 슬롯 고정 높이 — 슬롯이 조건부로 나타났다 사라지면 모달 높이가
+       라디오 선택만으로 변한다. 항상 렌더하고 높이를 고정해 내용만 교체한다(넘치면 슬롯 내부 스크롤). */
+    --import-note-h: 62px;
+
     /* ── 타이포 — Tailwind text-xs(12px) 미만 스케일 ── */
     --font-2xs: 11px;
     --font-3xs: 10px;
