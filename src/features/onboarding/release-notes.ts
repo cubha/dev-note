@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.9.7',
+    date: '2026-08-28',
+    title: 'ESC 닫기 동작 정리',
+    highlights: [
+      '창이 여러 겹 떠 있을 때 ESC를 누르면 맨 앞의 창 하나만 닫힙니다 — 뒤에 있던 창이 대신 닫히지 않습니다',
+      '탭 우클릭 메뉴·카드 조회 창·사용 가이드까지 ESC 닫기 동작이 모든 창에서 같아졌습니다',
+      '열린 창이 없을 때 누르는 ESC는 기존대로 선택 해제·검색 초기화로 동작합니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.9.6',
     date: '2026-08-28',
     title: '확인창 통일 · ESC 닫기 복구',

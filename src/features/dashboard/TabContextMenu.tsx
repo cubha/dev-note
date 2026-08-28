@@ -19,6 +19,7 @@ import {
 } from '../../store/atoms'
 import { closeSavedTabs } from '../../store/tabHelpers'
 import { useGuardedTabClose } from '../../shared/hooks/useGuardedTabClose'
+import { useEscapeKey } from '../../shared/hooks/useEscapeKey'
 
 export const TabContextMenu = () => {
   const [menu, setMenu] = useAtom(tabContextMenuAtom)
@@ -52,15 +53,9 @@ export const TabContextMenu = () => {
     return () => document.removeEventListener('click', handler, { capture: true })
   }, [menu.isOpen, setMenu])
 
-  // Esc 닫기
-  useEffect(() => {
-    if (!menu.isOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenu((prev) => ({ ...prev, isOpen: false }))
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [menu.isOpen, setMenu])
+  // Esc 닫기 — 직접 리스너를 달지 않고 공통 훅으로 모은다(useEscapeKey.ts 주석).
+  // 이 메뉴 위에 모달이 뜬 상태에서 Escape를 누르면 모달만 닫혀야 한다.
+  useEscapeKey(() => setMenu((prev) => ({ ...prev, isOpen: false })), menu.isOpen)
 
   if (!menu.isOpen || menu.tabId === null) return null
 
