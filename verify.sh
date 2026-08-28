@@ -8,7 +8,12 @@
 #   bash verify.sh --ts-only    # TypeScript 검사만
 #   bash verify.sh --ai         # Claude AI 분석 포함 (claude CLI 필요)
 #   bash verify.sh --staged     # staged 파일만 검사
-#   bash verify.sh --full       # 변경 감지 없이 전체 파일 검사
+#   bash verify.sh --full       # 변경 감지 없이 전체 파일 검사 (E2E 포함)
+#   bash verify.sh --e2e        # E2E를 명시적으로 포함
+#   bash verify.sh --no-e2e     # --full 이어도 E2E 제외
+#
+# E2E 정책: 개발 루프(무플래그·--ts-only·--no-build)에서는 돌리지 않는다(느림).
+#   --full(= /ship 게이트)에서만 자동 실행 → 머지 전에 반드시 한 번은 통과한다.
 # ================================================================
 set -euo pipefail
 
@@ -18,6 +23,8 @@ NO_BUILD=false
 AI_MODE=false
 STAGED_ONLY=false
 FULL_SCAN=false
+E2E_MODE=false
+E2E_OPT_OUT=false
 
 for arg in "$@"; do
   case $arg in
@@ -26,8 +33,16 @@ for arg in "$@"; do
     --ai)       AI_MODE=true ;;
     --staged)   STAGED_ONLY=true ;;
     --full)     FULL_SCAN=true ;;
+    --e2e)      E2E_MODE=true ;;
+    --no-e2e)   E2E_OPT_OUT=true ;;
   esac
 done
+
+# --full 은 머지 직전 풀 게이트다 → E2E를 기본 포함한다.
+[ "$FULL_SCAN" = true ] && E2E_MODE=true
+[ "$E2E_OPT_OUT" = true ] && E2E_MODE=false
+# 타입만 보거나 빌드를 건너뛰는 빠른 경로에서는 E2E를 돌리지 않는다.
+{ [ "$TS_ONLY" = true ] || [ "$NO_BUILD" = true ]; } && E2E_MODE=false
 
 # ─── 컬러 출력 함수 ────────────────────────────────────────────
 pass()   { echo -e "\033[0;32m  ✔ $*\033[0m"; }
@@ -47,6 +62,8 @@ VERIFY_TIMEOUT_TSC=${VERIFY_TIMEOUT_TSC:-120}    # 실측 `tsc -b` 14s @9p
 VERIFY_TIMEOUT_LINT=${VERIFY_TIMEOUT_LINT:-120}
 VERIFY_TIMEOUT_TEST=${VERIFY_TIMEOUT_TEST:-240}
 VERIFY_TIMEOUT_BUILD=${VERIFY_TIMEOUT_BUILD:-600}
+# E2E = webServer 기동(WSL2 /mnt/d 최악 ~120s) + 스펙 실행. 넉넉히 잡되 무한 대기는 막는다.
+VERIFY_TIMEOUT_E2E=${VERIFY_TIMEOUT_E2E:-480}
 # 불변식: fast gate(--no-build) 최악 480s < TeammateIdle hook timeout 600s
 
 run_guarded() {
@@ -255,6 +272,54 @@ else
   info "변경된 파일 없음 — Spec 검사 건너뜀"
 fi
 
+# ─── [Spec 13] 릴리즈 메타 정합성 (A3 재발 방지) ──────────────
+# README·package.json 은 release-notes.ts / db.ts 의 **수동 사본**이라 릴리즈마다 갈라진다.
+# 실측: README 릴리즈노트가 v1.6.1에서 정지해 10개 버전(약 3개월) 뒤처졌고, DB 스키마 헤딩은
+# v14 표기인데 실제는 v21이었다. 산문 규칙으로는 못 막으므로 기계가 본다.
+# 변경 파일 목록과 무관하게 항상 검사한다 — 드리프트는 "안 고친 것"이라 diff에 안 잡힌다.
+if [ "$TS_ONLY" = false ] && [ -f README.md ] && [ -f src/features/onboarding/release-notes.ts ]; then
+  header "📦 릴리즈 메타 정합성"
+  META_FAILS=0
+
+  # (1) release-notes.ts 최신 버전이 README에 등재됐는가
+  LATEST_VER=$(grep -oE "version: '[^']+'" src/features/onboarding/release-notes.ts | head -1 | sed "s/version: '//; s/'//")
+  if [ -n "$LATEST_VER" ]; then
+    if grep -qF "### $LATEST_VER " README.md 2>/dev/null; then
+      pass "README 릴리즈노트 최신 ($LATEST_VER)"
+    else
+      fail "README 릴리즈노트가 뒤처짐 — release-notes.ts 최신은 $LATEST_VER 인데 README에 없음"
+      META_FAILS=$((META_FAILS + 1))
+    fi
+  fi
+
+  # (2) package.json version 이 최신 릴리즈와 같은가 (코드가 참조하진 않지만 표기 신뢰도)
+  PKG_VER=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' package.json | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  if [ -n "$LATEST_VER" ] && [ -n "$PKG_VER" ] && [ "v$PKG_VER" != "$LATEST_VER" ]; then
+    fail "package.json version($PKG_VER)이 최신 릴리즈($LATEST_VER)와 불일치"
+    META_FAILS=$((META_FAILS + 1))
+  fi
+
+  # (3) README의 DB 스키마 표기가 db.ts 실제 최대 version(N)과 같은가
+  if [ -f src/core/db.ts ]; then
+    DB_VER=$(grep -oE 'this\.version\([0-9]+\)' src/core/db.ts | grep -oE '[0-9]+' | sort -n | tail -1)
+    if [ -n "$DB_VER" ]; then
+      # ⚠ **현재 상태를 주장하는 곳만** 본다. 과거 릴리즈노트 본문의 "DB v14 마이그레이션" 같은
+      # 기술은 그 시점의 사실이라 고치면 오히려 이력이 틀어진다(첫 구현에서 실제로 오탐 2건 발생).
+      README_DB_VERS=$(grep -oE '^## .*데이터 스키마 \(DB v[0-9]+\)|db\.ts[^#]*# .*스키마 v[0-9]+' README.md \
+        | grep -oE 'v[0-9]+\)?$|스키마 v[0-9]+' | grep -oE '[0-9]+' | sort -u)
+      for v in $README_DB_VERS; do
+        if [ "$v" != "$DB_VER" ]; then
+          fail "README DB 스키마 표기 v$v 가 실제 db.ts v$DB_VER 와 불일치"
+          META_FAILS=$((META_FAILS + 1))
+        fi
+      done
+      [ "$META_FAILS" -eq 0 ] && pass "DB 스키마 표기 일치 (v$DB_VER)"
+    fi
+  fi
+
+  FAIL_COUNT=$((FAIL_COUNT + META_FAILS))
+fi
+
 # ─── 디자인 게이트 (design-lint) ──────────────────────────────
 # 결정론·0토큰. 대상/스크립트/토큰 중 하나라도 없으면 스킵(FP 방지) — design-lint 자신의 skip 계약과 동일.
 # ⚠️ 이 repo는 `FAIL_COUNT += SPEC_FAILS`를 Spec 루프의 `if [ -n "$CHANGED_FILES" ]` 블록 '안'에서만
@@ -360,6 +425,40 @@ if [ "$TS_ONLY" = false ] && [ "$NO_BUILD" = false ]; then
   else
     pass "빌드 성공"
   fi
+fi
+
+# ─── E2E 테스트 (--full / --e2e) ──────────────────────────────
+# 왜 별도 게이트인가: 이 프로젝트에서 실제로 깨진 채 여러 릴리즈를 통과한 결함들
+# (낡은 키바인딩 스펙 3건 · 모달 ESC 무동작)은 전부 tsc·eslint·빌드·단위테스트가
+# 구조적으로 못 잡는 종류였다. 머지 전에 한 번은 실제 브라우저에서 돌려야 한다.
+if [ "$E2E_MODE" = true ]; then
+  header "🎭 E2E 테스트"
+  E2E_FILES=$(find e2e -type f \( -name '*.spec.ts' -o -name '*.spec.tsx' \) -print 2>/dev/null | head -1 || true)
+  if [ -z "$E2E_FILES" ]; then
+    info "E2E 스펙 없음 — 건너뜀"
+  elif ! grep -qE '"@playwright/test"' package.json 2>/dev/null; then
+    fail "E2E 스펙이 존재하나 @playwright/test 미설치 — 검증 불가"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  elif ! grep -qE '"test:e2e"[[:space:]]*:' package.json 2>/dev/null; then
+    fail "E2E 스펙이 존재하나 package.json에 \"test:e2e\" 스크립트 없음"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  else
+    E2E_EXIT=0
+    run_guarded "$VERIFY_TIMEOUT_E2E" e2e.log npm run test:e2e || E2E_EXIT=$?
+    if [ "$E2E_EXIT" -ne 0 ]; then
+      tail -40 "$VERIFY_LOG_DIR/e2e.log"
+      # 브라우저 미설치는 원인이 명확하므로 처방을 같이 띄운다(로그만 보면 헤맨다).
+      if grep -q "Executable doesn't exist\|playwright install" "$VERIFY_LOG_DIR/e2e.log" 2>/dev/null; then
+        warn "Playwright 브라우저 미설치로 보인다 — 'npx playwright install chromium' 후 재실행"
+      fi
+      fail "E2E 실패 (exit: $E2E_EXIT)"
+      FAIL_COUNT=$((FAIL_COUNT + 1))
+    else
+      pass "E2E 통과 ($(grep -oE '[0-9]+ passed' "$VERIFY_LOG_DIR/e2e.log" | tail -1 || echo 'playwright'))"
+    fi
+  fi
+else
+  [ "$TS_ONLY" = true ] || info "E2E 건너뜀 — 풀 게이트(--full 또는 --e2e)에서 실행"
 fi
 
 # ─── Claude AI 분석 (`--ai` 플래그) ──────────────────────────

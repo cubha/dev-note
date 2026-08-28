@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v1.9.8',
+    date: '2026-08-28',
+    title: '새로고침 시 화면 유지',
+    highlights: [
+      '메인 화면에서 새로고침하면 탭이 열려 있어도 메인 화면이 그대로 유지됩니다 — 마지막 카드가 저절로 열리지 않습니다',
+      '카드를 보던 중 새로고침하면 그 카드가 그대로 다시 열립니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v1.9.7',
     date: '2026-08-28',
     title: 'ESC 닫기 동작 정리',
