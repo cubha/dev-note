@@ -358,52 +358,55 @@ export const Sidebar = () => {
         )}
       </div>
 
-      {/* 다중 선택 액션 바 */}
+      {/* 다중 선택 액션 바 — 선택 중에만 나타나는 패널이라 사이드바 상시 영역(새 카드 추가)과
+          같은 스타일이면 눈에 띄지 않는다. accent 계열 배경 + 상단 accent 보더로 분리한다.
+          라벨은 별도 줄로 올려 좁은 사이드바 폭(기본 260px)에서 버튼 라벨이 접히지 않게 한다. */}
       {selectedItems.size > 0 && (
-        <div className="border-t border-[var(--border-default)] px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-[var(--text-secondary)]">
-              {selectedItems.size}개 선택됨
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMovingFolder(true)}
-                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
-              >
-                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-                  <path d="M12 11v6" />
-                  <path d="M9 14l3-3 3 3" />
-                </svg>
-                이동
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleBulkExportMarkdown()}
-                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
-                title="선택한 카드를 md로 내보내기"
-              >
-                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M12 15V3" />
-                  <path d="M7 10l5 5 5-5" />
-                  <path d="M20 21H4" />
-                </svg>
-                md
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleBulkDelete()}
-                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] transition-colors cursor-pointer bg-transparent border-none"
-              >
-                <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M19 6l-1 14H6L5 6" />
-                </svg>
-                일괄 삭제
-              </button>
-            </div>
+        <div className="border-t-2 border-[var(--border-accent)] bg-[var(--bg-item-active)] px-3 py-2">
+          <div className="mb-1.5 text-[var(--font-2xs)] font-medium text-[var(--text-secondary)]">
+            {selectedItems.size}개 선택됨
+          </div>
+          {/* 사이드바는 180px까지 좁아진다(SidebarResizeHandle MIN_WIDTH) — 그 폭에선 버튼 3개가
+              한 줄에 안 들어간다. whitespace-nowrap은 라벨이 글자 단위로 접히는 것만 막을 뿐
+              넘침을 막지 못하므로, 버튼 단위 줄바꿈(flex-wrap)으로 담는다. */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setMovingFolder(true)}
+              className="flex items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+            >
+              <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                <path d="M12 11v6" />
+                <path d="M9 14l3-3 3 3" />
+              </svg>
+              이동
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkExportMarkdown()}
+              className="flex items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer bg-transparent border-none"
+              title="선택한 카드를 md로 내보내기"
+            >
+              <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 15V3" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M20 21H4" />
+              </svg>
+              md
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkDelete()}
+              className="ml-auto flex items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs text-[var(--text-error)] hover:bg-[var(--bg-error-hover)] transition-colors cursor-pointer bg-transparent border-none"
+            >
+              <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+              </svg>
+              일괄 삭제
+            </button>
           </div>
         </div>
       )}

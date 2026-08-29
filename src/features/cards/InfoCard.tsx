@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
-  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, CopyPlus, Eye, GripVertical,
+  MoreVertical, Pin, PinOff, Pencil, Trash2, Copy, CopyPlus, Download, Eye, GripVertical,
 } from 'lucide-react'
 import type { FuseResultMatch } from 'fuse.js'
 import type { Item } from '../../core/db'
@@ -14,6 +14,7 @@ import { highlightByQuery } from '../../shared/utils/highlight'
 import { extractSearchText } from '../../core/content'
 import { cardViewAtom, searchQueryAtom } from '../../store/atoms'
 import { useClickOutside } from '../../shared/hooks/useClickOutside'
+import { useExportItemMarkdown } from '../storage/useExportItemMarkdown'
 import { IconButton } from '../../shared/components/IconButton'
 import { Badge } from '../../shared/components/Badge'
 
@@ -67,6 +68,8 @@ export const InfoCard = ({
   const meta = TYPE_META[item.type]
   const IconComponent = ICON_MAP[item.type]
   const setCardView = useSetAtom(cardViewAtom)
+  // md 저장 — 카드 상세 `.md` 버튼·탭 우클릭 메뉴와 동일 규칙(잠금 거부·파일명·DB 저장분 기준)
+  const exportMd = useExportItemMarkdown()
 
   const searchQuery = useAtomValue(searchQueryAtom)
 
@@ -186,6 +189,11 @@ export const InfoCard = ({
                     onClick={() => { onDuplicate(item); setMenuOpen(false) }}
                   />
                 )}
+                <MenuButton
+                  icon={<Download size={14} />}
+                  label="md로 저장"
+                  onClick={() => { void exportMd(item); setMenuOpen(false) }}
+                />
                 <div className="my-1 h-px bg-[var(--border-default)]" />
                 <MenuButton
                   icon={<Trash2 size={14} />}

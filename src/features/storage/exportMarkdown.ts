@@ -9,6 +9,7 @@ import { isEncryptedContent, decryptContent, parseContent } from '../../core/con
 import { isDraft } from '../../core/cardState'
 import { cardToMarkdown } from '../../core/cardMarkdown'
 import { sanitizeFilename } from '../../core/naming'
+import { DEFAULT_ITEM_TITLE } from '../../shared/constants'
 import { saveTextFile } from './fileSave'
 
 type FSAADirWindow = Window & {
@@ -22,6 +23,48 @@ type FSAADirWindow = Window & {
 export interface ExportMarkdownResult {
   exported: number
   skippedLocked: number
+}
+
+/** 단일 카드 저장 결과. 'locked'는 암호화된 카드를 키 없이 내보내려 한 경우(평문 파일이라 거부). */
+export type ExportItemMarkdownResult =
+  | { status: 'saved'; fileName: string }
+  | { status: 'locked' }
+  | { status: 'cancelled' }
+
+/**
+ * 카드 1건을 md로 저장한다. 진입점이 여러 곳(카드 상세 `.md` 버튼 · 탭 우클릭 메뉴 ·
+ * 카드 ⋯ 메뉴)이라 렌더·파일명·잠금 규칙을 여기 한 곳에 둔다 — 진입점마다 복제하면
+ * "어디서 저장했느냐에 따라 결과가 다른" 회귀가 생긴다.
+ * 저장 기준은 **DB에 저장된 content**다(미저장 편집분은 반영되지 않음 — F3 확정 설계).
+ */
+export async function exportItemAsMarkdown(
+  item: Item,
+  encryptionKey: CryptoKey | null,
+): Promise<ExportItemMarkdownResult> {
+  if (isEncryptedContent(item.content) && !encryptionKey) return { status: 'locked' }
+
+  let rawContent = item.content
+  if (isEncryptedContent(rawContent)) {
+    rawContent = await decryptContent(rawContent, encryptionKey!)
+  }
+  const md = cardToMarkdown(item, parseContent(rawContent))
+  const fileName = `${sanitizeFilename(item.title || DEFAULT_ITEM_TITLE)}.md`
+
+  try {
+    await saveTextFile({
+      content: md,
+      fileName,
+      mimeType: 'text/markdown',
+      description: 'Markdown',
+      extension: '.md',
+    })
+  } catch (e) {
+    // FSAA 저장 피커 취소(AbortError)만 "실패 아님"으로 삼킨다. 디스크 쓰기 실패·권한 거부까지
+    // 취소로 뭉개면 저장이 안 됐는데 아무 표시가 없는 조용한 실패가 된다 → 호출부로 던진다.
+    if (e instanceof DOMException && e.name === 'AbortError') return { status: 'cancelled' }
+    throw e
+  }
+  return { status: 'saved', fileName }
 }
 
 function formatDateForFilename(ts: number): string {

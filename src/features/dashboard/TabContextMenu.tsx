@@ -20,6 +20,7 @@ import {
 import { closeSavedTabs } from '../../store/tabHelpers'
 import { useGuardedTabClose } from '../../shared/hooks/useGuardedTabClose'
 import { useEscapeKey } from '../../shared/hooks/useEscapeKey'
+import { useExportItemMarkdown } from '../storage/useExportItemMarkdown'
 
 export const TabContextMenu = () => {
   const [menu, setMenu] = useAtom(tabContextMenuAtom)
@@ -30,6 +31,7 @@ export const TabContextMenu = () => {
   const setSelectedFolder = useSetAtom(selectedFolderAtom)
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
   const { requestClose } = useGuardedTabClose()
+  const exportMd = useExportItemMarkdown()
 
   const menuRef = useRef<HTMLUListElement>(null)
 
@@ -93,6 +95,14 @@ export const TabContextMenu = () => {
         return next
       })
     }
+    closeMenu()
+  }
+
+  // md 저장 — 저장 규칙(잠금 거부·파일명·렌더)은 공용 훅이 단일 보유한다.
+  // DB에 저장된 content 기준이라 미저장 편집분은 반영되지 않는다(F3 확정 설계).
+  const handleExportMarkdown = () => {
+    if (!targetItem) return
+    void exportMd(targetItem)
     closeMenu()
   }
 
@@ -162,6 +172,17 @@ export const TabContextMenu = () => {
           className={item(!targetItem)}
         >
           사이드바에서 보기
+        </button>
+      </li>
+      <li>
+        <button
+          role="menuitem"
+          type="button"
+          onClick={handleExportMarkdown}
+          disabled={!targetItem}
+          className={item(!targetItem)}
+        >
+          md로 저장
         </button>
       </li>
 

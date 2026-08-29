@@ -18,16 +18,14 @@ import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
 import type { DraftBody } from '../../core/draft'
 import { saveDraftRaw, loadDraft, deleteDraft, readDraft } from '../../core/draftStore'
 import { publishItem } from '../../core/publishItem'
-import { cardToMarkdown } from '../../core/cardMarkdown'
-import { sanitizeFilename } from '../../core/naming'
-import { saveTextFile } from '../storage/fileSave'
+import { useExportItemMarkdown } from '../storage/useExportItemMarkdown'
 import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
-import { ICON_MAP, DEFAULT_ITEM_TITLE } from '../../shared/constants'
+import { ICON_MAP } from '../../shared/constants'
 import { hasFormFields, hasEditorField, getEditorFieldKey, getEditorFieldSchema } from './fieldHelpers'
 import { Dropdown } from '../../shared/components/Dropdown'
 import { DocumentEditor } from './DocumentEditor'
@@ -50,6 +48,7 @@ export const CardDetailEditor = () => {
   const encryptionKey = useAtomValue(encryptionKeyAtom)
   const config = useAtomValue(appConfigAtom)
   const encryptionEnabled = config?.encryptionEnabled ?? false
+  const exportMd = useExportItemMarkdown()
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState<ItemType>('server')
@@ -422,28 +421,11 @@ export const CardDetailEditor = () => {
 
   // .md 다운로드 — DB에 저장된 값 기준(F3, 문서 상 결정: 미저장 편집분은 "저장 후 내보내기"로
   // 우회 — document 타입도 docEditorRef 없이 item.content → parseContent만으로 완결된다).
-  // 잠긴(암호화된) 카드는 평문 파일이라 명시적으로 거부한다.
+  // 렌더·파일명·잠금 거부 규칙은 useExportItemMarkdown이 단일 보유(탭 메뉴·카드 ⋯ 메뉴와 공용).
   const handleDownloadMd = useCallback(() => {
     if (!item) return
-    if (isEncryptedContent(item.content) && !encryptionKey) {
-      toast.error('잠긴 카드는 md로 저장할 수 없습니다 — 설정 → 보안에서 잠금을 해제해 주세요.', { duration: 3000 })
-      return
-    }
-    void (async () => {
-      try {
-        let rawContent = item.content
-        if (isEncryptedContent(rawContent)) {
-          rawContent = await decryptContent(rawContent, encryptionKey!)
-        }
-        const md = cardToMarkdown(item, parseContent(rawContent))
-        const filename = `${sanitizeFilename(item.title || DEFAULT_ITEM_TITLE)}.md`
-        await saveTextFile({ content: md, fileName: filename, mimeType: 'text/markdown', description: 'Markdown', extension: '.md' })
-        toast.success(`${filename} 저장됨`, { duration: 2000 })
-      } catch {
-        // 취소(FSAA 피커) 시 무시
-      }
-    })()
-  }, [item, encryptionKey])
+    void exportMd(item)
+  }, [item, exportMd])
 
   useHotkey(keys['card.save'], (e) => {
     e.preventDefault()
