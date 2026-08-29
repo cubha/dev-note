@@ -15,6 +15,7 @@ import {
 import { useConfirm } from '../hooks/useConfirm'
 import { collectDescendants } from '../../features/sidebar/treeUtils'
 import { exportSelectedItems } from '../../features/storage/export'
+import { useExportItemMarkdown } from '../../features/storage/useExportItemMarkdown'
 import { removeItemsFromState } from '../../store/tabHelpers'
 
 export function ContextMenu() {
@@ -30,6 +31,7 @@ export function ContextMenu() {
   const folders = useDecryptedFolders()
   const items = useLiveQuery(() => db.items.toArray(), [])
   const confirm = useConfirm()
+  const exportMd = useExportItemMarkdown()
 
   const closeMenu = () =>
     setMenu((prev) => ({ ...prev, isOpen: false }))
@@ -108,6 +110,20 @@ export function ContextMenu() {
     await exportSelectedItems(ids)
   }
 
+  // ── 단일 카드 md 저장 ────────────────────────────────────────
+  // 폴더에는 없는 동작이라 type === 'item'일 때만 노출한다. 저장 규칙(잠금 거부·파일명·렌더)은
+  // 카드 상세 `.md`·탭 우클릭·카드 ⋯ 메뉴와 같은 공용 훅이 단독 보유한다.
+  const targetItem =
+    menu.type === 'item' && menu.targetId !== null
+      ? items?.find((i) => i.id === menu.targetId)
+      : undefined
+
+  const handleExportMarkdown = () => {
+    if (!targetItem) return
+    void exportMd(targetItem)
+    closeMenu()
+  }
+
   if (!menu.isOpen) return null
 
   return (
@@ -156,6 +172,18 @@ export function ContextMenu() {
               이름 변경
             </button>
           </li>
+          {targetItem && (
+            <li>
+              <button
+                role="menuitem"
+                type="button"
+                onClick={handleExportMarkdown}
+                className="w-full px-4 py-1.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-accent-hover)] hover:text-[var(--text-on-active)]"
+              >
+                md로 저장
+              </button>
+            </li>
+          )}
           <li aria-hidden>
             <hr className="my-1 border-[var(--border-subtle)]" />
           </li>
