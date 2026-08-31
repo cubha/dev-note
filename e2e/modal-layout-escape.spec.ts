@@ -38,7 +38,10 @@ async function openModal(page: import('@playwright/test').Page, encrypted: boole
     db.close()
   })
 
+  // 가져오기 버튼이 이제 JSON/단일 파일 2갈래 드롭다운 메뉴를 먼저 연다(v1.10.0) —
+  // JSON 백업 플로우 자체(모달 3종)는 변경 없음, 진입 트리거만 메뉴 경유로 바뀌었다.
   await page.locator('button[aria-label="가져오기"]').click()
+  await page.locator('button:has-text("JSON 백업 가져오기")').click()
   await page.waitForSelector('dialog >> text=가져오기 방식 선택', { timeout: 5000 })
 }
 

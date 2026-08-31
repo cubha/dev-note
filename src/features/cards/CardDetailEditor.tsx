@@ -432,6 +432,32 @@ export const CardDetailEditor = () => {
     void handleSave()
   })
 
+  // 미저장 draft 안내 — 예전엔 상단 배너였는데, 배너가 제목 입력 영역을 아래로 밀어내며
+  // 레이아웃이 흔들렸다(사용자 실사용 중 발견). 레이아웃을 밀지 않는 하단 toast로 옮기고,
+  // 지속적 컨텍스트 정보라 자동 소멸 대신 닫기 버튼으로 직접 끄게 한다.
+  // ⚠ 고정 문자열 id를 sonner에 직접 넘기면(예: `{ id: 'card-draft-notice' }`) 토스트가
+  // 큐에는 잡히지만 렌더는 되지 않는 결함이 실측됐다(원인 미상 — sonner 내부의 동일 id
+  // 재사용 처리로 추정). 그래서 sonner가 자체 발급한 id를 ref에 보관해 그것으로만 dismiss한다.
+  const showDraftNotice = !!item && !draftLocked && isDraft(item)
+  const draftToastIdRef = useRef<string | number | null>(null)
+  useEffect(() => {
+    if (showDraftNotice) {
+      draftToastIdRef.current = toast.info(
+        '아직 저장되지 않아 목록·검색에 표시되지 않습니다. 저장하면 목록에 추가됩니다.',
+        { duration: Infinity, closeButton: true },
+      )
+    } else if (draftToastIdRef.current !== null) {
+      toast.dismiss(draftToastIdRef.current)
+      draftToastIdRef.current = null
+    }
+    return () => {
+      if (draftToastIdRef.current !== null) {
+        toast.dismiss(draftToastIdRef.current)
+        draftToastIdRef.current = null
+      }
+    }
+  }, [showDraftNotice])
+
   // 로딩 중
   if (item === undefined) {
     return (
@@ -463,11 +489,6 @@ export const CardDetailEditor = () => {
       {draftLocked && (
         <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-[var(--text-warning)]">
           🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.
-        </div>
-      )}
-      {!draftLocked && isDraft(item) && (
-        <div className="mx-6 mt-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-          아직 저장되지 않아 목록·검색에 표시되지 않습니다. 저장하면 목록에 추가됩니다.
         </div>
       )}
       {/* ── Meta (제목 / 타입 / 태그) ────── */}
