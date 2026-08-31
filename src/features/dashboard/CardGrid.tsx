@@ -104,12 +104,18 @@ export const CardGrid = () => {
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, itemId: number) => {
+    // OS 파일을 카드 위로 끄는 경우(전역 드롭존 대상) — 카드 순서변경 인디케이터를
+    // 띄우면 안 된다. preventDefault를 호출하지 않고 그대로 반환해 이벤트가 window의
+    // 전역 드롭존 리스너까지 버블링되도록 둔다.
+    if (e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverId(itemId)
   }, [])
 
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>, targetItemId: number) => {
+    // OS 파일 드롭은 이 핸들러의 대상이 아니다 — 전역 드롭존(GlobalFileDropZone)이 처리한다.
+    if (e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     if (dragItemId === null || dragItemId === targetItemId || !items) {
       setDragItemId(null)

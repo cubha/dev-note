@@ -13,6 +13,18 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.0.0',
+    date: '2026-08-31',
+    title: '파일 가져오기 확장 · 드래그 앤 드롭 지원',
+    highlights: [
+      '사이드바 "가져오기" 버튼이 JSON 백업 / 단일 파일(.txt·.md) 두 갈래로 나뉩니다',
+      'txt·md 파일 하나를 카드로 바로 가져올 수 있습니다',
+      '사이드바나 화면 어디에든 txt·md 파일을 끌어다 놓으면 즉시 카드로 추가되고 바로 열립니다',
+      '카드 상세 화면의 "아직 저장되지 않음" 안내가 제목 영역을 밀어내던 상단 배너 대신, 직접 닫을 수 있는 하단 알림으로 바뀌었습니다',
+    ],
+    type: 'major',
+  },
+  {
     version: 'v1.9.9',
     date: '2026-08-29',
     title: 'md 저장 진입점 확대 · 선택 액션바 정리',

@@ -17,6 +17,9 @@ interface DropdownProps {
   onSelect: (value: string) => void
   trigger: React.ReactNode
   align?: 'left' | 'right'
+  /** 메뉴가 열리는 방향. 기본 'bottom'(기존 동작 무영향) — footer처럼 아래 공간이 없는
+   *  트리거는 'top'으로 뷰포트 밖 잘림을 방지한다. */
+  side?: 'bottom' | 'top'
   className?: string
 }
 
@@ -26,6 +29,7 @@ export const Dropdown = ({
   onSelect,
   trigger,
   align = 'left',
+  side = 'bottom',
   className,
 }: DropdownProps) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -51,7 +55,7 @@ export const Dropdown = ({
           className={cn(
             'absolute rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] py-1 shadow-lg z-50 min-w-[140px]',
             align === 'right' ? 'right-0' : 'left-0',
-            'top-full mt-1',
+            side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
           )}
         >
           {items.map((item) => (

@@ -33,6 +33,8 @@ import { ImportModeModal } from './ImportModeModal'
 import { ImportPassphraseModal } from './ImportPassphraseModal'
 import { ExportOptionsModal } from './ExportOptionsModal'
 import { Button } from '../../shared/components/Button'
+import { Dropdown } from '../../shared/components/Dropdown'
+import { useImportTextCard } from './useImportTextCard'
 
 type FeedbackState =
   | { type: 'idle' }
@@ -64,6 +66,7 @@ export const StorageButtons = () => {
   const setExpandedFolders = useSetAtom(expandedFoldersAtom)
   const encryptionKey = useAtomValue(encryptionKeyAtom)
   const setDirtyItems      = useSetAtom(dirtyItemsAtom)
+  const { importFromPicker } = useImportTextCard()
 
   const showFeedback = (state: FeedbackState, durationMs = 3000) => {
     setFeedback(state)
@@ -182,6 +185,18 @@ export const StorageButtons = () => {
     setImporting(false)
   }
 
+  // ── 가져오기: 단일 파일(.txt/.md) — JSON 백업 플로우와 별도 갈래 ──
+  const handleImportSingleFile = async () => {
+    if (exporting || importing) return
+    setImporting(true)
+    setFeedback({ type: 'idle' })
+    try {
+      await importFromPicker()
+    } finally {
+      setImporting(false)
+    }
+  }
+
   // ── 가져오기 Step 2: 모달 취소 ─────────────────────────────
   const handleModalCancel = () => {
     setModalData(null)
@@ -274,18 +289,32 @@ export const StorageButtons = () => {
             내보내기
           </Button>
 
-          {/* 가져오기 버튼 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void handleImport()}
-            disabled={isLoading}
+          {/* 가져오기 — JSON 백업 / 단일 파일(.txt·.md) 2갈래 메뉴 */}
+          <Dropdown
             className="flex-1"
-            aria-label="가져오기"
-          >
-            {importing ? <SpinnerIcon /> : <DownloadIcon />}
-            가져오기
-          </Button>
+            side="top"
+            align="right"
+            items={[
+              { label: 'JSON 백업 가져오기', value: 'json' },
+              { label: '단일 파일 (.txt · .md)', value: 'single' },
+            ]}
+            onSelect={(v) => {
+              if (v === 'json') void handleImport()
+              else void handleImportSingleFile()
+            }}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isLoading}
+                className="w-full"
+                aria-label="가져오기"
+              >
+                {importing ? <SpinnerIcon /> : <DownloadIcon />}
+                가져오기
+              </Button>
+            }
+          />
         </div>
 
         {/* 인라인 피드백 */}

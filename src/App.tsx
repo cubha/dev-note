@@ -27,6 +27,7 @@ import { AdminMetrics } from './features/admin/AdminMetrics'
 import { AnnouncementModal } from './features/onboarding/AnnouncementModal'
 import { GuideModal } from './features/onboarding/GuideModal'
 import { CommandPalette } from './shared/components/CommandPalette'
+import { GlobalFileDropZone } from './features/storage/GlobalFileDropZone'
 import { CloseConfirmDialog } from './shared/components/CloseConfirmDialog'
 import { ConfirmHost } from './shared/components/ConfirmHost'
 import { DraftDirtySync } from './features/dashboard/DraftDirtySync'
@@ -246,6 +247,7 @@ export default function App() {
       <AnnouncementModal />
       <GuideModal />
       <AdminMetrics />
+      <GlobalFileDropZone />
       <Toaster
         theme={config.theme}
         position="bottom-right"
