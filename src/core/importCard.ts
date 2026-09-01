@@ -1,12 +1,16 @@
 // src/core/importCard.ts
 //
 // txt/md 파일 → 카드 초안 순수 변환기. cardMarkdown.ts(내보내기)의 역방향 대칭.
-// DevNote 자체 md 포맷(cardToMarkdown)의 역파싱은 하지 않는다 — 파일 전문을
-// markdown 섹션 텍스트 1개로 담는다(왕복은 설계상 lossy, 비목표로 확정).
-
+// DevNote 자체 md 포맷(cardToMarkdown)의 역파싱은 하지 않는다 — 파일 전문을 note 카드의
+// 단일 필드에 그대로 담는다(왕복은 설계상 lossy, 비목표로 확정).
+//
+// 타입 = note (document 아님). document는 섹션 UI(추가/collapse/붙여넣기 버튼)가 붙어
+// 단순 텍스트 파일 하나 가져온 것치고 화면이 무겁다 — note는 필드가 하나뿐이라
+// 에디터 하나만 뜬다. multiline 필드를 내보낼 때 개행이 있는 값을 불릿 한 줄에
+// 욱여넣으면 마크다운이 깨지던 문제는 cardMarkdown.ts에서 별도로 고쳤다(왕복 안전).
 import type { ItemType } from './db'
-import type { HybridContent, MarkdownSection } from './types'
-import { createEmptyHybridContent } from './content'
+import type { StructuredContent } from './types'
+import { createEmptyStructuredContent } from './content'
 
 export const TEXT_IMPORT_EXTENSIONS = ['.txt', '.md'] as const
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024
@@ -16,7 +20,7 @@ export type ImportFileKind = 'text' | 'json' | 'unsupported'
 export interface ImportedCardDraft {
   title: string
   type: ItemType
-  contentObj: HybridContent
+  contentObj: StructuredContent
 }
 
 const TEXT_EXTENSION_SET = new Set<string>(TEXT_IMPORT_EXTENSIONS)
@@ -47,14 +51,12 @@ function extractTitle(fileName: string): string {
 }
 
 export function buildImportedCard(fileName: string, text: string): ImportedCardDraft {
-  const contentObj = createEmptyHybridContent()
-  // createEmptyHybridContent()는 sections[0]을 markdown 섹션 1개로 만든다(core/content.ts) —
-  // 타입은 AnySection[]으로 넓혀져 있어 이 자리에서만 좁혀 쓴다.
-  const section = contentObj.sections[0] as MarkdownSection
-  section.text = normalizeText(text)
+  const contentObj = createEmptyStructuredContent('note')
+  // FIELD_SCHEMAS.note는 필드가 'content' 하나뿐이다(core/types.ts) — 그 자리에 원문을 채운다.
+  contentObj.fields[0].value = normalizeText(text)
   return {
     title: extractTitle(fileName),
-    type: 'document',
+    type: 'note',
     contentObj,
   }
 }

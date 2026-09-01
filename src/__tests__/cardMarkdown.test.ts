@@ -49,6 +49,26 @@ describe('cardToMarkdown — structured', () => {
     expect(md).toContain('aws')
     expect(md).toContain('운영')
   })
+
+  it('multiline 필드는 불릿 한 줄이 아니라 제목+본문 블록으로 렌더한다(개행 보존, 리스트 깨짐 방지)', () => {
+    const content: CardContent = {
+      format: 'structured',
+      fields: [{ key: 'content', label: '내용', value: '첫 줄\n\n둘째 문단', type: 'multiline' }],
+    }
+    const md = cardToMarkdown(makeItem({ type: 'note' }), content)
+    expect(md).not.toContain('- **내용**:')
+    expect(md).toContain('**내용**')
+    expect(md).toContain('첫 줄\n\n둘째 문단')
+  })
+
+  it('single-line 필드는 기존처럼 불릿 한 줄로 렌더한다', () => {
+    const content: CardContent = {
+      format: 'structured',
+      fields: [{ key: 'host', label: 'Host', value: '10.0.0.1', type: 'text' }],
+    }
+    const md = cardToMarkdown(makeItem(), content)
+    expect(md).toContain('- **Host**: 10.0.0.1')
+  })
 })
 
 describe('cardToMarkdown — hybrid: markdown 섹션', () => {

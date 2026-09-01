@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.0.1',
+    date: '2026-09-01',
+    title: '가져온 파일을 Note로 · md 내보내기 줄바꿈 수정',
+    highlights: [
+      '단일 파일 가져오기·드래그 앤 드롭으로 만든 카드가 Note 타입으로 생성됩니다 — 화면이 더 가벼워집니다',
+      '비고·Key/PEM처럼 여러 줄 내용이 있는 카드를 md로 내보낼 때 형식이 깨지지 않습니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v2.0.0',
     date: '2026-08-31',
     title: '파일 가져오기 확장 · 드래그 앤 드롭 지원',
