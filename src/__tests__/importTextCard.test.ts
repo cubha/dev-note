@@ -3,19 +3,13 @@ import { db } from '../core/db'
 import { importTextFilesAsCards } from '../features/storage/importTextCard'
 import { isEncryptedContent, decryptContent, parseContent } from '../core/content'
 import { deriveKey, generateSalt } from '../core/crypto'
-import type { AnySection, MarkdownSection } from '../core/types'
-
-function markdownText(section: AnySection): string {
-  if (section.type !== 'markdown') throw new Error('markdown 섹션이 아닙니다')
-  return (section as MarkdownSection).text
-}
 
 describe('importTextFilesAsCards', () => {
   beforeEach(async () => {
     await db.items.clear()
   })
 
-  it('파일 1건 → document 타입 카드 1건이 발행 상태로 생성된다', async () => {
+  it('파일 1건 → note 타입 카드 1건이 발행 상태로 생성된다', async () => {
     const summary = await importTextFilesAsCards(
       [{ name: 'notes.md', text: '본문' }], null, false, null,
     )
@@ -23,7 +17,7 @@ describe('importTextFilesAsCards', () => {
     expect(summary.locked).toBe(0)
     const item = await db.items.get(summary.created[0].itemId)
     expect(item?.title).toBe('notes')
-    expect(item?.type).toBe('document')
+    expect(item?.type).toBe('note')
     expect(item?.draft).toBeFalsy()
   })
 
@@ -58,15 +52,15 @@ describe('importTextFilesAsCards', () => {
     expect(item?.folderId).toBe(7)
   })
 
-  it('본문 전문을 hybrid markdown 섹션에 보존한다', async () => {
+  it('본문 전문을 note의 content 필드에 보존한다', async () => {
     const summary = await importTextFilesAsCards(
       [{ name: 'a.txt', text: '원문 그대로' }], null, false, null,
     )
     const item = await db.items.get(summary.created[0].itemId)
     const content = parseContent(item?.content ?? null)
-    expect(content.format).toBe('hybrid')
-    if (content.format === 'hybrid') {
-      expect(markdownText(content.sections[0])).toBe('원문 그대로')
+    expect(content.format).toBe('structured')
+    if (content.format === 'structured') {
+      expect(content.fields[0].value).toBe('원문 그대로')
     }
   })
 
@@ -80,8 +74,8 @@ describe('importTextFilesAsCards', () => {
     expect(isEncryptedContent(item?.content ?? '')).toBe(true)
     const decrypted = await decryptContent(item?.content ?? '', key)
     const content = parseContent(decrypted)
-    if (content.format === 'hybrid') {
-      expect(markdownText(content.sections[0])).toBe('민감한 내용')
+    if (content.format === 'structured') {
+      expect(content.fields[0].value).toBe('민감한 내용')
     }
   })
 

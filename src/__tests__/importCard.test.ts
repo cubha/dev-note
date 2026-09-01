@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { classifyImportFile, buildImportedCard, TEXT_IMPORT_EXTENSIONS, MAX_IMPORT_FILE_BYTES } from '../core/importCard'
 import { parseContent, serializeContent } from '../core/content'
-import type { AnySection, MarkdownSection } from '../core/types'
-
-function markdownText(section: AnySection): string {
-  if (section.type !== 'markdown') throw new Error('markdown 섹션이 아닙니다')
-  return (section as MarkdownSection).text
-}
 
 describe('classifyImportFile', () => {
   it('.md / .txt는 대소문자 무관하게 text로 분류한다', () => {
@@ -52,45 +46,36 @@ describe('buildImportedCard — 제목 추출', () => {
 describe('buildImportedCard — 본문 정규화', () => {
   it('CRLF와 단독 CR을 LF로 정규화한다', () => {
     const draft = buildImportedCard('a.txt', 'a\r\nb\rc')
-    expect(draft.contentObj.format).toBe('hybrid')
-    if (draft.contentObj.format === 'hybrid') {
-      expect(markdownText(draft.contentObj.sections[0])).toBe('a\nb\nc')
-    }
+    expect(draft.contentObj.fields[0].value).toBe('a\nb\nc')
   })
 
   it('선두 BOM을 제거한다', () => {
     const draft = buildImportedCard('a.txt', '﻿본문')
-    if (draft.contentObj.format === 'hybrid') {
-      expect(markdownText(draft.contentObj.sections[0])).toBe('본문')
-    }
+    expect(draft.contentObj.fields[0].value).toBe('본문')
   })
 
   it('본문 전문을 보존한다(정규화 대상 외 변형 없음)', () => {
     const original = '# 제목\n\n일반 텍스트\n- 목록'
     const draft = buildImportedCard('a.md', original)
-    if (draft.contentObj.format === 'hybrid') {
-      expect(markdownText(draft.contentObj.sections[0])).toBe(original)
-    }
+    expect(draft.contentObj.fields[0].value).toBe(original)
   })
 })
 
 describe('buildImportedCard — 카드 구조', () => {
-  it('type은 항상 document, contentObj는 hybrid + markdown 섹션 1개', () => {
+  it('type은 항상 note, contentObj는 structured + content 필드 1개', () => {
     const draft = buildImportedCard('a.md', '본문')
-    expect(draft.type).toBe('document')
-    expect(draft.contentObj.format).toBe('hybrid')
-    if (draft.contentObj.format === 'hybrid') {
-      expect(draft.contentObj.sections).toHaveLength(1)
-      expect(draft.contentObj.sections[0].type).toBe('markdown')
-    }
+    expect(draft.type).toBe('note')
+    expect(draft.contentObj.format).toBe('structured')
+    expect(draft.contentObj.fields).toHaveLength(1)
+    expect(draft.contentObj.fields[0].key).toBe('content')
   })
 
-  it('serializeContent → parseContent 왕복이 유효한 hybrid로 복원된다', () => {
+  it('serializeContent → parseContent 왕복이 유효한 structured로 복원된다', () => {
     const draft = buildImportedCard('a.md', '왕복 검증')
     const restored = parseContent(serializeContent(draft.contentObj))
-    expect(restored.format).toBe('hybrid')
-    if (restored.format === 'hybrid') {
-      expect(markdownText(restored.sections[0])).toBe('왕복 검증')
+    expect(restored.format).toBe('structured')
+    if (restored.format === 'structured') {
+      expect(restored.fields[0].value).toBe('왕복 검증')
     }
   })
 })

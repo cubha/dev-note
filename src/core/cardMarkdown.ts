@@ -31,7 +31,14 @@ export function cardToMarkdown(item: Item, content: CardContent): string {
   } else if (content.format === 'structured') {
     const visible = content.fields.filter((f) => f.type !== 'password' && f.value.trim() !== '')
     for (const f of visible) {
-      lines.push(`- **${f.label}**: ${f.value}`)
+      if (f.type === 'multiline') {
+        // 단일 불릿 줄(`- **라벨**: 값`)에 개행 있는 값을 그대로 넣으면 유효한 마크다운이 아니다 —
+        // 빈 줄을 만나는 순간 리스트가 끊겨 이후 내용이 별개 문단으로 떨어져 나간다. 여러 줄
+        // 값은 섹션처럼 제목+본문 블록으로 분리해 왕복(재내보내기) 시에도 안전하게 한다.
+        lines.push(`**${f.label}**`, '', f.value, '')
+      } else {
+        lines.push(`- **${f.label}**: ${f.value}`)
+      }
     }
   } else {
     for (const section of content.sections) {
