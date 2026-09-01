@@ -103,12 +103,11 @@ const SortableTab = ({
         <span className="max-w-[100px] truncate">
           {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
         </span>
-        {isNewDraft && (
+        {isNewDraft ? (
           <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-tertiary)]" />
-        )}
-        {isDirty && (
+        ) : isDirty ? (
           <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
-        )}
+        ) : null}
       </button>
       <button
         type="button"
@@ -302,12 +301,11 @@ export const TabBar = () => {
                           <span className="flex-1 text-xs text-left truncate">
                             {item === undefined ? '...' : (item.title || DEFAULT_ITEM_TITLE)}
                           </span>
-                          {isNewDraft && (
+                          {isNewDraft ? (
                             <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-tertiary)]" />
-                          )}
-                          {isDirty && (
+                          ) : isDirty ? (
                             <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-warning)]" />
-                          )}
+                          ) : null}
                         </button>
                         <button
                           type="button"

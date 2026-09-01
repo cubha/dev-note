@@ -13,6 +13,15 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.0.2',
+    date: '2026-09-01',
+    title: '탭 마커 중복 표시 수정',
+    highlights: [
+      '새로 만든 카드에 내용을 입력했을 때 "미저장"과 "수정됨" 표시가 동시에 뜨던 문제를 고쳤습니다',
+    ],
+    type: 'patch',
+  },
+  {
     version: 'v2.0.1',
     date: '2026-09-01',
     title: '가져온 파일을 Note로 · md 내보내기 줄바꿈 수정',
