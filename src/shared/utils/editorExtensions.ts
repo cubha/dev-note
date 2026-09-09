@@ -111,9 +111,15 @@ const searchPanelDecor = ViewPlugin.fromClass(
       field.className = 'cm-search-field'
       search.before(field)
       field.append(search)
+      // data 속성으로 표식을 남긴다 — CSS가 `:has()`에 의존하지 않게 하려는 것.
+      // `:has()`는 Safari 15.4+/Firefox 121+ 전용이라, 미지원 브라우저에서는 옵션이
+      // 축약되지 않고 "대소문자 구분" 원문이 그대로 노출돼 패널이 넓어진다.
       for (const name of ['case', 'word', 're']) {
         const label = panel.querySelector(`input[name=${name}]`)?.closest('label')
-        if (label) field.append(label)
+        if (label instanceof HTMLElement) {
+          label.dataset.dnOpt = name
+          field.append(label)
+        }
       }
 
       // 찾기 행 / 바꾸기 행으로 분리 — 접기가 행 단위로 단순해진다
@@ -282,12 +288,16 @@ export const searchExtension: Extension = [
       position: 'absolute', inset: '0', display: 'flex', alignItems: 'center', justifyContent: 'center',
       textIndent: '0', fontSize: '10px', fontWeight: '600', letterSpacing: '0',
     },
-    '.cm-panel.cm-search .cm-search-field label:has([name=case])': { order: '1' },
-    '.cm-panel.cm-search .cm-search-field label:has([name=word])': { order: '2' },
-    '.cm-panel.cm-search .cm-search-field label:has([name=re])': { order: '3' },
-    '.cm-panel.cm-search .cm-search-field label:has([name=case])::after': { content: '"Aa"' },
-    '.cm-panel.cm-search .cm-search-field label:has([name=word])::after': { content: '"ab|"' },
-    '.cm-panel.cm-search .cm-search-field label:has([name=re])::after': { content: '".*"' },
+    // 주입 시 붙인 data 속성으로 선택한다 — `:has()`를 쓰면 Safari<15.4·Firefox<121에서
+    // 축약이 통째로 무효가 되어 원문 라벨이 노출된다.
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="case"]': { order: '1' },
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="word"]': { order: '2' },
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="re"]': { order: '3' },
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="case"]::after': { content: '"Aa"' },
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="word"]::after': { content: '"ab|"' },
+    '.cm-panel.cm-search .cm-search-field label[data-dn-opt="re"]::after': { content: '".*"' },
+    // 체크 상태만 `:has()`를 쓴다 — 미지원 브라우저에서도 체크박스가 안 보일 뿐
+    // 검색 옵션 자체는 정상 동작한다(축약과 달리 레이아웃을 깨지 않는다).
     '.cm-panel.cm-search .cm-search-field label:has(:checked)': {
       color: 'var(--text-active)', borderColor: 'var(--border-accent)', background: 'var(--bg-accent-hover)',
     },
