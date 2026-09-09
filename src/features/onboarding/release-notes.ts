@@ -19,6 +19,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
     highlights: [
       '카드를 열어둔 채 Ctrl+F를 누르면 본문 안에서 바로 찾을 수 있습니다',
       'Ctrl+H를 누르면 바꾸기 칸이 함께 열립니다 — 단축키는 설정에서 바꿀 수 있습니다',
+      'C:\\temp 같은 경로도 입력한 그대로 찾습니다',
     ],
     type: 'minor',
   },
