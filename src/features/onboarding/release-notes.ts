@@ -13,6 +13,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.2.0',
+    date: '2026-09-09',
+    title: '찾기 패널이 본문을 밀지 않습니다',
+    highlights: [
+      '찾기 창이 편집기 오른쪽 위에 떠서, 열어도 본문이 아래로 밀리지 않습니다',
+      '대소문자·단어 단위·정규식 버튼이 검색창 안으로 들어갔습니다',
+      '검색창 왼쪽 ▶ 를 누르면 바꾸기 칸이 열립니다 — Ctrl+H와 같습니다',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v2.1.0',
     date: '2026-09-09',
     title: '에디터 내부 찾기·바꾸기',
