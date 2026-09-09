@@ -14,7 +14,7 @@ import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 import { effectiveKeybindingsAtom } from '../../../store/atoms'
 import { buildEditorKeymap } from '../../../shared/utils/editorKeymap'
 
-import { defaultCommentTokens, commentHighlight } from '../../../shared/utils/editorExtensions'
+import { defaultCommentTokens, commentHighlight, searchExtension } from '../../../shared/utils/editorExtensions'
 
 const LANGUAGES = [
   'text', 'bash', 'sql', 'json',
@@ -125,6 +125,7 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           defaultCommentTokens,
           editorKeymapCompartment.current.of(cmKeymap.of(customKeymap)),
+          searchExtension,
           // Tab: 커서 위치에 삽입(선택영역 있으면 줄 들여쓰기), Shift+Tab: 내어쓰기
           cmKeymap.of([...defaultKeymap, ...historyKeymap, { key: 'Tab', run: insertTab, shift: indentLess }]),
           langCompartment.current.of([]),

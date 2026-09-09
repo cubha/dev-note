@@ -19,6 +19,8 @@ export type CommandId =
   | 'editor.moveLineUp'
   | 'editor.moveLineDown'
   | 'editor.copyLineDown'
+  | 'editor.find'
+  | 'editor.replace'
   | 'command.palette';
 
 export interface KeybindingDef {
@@ -102,6 +104,16 @@ export const DEFAULT_KEYBINDINGS: Record<CommandId, KeybindingDef> = {
     defaultKey: 'Shift+Alt+ArrowDown',
     category: 'editor',
   },
+  'editor.find': {
+    label: '에디터에서 찾기',
+    defaultKey: 'Mod+F',
+    category: 'editor',
+  },
+  'editor.replace': {
+    label: '에디터에서 바꾸기',
+    defaultKey: 'Mod+H',
+    category: 'editor',
+  },
   'command.palette': {
     label: '커맨드 팔레트',
     defaultKey: 'Mod+Shift+P',
@@ -127,6 +139,7 @@ export const BROWSER_RESERVED: Set<string> = new Set([
 
 export const BROWSER_WARN: Set<string> = new Set([
   'Mod+F',
+  'Mod+H',
   'Mod+P',
   'Mod+D',
   'Mod+J',
@@ -153,13 +166,6 @@ export const validateKeybinding = (
     };
   }
 
-  if (BROWSER_WARN.has(key)) {
-    return {
-      status: 'warn',
-      message: `'${key}'는 일부 브라우저에서 기본 동작과 충돌할 수 있습니다.`,
-    };
-  }
-
   for (const [existingCommandId, existingKey] of Object.entries(currentBindings)) {
     if (existingKey === key && existingCommandId !== commandId) {
       return {
@@ -168,6 +174,13 @@ export const validateKeybinding = (
         conflictId: existingCommandId,
       };
     }
+  }
+
+  if (BROWSER_WARN.has(key)) {
+    return {
+      status: 'warn',
+      message: `'${key}'는 일부 브라우저에서 기본 동작과 충돌할 수 있습니다.`,
+    };
   }
 
   return { status: 'ok' };

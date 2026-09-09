@@ -62,6 +62,11 @@
        --text-error(#f87171)를 배경에 쓰면 흰 글씨 2.77:1 로 AA 미달이라 역할을 분리했다. 호버는 opacity-90. */
     --bg-error-solid: #b83c2d;
 
+    /* 에디터 검색(Ctrl+F) 매치 하이라이트. --text-editor(#e4e4e7) 대비 8.9:1 / 7.2:1(AA 충족).
+       현재 매치는 --border-accent 아웃라인으로 명도 외 구분 신호를 더한다(알파만으론 두 배경끼리 대비 부족). */
+    --bg-search-match: rgba(250, 204, 21, 0.25);
+    --bg-search-match-active: rgba(249, 115, 22, 0.45);
+
     /* ── 카드 타입 액센트 컬러 ───────────────────── */
     --badge-server-bg: rgba(59, 130, 246, 0.15);
     --badge-server-text: #60a5fa;
@@ -170,6 +175,11 @@
     --bg-accent-hover: #dbeafe;
     /* 흰 글씨 대비 4.83:1(AA) · 담는 면(--bg-surface #fff 4.83 / --bg-sidebar 4.41) 3:1 충족 */
     --bg-error-solid: #dc2626;
+
+    /* 에디터 검색(Ctrl+F) 매치 하이라이트. --text-editor(#1e293b) 대비 11.6:1 / 8.9:1(AA 충족).
+       다크와 동일 색상 계열이나 밝은 배경(#f8fafc) 위에서 충분한 틴트를 위해 알파를 올렸다. */
+    --bg-search-match: rgba(250, 204, 21, 0.45);
+    --bg-search-match-active: rgba(249, 115, 22, 0.55);
 
     /* 타입 뱃지 */
     --badge-server-bg: rgba(59, 130, 246, 0.10);
