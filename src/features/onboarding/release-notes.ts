@@ -13,7 +13,7 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    version: 'v2.3.0',
+    version: 'v2.2.1',
     date: '2026-09-09',
     title: '카드 전체에서 찾기',
     highlights: [
@@ -22,7 +22,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       '바꾸기도 섹션을 넘나들며 한 번에 적용됩니다',
       '비밀번호 칸은 찾기 대상에서 제외됩니다',
     ],
-    type: 'minor',
+    type: 'patch',
   },
   {
     version: 'v2.2.0',

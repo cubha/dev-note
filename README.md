@@ -280,7 +280,7 @@ Vercel Edge Function 프록시 (api/v1/messages.ts)
 > 원본 단일 소스는 `src/features/onboarding/release-notes.ts` 이며, 앱 안 공지사항 모달이 같은 데이터를 사용한다.
 > 이 절은 그 사본이므로 새 버전을 낼 때 함께 갱신한다(`verify.sh` Spec 13이 최신 버전 누락을 검사한다).
 
-### v2.3.0 (2026-09-09)
+### v2.2.1 (2026-09-09)
 
 **카드 전체에서 찾기**
 - Ctrl+F가 카드 하나를 통째로 검색 — 섹션이 여러 개여도 결과가 한 곳에 집계
