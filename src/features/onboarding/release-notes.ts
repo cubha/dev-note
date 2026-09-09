@@ -13,6 +13,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.1.0',
+    date: '2026-09-09',
+    title: '에디터 내부 찾기·바꾸기',
+    highlights: [
+      '카드를 열어둔 채 Ctrl+F를 누르면 본문 안에서 바로 찾을 수 있습니다',
+      'Ctrl+H를 누르면 바꾸기 칸이 함께 열립니다 — 단축키는 설정에서 바꿀 수 있습니다',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v2.0.2',
     date: '2026-09-01',
     title: '탭 마커 중복 표시 수정',
