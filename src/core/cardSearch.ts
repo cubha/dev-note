@@ -50,16 +50,76 @@ export interface SearchMatch {
   end: number
 }
 
-export function collectMatches(_t: SearchTarget[], _q: string, _o: SearchOptions): SearchMatch[] {
-  return []
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 검색어를 정규식으로 만든다.
+ *
+ * 일반 모드는 **입력 그대로** 찾는다 — 이 앱은 `C:\temp` 같은 경로와 코드를 담는 개발 노트라,
+ * 이스케이프를 해석하면 "화면에 보이는데 검색이 안 되는" 상태가 된다. 정규식 모드에서만 해석한다.
+ * 잘못된 정규식은 null을 반환해 호출부가 빈 결과를 주도록 한다(입력 중 예외로 죽으면 안 된다).
+ */
+const buildMatcher = (query: string, o: SearchOptions): RegExp | null => {
+  const body = o.regexp ? query : escapeRegExp(query)
+  const source = o.wholeWord ? `(?<![\\p{L}\\p{N}_])(?:${body})(?![\\p{L}\\p{N}_])` : body
+  try {
+    return new RegExp(source, `gu${o.caseSensitive ? '' : 'i'}`)
+  } catch {
+    return null
+  }
 }
 
-export function applyReplaceOne(t: SearchTarget[], _m: SearchMatch, _r: string): SearchTarget[] {
-  return t
+export function collectMatches(targets: SearchTarget[], query: string, o: SearchOptions): SearchMatch[] {
+  if (!query) return []
+  const re = buildMatcher(query, o)
+  if (!re) return []
+
+  const matches: SearchMatch[] = []
+  for (const target of targets) {
+    re.lastIndex = 0
+    let hit: RegExpExecArray | null
+    while ((hit = re.exec(target.text)) !== null) {
+      // 빈 매치(`x*` 등)는 lastIndex가 멈춰 무한루프가 된다 — 한 칸 밀어 진행시킨다.
+      if (hit[0] === '') { re.lastIndex += 1; continue }
+      matches.push({ path: target.path, start: hit.index, end: hit.index + hit[0].length })
+    }
+  }
+  return matches
 }
 
-export function applyReplaceAll(t: SearchTarget[], _m: SearchMatch[], _r: string): SearchTarget[] {
-  return t
+const replaceInTargets = (
+  targets: SearchTarget[],
+  matches: SearchMatch[],
+  replacement: string,
+): SearchTarget[] => {
+  if (!matches.length) return targets.map((t) => ({ ...t }))
+
+  const byPath = new Map<string, SearchMatch[]>()
+  for (const m of matches) {
+    const list = byPath.get(m.path)
+    if (list) list.push(m)
+    else byPath.set(m.path, [m])
+  }
+
+  return targets.map((target) => {
+    const own = byPath.get(target.path)
+    if (!own) return { ...target }
+    // 뒤에서 앞으로 적용한다 — 앞에서부터 자르면 치환 길이 차이만큼 뒤쪽 인덱스가 밀린다.
+    const ordered = [...own].sort((a, b) => b.start - a.start)
+    let text = target.text
+    for (const m of ordered) {
+      text = text.slice(0, m.start) + replacement + text.slice(m.end)
+    }
+    return { ...target, text }
+  })
+}
+
+export function applyReplaceOne(targets: SearchTarget[], match: SearchMatch, replacement: string): SearchTarget[] {
+  return replaceInTargets(targets, [match], replacement)
+}
+
+export function applyReplaceAll(targets: SearchTarget[], matches: SearchMatch[], replacement: string): SearchTarget[] {
+  return replaceInTargets(targets, matches, replacement)
 }
 
 export function flattenCard(input: FlattenInput): SearchTarget[] {
