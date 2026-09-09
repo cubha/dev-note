@@ -1,26 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { buildEditorKeymap } from '../shared/utils/editorKeymap'
-import { getEffectiveBindings, DEFAULT_KEYBINDINGS } from '../core/keybindings'
+import { getEffectiveBindings } from '../core/keybindings'
 import type { CommandId } from '../core/keybindings'
 
 // CodeMirror 6는 keydown의 event.key(Shift 없는 알파벳은 소문자)로 키맵을 조회한다.
-// 'Mod+F'를 'Mod-F'(대문자)로 넘기면 대문자 F = Shift가 눌린 상태를 뜻해
-// Ctrl+Shift+F에 바인딩되고 정작 Ctrl+F는 죽는다 — 실기에서 확인된 결함.
+// 'Shift+Mod+K'를 'Shift-Mod-K'(대문자)로 넘기면 매칭에 실패한다 — base key는 항상 소문자여야 한다.
+//
+// 참고: editor.find(Mod+F)·editor.replace(Mod+H)는 v2.3.0부터 이 키맵에 없다.
+// 카드 전역 검색이라 CodeMirror 안이 아니라 전역 키맵에서 처리한다
+// (useGlobalKeyboardShortcuts → cardSearchOpenSignalAtom → CardDetailEditor).
 
 describe('buildEditorKeymap — CM6 키 포맷 변환', () => {
   const keysFor = (bindings: Record<CommandId, string>) =>
     buildEditorKeymap(bindings).map((b) => b.key)
 
-  it('Mod+F / Mod+H를 소문자 base key로 변환한다 (대문자면 Shift 조합이 되어 죽는다)', () => {
-    const keys = keysFor(getEffectiveBindings({}))
-    expect(keys).toContain('Mod-f')
-    expect(keys).toContain('Mod-h')
-    expect(keys).not.toContain('Mod-F')
-    expect(keys).not.toContain('Mod-H')
-  })
-
   it('Shift가 명시된 조합도 base key는 소문자다', () => {
-    // CM6는 Ctrl+Shift+K에서 base name 'k'(소문자)로 조회한다 — 'Shift-Mod-K'는 매칭 실패
     const keys = keysFor(getEffectiveBindings({}))
     expect(keys).toContain('Shift-Mod-k')
     expect(keys).not.toContain('Shift-Mod-K')
@@ -39,22 +33,23 @@ describe('buildEditorKeymap — CM6 키 포맷 변환', () => {
   it('사용자 커스텀 단일 알파벳 키도 소문자로 변환된다', () => {
     const custom = {
       ...getEffectiveBindings({}),
-      'editor.find': 'Mod+G',
+      'editor.deleteLine': 'Mod+G',
     } as Record<CommandId, string>
     expect(keysFor(custom)).toContain('Mod-g')
+    expect(keysFor(custom)).not.toContain('Mod-G')
   })
 
-  it('비활성화된 커맨드는 키맵에서 제외된다 (브라우저 기본 동작 폴백 경로)', () => {
+  it('비활성화된 커맨드는 키맵에서 제외된다', () => {
     const keys = keysFor(getEffectiveBindings({
-      'editor.find': { userKey: null, enabled: false },
+      'editor.deleteLine': { userKey: null, enabled: false },
     }))
-    expect(keys).not.toContain('Mod-f')
-    expect(keys).toContain('Mod-h')
+    expect(keys).not.toContain('Shift-Mod-k')
+    expect(keys).toContain('Mod-/')
   })
 
-  it('에디터 카테고리 커맨드 전부가 키맵에 실린다', () => {
-    const editorCommands = (Object.keys(DEFAULT_KEYBINDINGS) as CommandId[])
-      .filter((id) => DEFAULT_KEYBINDINGS[id].category === 'editor')
-    expect(buildEditorKeymap(getEffectiveBindings({}))).toHaveLength(editorCommands.length)
+  it('찾기/바꾸기는 CodeMirror 키맵에 실리지 않는다 — 카드 전역 검색이라 전역 키맵 소관', () => {
+    const keys = keysFor(getEffectiveBindings({}))
+    expect(keys).not.toContain('Mod-f')
+    expect(keys).not.toContain('Mod-h')
   })
 })

@@ -27,6 +27,7 @@ import {
   commandPaletteOpenAtom,
   encryptionKeyAtom,
   blockingDialogOpenAtom,
+  cardSearchOpenSignalAtom,
 } from '../../store/atoms'
 import { removeItemsFromState } from '../../store/tabHelpers'
 import { useGuardedTabClose } from './useGuardedTabClose'
@@ -46,6 +47,7 @@ export const useGlobalKeyboardShortcuts = () => {
   const setActiveTab = useSetAtom(activeTabAtom)
   const setDirtyItems = useSetAtom(dirtyItemsAtom)
   const setCommandPaletteOpen = useSetAtom(commandPaletteOpenAtom)
+  const setCardSearchSignal = useSetAtom(cardSearchOpenSignalAtom)
   const keysRaw = useAtomValue(effectiveKeybindingsAtom)
   const keys = keysRaw as Record<string, RegisterableHotkey>
   const { requestClose } = useGuardedTabClose()
@@ -86,6 +88,17 @@ export const useGlobalKeyboardShortcuts = () => {
       searchInput.focus()
       searchInput.select()
     }
+  })
+
+  // ── editor.find / editor.replace: 카드 안에서 찾기·바꾸기 ────
+  // 패널은 열려 있는 카드 상세가 소유한다. 여기서는 "열어라" 신호만 올린다.
+  useHotkey(keys['editor.find'], (e) => {
+    e.preventDefault()
+    setCardSearchSignal((s) => ({ n: s.n + 1, withReplace: false }))
+  })
+  useHotkey(keys['editor.replace'], (e) => {
+    e.preventDefault()
+    setCardSearchSignal((s) => ({ n: s.n + 1, withReplace: true }))
   })
 
   // ── escape.clear: 다중 선택 해제 + 검색 초기화 ──────────────

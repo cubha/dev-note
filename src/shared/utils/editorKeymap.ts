@@ -9,7 +9,6 @@ import {
 } from '@codemirror/commands'
 import type { StateCommand } from '@codemirror/state'
 import type { CommandId } from '../../core/keybindings'
-import { openFindPanel, openReplacePanel } from './editorExtensions'
 
 /**
  * Mod+Key 포맷 → CM6 키 포맷 변환.
@@ -43,8 +42,6 @@ const EDITOR_COMMANDS: EditorCommandEntry[] = [
   { id: 'editor.moveLineUp', run: moveLineUp },
   { id: 'editor.moveLineDown', run: moveLineDown },
   { id: 'editor.copyLineDown', run: copyLineDown },
-  { id: 'editor.find', run: openFindPanel },
-  { id: 'editor.replace', run: openReplacePanel },
 ]
 
 /** effectiveBindings에서 에디터 키바인딩만 추출하여 CM6 KeyBinding[] 생성 */
