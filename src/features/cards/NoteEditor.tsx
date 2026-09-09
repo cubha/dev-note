@@ -13,7 +13,7 @@ import { defaultKeymap, history, historyKeymap, insertTab, indentLess } from '@c
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import { effectiveKeybindingsAtom } from '../../store/atoms'
 import { buildEditorKeymap } from '../../shared/utils/editorKeymap'
-import { defaultCommentTokens, commentHighlight } from '../../shared/utils/editorExtensions'
+import { defaultCommentTokens, commentHighlight, searchExtension } from '../../shared/utils/editorExtensions'
 
 interface NoteEditorProps {
   value: string
@@ -56,6 +56,7 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           defaultCommentTokens,
           editorKeymapCompartment.current.of(cmKeymap.of(customKeymap)),
+          searchExtension,
           // Tab: 커서 위치에 삽입(선택영역 있으면 줄 들여쓰기), Shift+Tab: 내어쓰기
           cmKeymap.of([...defaultKeymap, ...historyKeymap, { key: 'Tab', run: insertTab, shift: indentLess }]),
           phComp.of(cmPlaceholder(placeholderText)),
