@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EditorView } from '@codemirror/view'
-import { setSearchQuery, SearchQuery } from '@codemirror/search'
+import { setSearchHighlight } from '../../shared/utils/editorExtensions'
 import {
   flattenCard, collectMatches, applyReplaceOne, applyReplaceAll,
   writeBackSections, expandSection,
@@ -69,15 +69,9 @@ export const useCardSearch = ({
   // 비-CM 위젯(input/textarea)은 내부에 마크업을 넣을 수 없어 현재 매치만 네이티브 선택으로 표시한다.
   useEffect(() => {
     if (!open) return
-    const q = new SearchQuery({
-      search: query,
-      caseSensitive: !!options.caseSensitive,
-      regexp: !!options.regexp,
-      wholeWord: !!options.wholeWord,
-      literal: !options.regexp,
-      replace: '',
-    })
-    for (const view of codeMirrors()) view.dispatch({ effects: setSearchQuery.of(q) })
+    for (const view of codeMirrors()) {
+      view.dispatch({ effects: setSearchHighlight.of({ query, options }) })
+    }
   }, [open, query, options, codeMirrors])
 
   /** 매치가 있는 위젯을 찾아 포커스·선택하고 화면에 보이게 한다 */
@@ -110,10 +104,13 @@ export const useCardSearch = ({
       el.scrollIntoView({ block: 'nearest' })
     }
 
-    // 접힌 섹션은 DOM 자체가 없다 — 먼저 펼치고 다음 프레임에 조회한다
+    // 접힌 섹션은 DOM 자체가 없다 — 먼저 펼치고 다음 프레임에 조회한다.
+    // 접힘 여부는 targets의 스냅샷이 아니라 **현재 sections**에서 읽는다 — targets는 메모이제이션돼
+    // 있어서, 검색을 연 뒤에 사용자가 섹션을 접으면 스냅샷이 낡는다(실기에서 확인된 결함).
     const sections = getSections()
-    if (target.collapsed && target.sectionId && sections) {
-      setSections(expandSection(sections, target.sectionId))
+    const section = target.sectionId ? sections?.find((s) => s.id === target.sectionId) : undefined
+    if (section?.collapsed && sections) {
+      setSections(expandSection(sections, section.id))
       requestAnimationFrame(() => requestAnimationFrame(reveal))
       return
     }
@@ -153,8 +150,7 @@ export const useCardSearch = ({
   const close = useCallback(() => {
     setOpen(false)
     // CM 하이라이트 정리
-    const empty = new SearchQuery({ search: '', replace: '' })
-    for (const view of codeMirrors()) view.dispatch({ effects: setSearchQuery.of(empty) })
+    for (const view of codeMirrors()) view.dispatch({ effects: setSearchHighlight.of(null) })
   }, [codeMirrors])
 
   const openPanel = useCallback((withReplace: boolean) => {

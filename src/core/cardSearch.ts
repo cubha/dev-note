@@ -59,7 +59,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
  * 이스케이프를 해석하면 "화면에 보이는데 검색이 안 되는" 상태가 된다. 정규식 모드에서만 해석한다.
  * 잘못된 정규식은 null을 반환해 호출부가 빈 결과를 주도록 한다(입력 중 예외로 죽으면 안 된다).
  */
-const buildMatcher = (query: string, o: SearchOptions): RegExp | null => {
+export const buildMatcher = (query: string, o: SearchOptions): RegExp | null => {
   const body = o.regexp ? query : escapeRegExp(query)
   const source = o.wholeWord ? `(?<![\\p{L}\\p{N}_])(?:${body})(?![\\p{L}\\p{N}_])` : body
   try {
