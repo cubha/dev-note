@@ -281,3 +281,10 @@ export const keybindingOverridesWriteAtom = atom<
 export const effectiveKeybindingsAtom = atom<Record<CommandId, string>>(
   (get) => getEffectiveBindings(get(keybindingOverridesAtom))
 )
+
+// ─── 카드 전역 검색 ────────────────────────────────────────────
+//
+// Ctrl+F/Ctrl+H는 전역 키맵에서 발화하지만 실제 패널은 열려 있는 카드 상세가 소유한다.
+// 카운터를 올려 "열어라" 신호를 보내고, 카드 쪽이 그 변화를 구독한다
+// (boolean이면 이미 열린 상태에서 다시 눌렀을 때 신호가 죽는다).
+export const cardSearchOpenSignalAtom = atom<{ n: number; withReplace: boolean }>({ n: 0, withReplace: false })

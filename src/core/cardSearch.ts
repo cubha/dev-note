@@ -122,6 +122,79 @@ export function applyReplaceAll(targets: SearchTarget[], matches: SearchMatch[],
   return replaceInTargets(targets, matches, replacement)
 }
 
+/**
+ * 바뀐 타깃 텍스트를 sections 배열에 되쓴다.
+ *
+ * `flattenCard`가 만든 path를 그대로 역파싱하므로 두 함수는 같은 규칙을 공유한다 —
+ * path 형식을 바꾸려면 반드시 함께 고쳐야 한다.
+ */
+export function writeBackSections(sections: AnySection[], targets: SearchTarget[]): AnySection[] {
+  const byPath = new Map(targets.map((t) => [t.path, t.text]))
+  const pick = (path: string, current: string) => byPath.get(path) ?? current
+
+  return sections.map((section) => {
+    const at = (suffix: string) => `sec:${section.id}:${suffix}`
+    switch (section.type) {
+      case 'code':
+        return { ...section, code: pick(at('code'), section.code) }
+      case 'markdown':
+        return { ...section, text: pick(at('text'), section.text) }
+      case 'credentials':
+        return {
+          ...section,
+          items: section.items.map((item) => {
+            const f = (key: string, current: string) => pick(at(`item:${item.id}:${key}`), current)
+            return {
+              ...item,
+              label: f('label', item.label),
+              host: f('host', item.host),
+              port: f('port', item.port),
+              username: f('username', item.username),
+              database: item.database === undefined ? undefined : f('database', item.database),
+              extra: f('extra', item.extra),
+              // password는 타깃이 아니므로 건드리지 않는다
+            }
+          }),
+        }
+      case 'env':
+        return {
+          ...section,
+          pairs: section.pairs.map((pair) => ({
+            ...pair,
+            key: pick(at(`pair:${pair.id}:key`), pair.key),
+            value: pair.secret ? pair.value : pick(at(`pair:${pair.id}:value`), pair.value),
+          })),
+        }
+      case 'urls':
+        return {
+          ...section,
+          items: section.items.map((item) => {
+            const f = (key: string, current: string) => pick(at(`item:${item.id}:${key}`), current)
+            return {
+              ...item,
+              label: f('label', item.label),
+              url: f('url', item.url),
+              method: item.method === undefined ? undefined : f('method', item.method),
+              note: f('note', item.note),
+              noteCards: item.noteCards?.map((card) => ({
+                ...card,
+                title: f(`note:${card.id}:title`, card.title),
+                text: f(`note:${card.id}:text`, card.text),
+              })),
+            }
+          }),
+        }
+      default:
+        return section
+    }
+  })
+}
+
+/** 섹션 하나를 펼친 새 배열을 만든다 — 접힌 섹션의 매치로 이동할 때 필요 */
+export function expandSection(sections: AnySection[], sectionId: string): AnySection[] {
+  return sections.map((s) => (s.id === sectionId && s.collapsed ? { ...s, collapsed: false } : s))
+}
+
 export function flattenCard(input: FlattenInput): SearchTarget[] {
   const targets: SearchTarget[] = []
   const push = (path: string, text: string, widget: SearchWidget, sectionId?: string, collapsed?: boolean) => {

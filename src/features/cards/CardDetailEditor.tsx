@@ -11,7 +11,7 @@ import { db } from '../../core/db'
 import type { ItemType, Item } from '../../core/db'
 import { isDraft } from '../../core/cardState'
 import { FIELD_SCHEMAS, TYPE_META } from '../../core/types'
-import type { CardField, StructuredContent } from '../../core/types'
+import type { CardField, StructuredContent, AnySection } from '../../core/types'
 import { parseContent, serializeContent, isEncryptedContent, encryptContent, decryptContent } from '../../core/content'
 import { encryptTags, decryptTags } from '../../core/metaCrypto'
 import { isDraftPersistable, serializeDraftBody } from '../../core/draft'
@@ -22,6 +22,7 @@ import { useExportItemMarkdown } from '../storage/useExportItemMarkdown'
 import { registerActiveFlush, consumeSuppression, bumpDraftEpoch, currentDraftEpoch } from './draftFlushControl'
 import {
   activeTabAtom, dirtyItemsAtom, effectiveKeybindingsAtom, encryptionKeyAtom, appConfigAtom,
+  cardSearchOpenSignalAtom,
 } from '../../store/atoms'
 import { toast } from 'sonner'
 import { StructuredFieldForm } from './StructuredFieldInput'
@@ -32,6 +33,8 @@ import { DocumentEditor } from './DocumentEditor'
 import type { DocumentEditorHandle } from './DocumentEditor'
 import { NoteEditor } from './NoteEditor'
 import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
+import { CardSearchPanel } from './CardSearchPanel'
+import { useCardSearch } from './useCardSearch'
 
 const DRAFT_DEBOUNCE_MS = 500
 
@@ -56,6 +59,7 @@ export const CardDetailEditor = () => {
   const [fields, setFields] = useState<CardField[]>([])
   const [editorText, setEditorText] = useState('')
   const docEditorRef = useRef<DocumentEditorHandle>(null)
+  const searchRootRef = useRef<HTMLDivElement>(null)
   const [docDirty, setDocDirty] = useState(false)
   // 잠긴 암호화 카드에 저장된(하지만 지금은 복호화 불가한) 드래프트가 있을 때만 true
   const [draftLocked, setDraftLocked] = useState(false)
@@ -459,6 +463,39 @@ export const CardDetailEditor = () => {
   }, [showDraftNotice])
 
   // 로딩 중
+  const editorSchema = getEditorFieldSchema(type)
+
+  // ── 카드 전역 검색 ──────────────────────────
+  // document는 섹션 배열을, 나머지는 정형 필드 + 하단 에디터 텍스트를 검색 대상으로 넘긴다.
+  // 하단 에디터는 fields와 별개 상태(editorText)라 여기서 합쳐줘야 빠지지 않는다.
+  const search = useCardSearch({
+    containerRef: searchRootRef,
+    getSections: useCallback(
+      () => (type === 'document' ? docEditorRef.current?.getSections() ?? [] : undefined),
+      [type],
+    ),
+    setSections: useCallback((next: AnySection[]) => docEditorRef.current?.setSections(next), []),
+    getFields: useCallback(() => {
+      if (type === 'document') return undefined
+      const base = fields.map((f) => ({ key: f.key, value: f.value, type: f.type as string }))
+      return editorSchema
+        ? [...base, { key: editorSchema.key, value: editorText, type: 'multiline' }]
+        : base
+    }, [type, fields, editorSchema, editorText]),
+    setFieldValue: useCallback((key: string, value: string) => {
+      if (editorSchema && key === editorSchema.key) setEditorText(value)
+      else setFields((prev) => prev.map((f) => (f.key === key ? { ...f, value } : f)))
+    }, [editorSchema]),
+  })
+
+  // Ctrl+F / Ctrl+H 신호 구독 — 이미 열려 있어도 다시 누르면 반응하도록 카운터를 본다
+  const searchSignal = useAtomValue(cardSearchOpenSignalAtom)
+  const searchOpenPanel = search.openPanel
+  useEffect(() => {
+    if (searchSignal.n === 0) return
+    searchOpenPanel(searchSignal.withReplace)
+  }, [searchSignal, searchOpenPanel])
+
   if (item === undefined) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -482,10 +519,28 @@ export const CardDetailEditor = () => {
   const IconComponent = ICON_MAP[type]
   const showForm = hasFormFields(type)
   const showEditor = hasEditorField(type)
-  const editorSchema = getEditorFieldSchema(type)
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div ref={searchRootRef} className="relative flex flex-1 flex-col overflow-hidden">
+      {search.open && (
+        <CardSearchPanel
+          query={search.query}
+          replaceText={search.replaceText}
+          options={search.options}
+          matchCount={search.matchCount}
+          currentIndex={search.currentIndex}
+          replaceOpen={search.replaceOpen}
+          onQueryChange={search.setQuery}
+          onReplaceTextChange={search.setReplaceText}
+          onOptionsChange={search.setOptions}
+          onToggleReplace={search.toggleReplace}
+          onNext={search.next}
+          onPrev={search.prev}
+          onReplaceOne={search.replaceOne}
+          onReplaceAll={search.replaceAll}
+          onClose={search.close}
+        />
+      )}
       {draftLocked && (
         <div className="mx-6 mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-[var(--text-warning)]">
           🔒 잠긴 미저장 변경사항이 있습니다. 설정 → 보안에서 잠금을 해제하면 자동으로 복원됩니다.

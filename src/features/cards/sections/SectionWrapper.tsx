@@ -24,6 +24,8 @@ const SECTION_LABELS: Record<SectionType, string> = {
 }
 
 interface SectionWrapperProps {
+  /** 카드 전역 검색이 매치로 이동할 때 이 섹션의 DOM을 찾는 표식 */
+  sectionId?: string
   type: SectionType
   title: string
   collapsed: boolean
@@ -36,7 +38,7 @@ interface SectionWrapperProps {
 }
 
 export const SectionWrapper = ({
-  type, title, collapsed, onToggleCollapse, onDelete, onTitleChange,
+  sectionId, type, title, collapsed, onToggleCollapse, onDelete, onTitleChange,
   onSmartPaste, dragHandleProps, children,
 }: SectionWrapperProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -65,7 +67,7 @@ export const SectionWrapper = ({
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
+    <div data-section-id={sectionId} className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
       {/* 헤더 */}
       <div className="flex items-center gap-1 px-3 py-2 bg-[var(--bg-surface-hover)]">
         {/* 드래그 핸들 */}

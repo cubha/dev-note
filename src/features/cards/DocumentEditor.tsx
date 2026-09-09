@@ -87,6 +87,8 @@ export interface DocumentEditorHandle {
   save: () => Promise<void>
   /** 현재 sections를 동기적으로 반환 — 부모(CardDetailEditor)의 드래프트 flush가 사용 */
   getSections: () => AnySection[]
+  /** 카드 전역 검색이 바꾸기·자동 펼침을 반영할 때 사용 */
+  setSections: (next: AnySection[]) => void
 }
 
 interface DocumentEditorProps {
@@ -184,6 +186,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
   useImperativeHandle(ref, () => ({
     save: handleSave,
     getSections: () => sectionsRef.current,
+    setSections: (next: AnySection[]) => setSections(next),
   }), [handleSave])
 
   // 외부 클릭으로 추가 메뉴 닫기
@@ -331,6 +334,7 @@ const SortableSectionItem = ({ section, idx, onChange, onDelete, onToggleCollaps
   return (
     <div ref={setNodeRef} style={style}>
       <SectionWrapper
+        sectionId={section.id}
         type={section.type}
         title={section.title}
         collapsed={section.collapsed}
