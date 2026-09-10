@@ -108,12 +108,18 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
   const config = useAtomValue(appConfigAtom)
   const encryptionEnabled = config?.encryptionEnabled ?? false
 
+  // 🔴 아래 두 effect의 **선언 순서가 계약이다** — sectionsRef 동기화가 onSectionsChange보다
+  // 먼저여야 한다. 카드 전역 검색(useCardSearch)이 onSectionsChange 신호를 받아 getSections()로
+  // 타깃을 다시 만드는데, 순서가 뒤집히면 낡은 ref를 읽어 **사용자 편집이 되돌려진다**
+  // (writeBackSections는 타깃에 담긴 path를 현재 섹션값보다 우선하기 때문). 순서를 바꾸지 말 것.
+
   // 부모 flush가 getSections()로 언제든 최신값을 동기 취득할 수 있도록 유지
   useEffect(() => {
     sectionsRef.current = sections
   })
 
-  // 부모(CardDetailEditor)의 드래프트 디바운스 재스케줄 신호 — 초기 로드 시점 포함 매 변경마다
+  // 부모(CardDetailEditor)의 드래프트 디바운스 재스케줄 + 카드 검색 타깃 갱신 신호
+  // — 초기 로드 시점 포함 매 변경마다
   useEffect(() => {
     onSectionsChange?.()
   }, [sections, onSectionsChange])
@@ -355,7 +361,7 @@ const SortableSectionItem = ({ section, idx, onChange, onDelete, onToggleCollaps
 
 // ── 섹션 타입별 콘텐츠 렌더링 ──────────────────
 
-const SectionContent = ({ section, onChange }: {
+export const SectionContent = ({ section, onChange }: {
   section: AnySection
   onChange: (updated: AnySection) => void
 }) => {
@@ -370,6 +376,7 @@ const SectionContent = ({ section, onChange }: {
     case 'credentials':
       return (
         <CredentialSectionView
+          sectionId={section.id}
           items={section.items}
           onChange={(items) => onChange({ ...section, items })}
         />
@@ -377,6 +384,7 @@ const SectionContent = ({ section, onChange }: {
     case 'urls':
       return (
         <UrlSectionView
+          sectionId={section.id}
           items={section.items}
           onChange={(items) => onChange({ ...section, items })}
         />
@@ -384,6 +392,7 @@ const SectionContent = ({ section, onChange }: {
     case 'env':
       return (
         <EnvSectionView
+          sectionId={section.id}
           pairs={section.pairs}
           onChange={(pairs) => onChange({ ...section, pairs })}
         />

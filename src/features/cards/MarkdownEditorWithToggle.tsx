@@ -3,13 +3,15 @@
 import { useState, useRef, useCallback } from 'react'
 import { Eye, EyeOff, FileText, Code2 } from 'lucide-react'
 import { useMarkdownHtml } from '../../shared/hooks/useMarkdownHtml'
+import { useRevealOnSearch } from '../../shared/hooks/useRevealOnSearch'
 import { NoteEditor } from './NoteEditor'
 
 type ViewMode = 'source' | 'split' | 'full'
 
-const MarkdownSplitView = ({ value, onChange }: {
+const MarkdownSplitView = ({ value, onChange, searchPath }: {
   value: string
   onChange: (val: string) => void
+  searchPath?: string
 }) => {
   const html = useMarkdownHtml(value)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -28,6 +30,7 @@ const MarkdownSplitView = ({ value, onChange }: {
           placeholderText="마크다운으로 입력하세요..."
           onChange={onChange}
           onScroll={handleEditorScroll}
+          searchPath={searchPath}
         />
       </div>
       <div ref={previewRef} className="flex-1 overflow-y-auto">
@@ -60,11 +63,17 @@ const MarkdownFullView = ({ value }: { value: string }) => {
   )
 }
 
-export const MarkdownEditorWithToggle = ({ value, onChange }: {
+export const MarkdownEditorWithToggle = ({ value, onChange, searchPath }: {
   value: string
   onChange: (val: string) => void
+  /** 카드 전역 검색이 이 에디터를 정확히 찾아가기 위한 경로 */
+  searchPath?: string
 }) => {
   const [mode, setMode] = useState<ViewMode>('source')
+
+  // MD변환(full)에는 편집기가 없어 검색 호스트가 언마운트된다 — 검색이 이 에디터를 가리키면
+  // 소스로 돌아간다. split은 편집기를 그대로 들고 있으므로 건드리지 않는다.
+  useRevealOnSearch(searchPath, mode === 'full', () => setMode('source'))
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -93,7 +102,7 @@ export const MarkdownEditorWithToggle = ({ value, onChange }: {
         </button>
       </div>
       {mode === 'split' ? (
-        <MarkdownSplitView value={value} onChange={onChange} />
+        <MarkdownSplitView value={value} onChange={onChange} searchPath={searchPath} />
       ) : mode === 'full' ? (
         <MarkdownFullView value={value} />
       ) : (
@@ -101,6 +110,7 @@ export const MarkdownEditorWithToggle = ({ value, onChange }: {
           value={value}
           placeholderText="마크다운으로 자유롭게 입력하세요..."
           onChange={onChange}
+          searchPath={searchPath}
         />
       )}
     </div>

@@ -35,6 +35,7 @@ import { NoteEditor } from './NoteEditor'
 import { MarkdownEditorWithToggle } from './MarkdownEditorWithToggle'
 import { CardSearchPanel } from './CardSearchPanel'
 import { useCardSearch } from './useCardSearch'
+import { fieldPath } from '../../core/cardSearch'
 
 const DRAFT_DEBOUNCE_MS = 500
 
@@ -477,7 +478,12 @@ export const CardDetailEditor = () => {
     setSections: useCallback((next: AnySection[]) => docEditorRef.current?.setSections(next), []),
     getFields: useCallback(() => {
       if (type === 'document') return undefined
-      const base = fields.map((f) => ({ key: f.key, value: f.value, type: f.type as string }))
+      // 드롭다운(options) 필드는 검색 대상에서 뺀다 — <select>는 텍스트 범위 선택이 안 되고,
+      // 바꾸기가 열거값 밖의 문자열을 써넣으면 표시가 비어버린다. UrlEntry.method와 같은 원칙.
+      const optionKeys = new Set(FIELD_SCHEMAS[type].filter((s) => s.options?.length).map((s) => s.key))
+      const base = fields
+        .filter((f) => !optionKeys.has(f.key))
+        .map((f) => ({ key: f.key, value: f.value, type: f.type as string }))
       return editorSchema
         ? [...base, { key: editorSchema.key, value: editorText, type: 'multiline' }]
         : base
@@ -487,6 +493,15 @@ export const CardDetailEditor = () => {
       else setFields((prev) => prev.map((f) => (f.key === key ? { ...f, value } : f)))
     }, [editorSchema]),
   })
+
+  // 검색이 열린 채 사용자가 섹션을 편집하면 검색 타깃을 다시 만든다.
+  // 이게 없으면 낡은 스냅샷이 그대로 되쓰여 방금 한 편집이 조용히 되돌아간다
+  // (writeBackSections는 타깃에 담긴 path를 현재 섹션값보다 우선한다).
+  // docVersion은 DocumentEditor가 sectionsRef를 갱신한 **다음에** 쏘는 신호라 ref가 신선하다.
+  const refreshSearchTargets = search.refreshTargets
+  useEffect(() => {
+    refreshSearchTargets()
+  }, [docVersion, refreshSearchTargets])
 
   // Ctrl+F / Ctrl+H 신호 구독 — 이미 열려 있어도 다시 누르면 반응하도록 카운터를 본다
   const searchSignal = useAtomValue(cardSearchOpenSignalAtom)
@@ -655,6 +670,7 @@ export const CardDetailEditor = () => {
             <MarkdownEditorWithToggle
               value={editorText}
               onChange={handleEditorChange}
+              searchPath={editorSchema ? fieldPath(editorSchema.key) : undefined}
             />
           ) : showEditor ? (
             <div className="flex flex-col flex-1 overflow-hidden">
@@ -669,6 +685,7 @@ export const CardDetailEditor = () => {
                 value={editorText}
                 placeholderText={editorSchema?.placeholder ?? '자유롭게 입력하세요...'}
                 onChange={handleEditorChange}
+                searchPath={editorSchema ? fieldPath(editorSchema.key) : undefined}
               />
             </div>
           ) : null}

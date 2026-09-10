@@ -76,6 +76,8 @@ describe('flattenCard — 섹션 평탄화', () => {
     expect(texts).toContain('메모다')
     expect(texts).toContain('카드제목')
     expect(texts).toContain('카드본문')
+    // method는 Badge 표시 전용이라 편집 위젯이 없다 — 이동 불가능한 매치를 만들지 않는다
+    expect(texts).not.toContain('GET')
   })
 
   it('빈 문자열은 타깃으로 만들지 않는다', () => {

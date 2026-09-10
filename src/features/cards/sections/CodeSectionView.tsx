@@ -13,6 +13,7 @@ import { copyToClipboard } from '../../../shared/utils/clipboard'
 import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 import { effectiveKeybindingsAtom } from '../../../store/atoms'
 import { buildEditorKeymap } from '../../../shared/utils/editorKeymap'
+import { sectionPath } from '../../../core/cardSearch'
 
 import { defaultCommentTokens, commentHighlight, searchExtension } from '../../../shared/utils/editorExtensions'
 
@@ -55,6 +56,7 @@ export const CodeSectionView = ({ section, onChange }: CodeSectionViewProps) => 
         value={section.code}
         language={section.language}
         onChange={(code) => onChange({ ...section, code })}
+        searchPath={sectionPath(section.id, 'code')}
       />
     </div>
   )
@@ -62,10 +64,11 @@ export const CodeSectionView = ({ section, onChange }: CodeSectionViewProps) => 
 
 // ── 리사이즈 가능한 CodeMirror 래퍼 ──────────────────────────
 
-const ResizableMiniCodeEditor = ({ value, language, onChange }: {
+const ResizableMiniCodeEditor = ({ value, language, onChange, searchPath }: {
   value: string
   language: string
   onChange: (val: string) => void
+  searchPath?: string
 }) => {
   const { height, handleDragStart } = useResizableHeight(60, 160)
 
@@ -76,6 +79,7 @@ const ResizableMiniCodeEditor = ({ value, language, onChange }: {
         language={language}
         onChange={onChange}
         height={height}
+        searchPath={searchPath}
       />
       {/* 드래그 리사이즈 핸들 */}
       <div
@@ -92,11 +96,13 @@ const ResizableMiniCodeEditor = ({ value, language, onChange }: {
 
 // ── 경량 CodeMirror 에디터 ────────────────────
 
-const MiniCodeEditor = ({ value, language, onChange, height }: {
+const MiniCodeEditor = ({ value, language, onChange, height, searchPath }: {
   value: string
   language: string
   onChange: (val: string) => void
   height: number
+  /** 카드 전역 검색이 이 에디터를 정확히 찾아가기 위한 경로(flattenCard의 path와 동일 문자열) */
+  searchPath?: string
 }) => {
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
   const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
@@ -254,6 +260,6 @@ const MiniCodeEditor = ({ value, language, onChange, height }: {
   }, [height])
 
   return (
-    <div ref={containerRef} />
+    <div ref={containerRef} data-search-path={searchPath} />
   )
 }

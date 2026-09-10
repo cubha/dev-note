@@ -3,6 +3,8 @@ import { Eye, EyeOff } from 'lucide-react'
 import type { MarkdownSection } from '../../../core/types'
 import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 import { useMarkdownHtml } from '../../../shared/hooks/useMarkdownHtml'
+import { useRevealOnSearch } from '../../../shared/hooks/useRevealOnSearch'
+import { sectionPath } from '../../../core/cardSearch'
 
 interface MarkdownSectionViewProps {
   section: MarkdownSection
@@ -13,6 +15,10 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
   const { height, handleDragStart } = useResizableHeight(60, 120)
   const [showPreview, setShowPreview] = useState(false)
   const html = useMarkdownHtml(showPreview ? section.text : '')
+
+  // 미리보기 중에는 검색 호스트(textarea)가 언마운트된다 — 검색이 이 섹션을 가리키면 소스로 돌아간다.
+  const textPath = sectionPath(section.id, 'text')
+  useRevealOnSearch(textPath, showPreview, () => setShowPreview(false))
 
   return (
     <div className="flex flex-col">
@@ -43,6 +49,7 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
         </div>
       ) : (
         <textarea
+          data-search-path={textPath}
           value={section.text}
           onChange={(e) => onChange({ ...section, text: e.target.value })}
           placeholder="메모를 입력하세요..."

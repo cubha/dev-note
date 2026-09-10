@@ -50,6 +50,54 @@ export interface SearchMatch {
   end: number
 }
 
+/** 바꾸기 후 "다음 대상"을 가리키는 커서 — 배열 인덱스가 아니라 문서상의 위치다 */
+export interface MatchCursor {
+  path: string
+  offset: number
+}
+
+/**
+ * 경로 문자열 빌더 — flattenCard·writeBackSections·각 섹션 뷰의 `data-search-path`가
+ * 공유하는 유일한 소스다. 세 곳이 각자 문자열을 조립하면 조용히 어긋나고,
+ * 어긋난 결과는 에러가 아니라 "포커스가 안 움직인다"로만 드러난다.
+ */
+export const sectionPath = (sectionId: string, ...parts: string[]): string =>
+  ['sec', sectionId, ...parts].join(':')
+
+export const fieldPath = (key: string): string => `field:${key}`
+
+/**
+ * `path`가 `prefix` 자신이거나 그 하위 경로인가.
+ *
+ * 조건부로만 렌더되는 위젯(접힌 메모·미리보기 모드 등)이 "지금 검색이 나를 가리키는가"를
+ * 판정해 스스로 펼치는 데 쓴다. **`startsWith`를 그냥 쓰면 안 된다** — 세그먼트 경계를 보지
+ * 않으면 `…:note`가 `…:notes`에도 걸린다.
+ */
+export const isPathUnder = (path: string | null, prefix: string): boolean =>
+  !!path && (path === prefix || path.startsWith(`${prefix}:`))
+
+/**
+ * 커서 위치 이후의 첫 매치 인덱스. 없으면 처음으로 순환한다.
+ *
+ * matches는 targets 순서대로, 타깃 안에서는 오름차순으로 모이므로 이미 문서 순서다.
+ * 따라서 targets 순번(rank)과 start만으로 "이 위치보다 뒤"를 판정할 수 있다.
+ */
+export function nextMatchIndexFrom(
+  matches: SearchMatch[], targets: SearchTarget[], cursor: MatchCursor,
+): number {
+  if (!matches.length) return 0
+  const rank = new Map(targets.map((t, i) => [t.path, i]))
+  // 커서가 가리키던 타깃이 사라졌으면(-1) 모든 매치가 "뒤"가 되어 자연히 0번이 잡힌다
+  const cursorRank = rank.get(cursor.path) ?? -1
+
+  for (let i = 0; i < matches.length; i++) {
+    const r = rank.get(matches[i].path) ?? -1
+    if (r > cursorRank) return i
+    if (r === cursorRank && matches[i].start >= cursor.offset) return i
+  }
+  return 0
+}
+
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
@@ -125,15 +173,17 @@ export function applyReplaceAll(targets: SearchTarget[], matches: SearchMatch[],
 /**
  * 바뀐 타깃 텍스트를 sections 배열에 되쓴다.
  *
- * `flattenCard`가 만든 path를 그대로 역파싱하므로 두 함수는 같은 규칙을 공유한다 —
- * path 형식을 바꾸려면 반드시 함께 고쳐야 한다.
+ * `flattenCard`가 만든 path를 그대로 역파싱한다. 경로 문자열은 `sectionPath`/`fieldPath`가
+ * 유일한 소스이고, 각 섹션 뷰의 `data-search-path`도 같은 함수를 쓴다 —
+ * 세 곳이 어긋나면 에러 없이 "포커스가 안 움직임"으로만 드러나므로 손으로 조립하지 않는다.
+ * 커버리지는 `cardSearch.domContract.test.tsx`가 기계로 강제한다.
  */
 export function writeBackSections(sections: AnySection[], targets: SearchTarget[]): AnySection[] {
   const byPath = new Map(targets.map((t) => [t.path, t.text]))
   const pick = (path: string, current: string) => byPath.get(path) ?? current
 
   return sections.map((section) => {
-    const at = (suffix: string) => `sec:${section.id}:${suffix}`
+    const at = (...parts: string[]) => sectionPath(section.id, ...parts)
     switch (section.type) {
       case 'code':
         return { ...section, code: pick(at('code'), section.code) }
@@ -143,14 +193,19 @@ export function writeBackSections(sections: AnySection[], targets: SearchTarget[
         return {
           ...section,
           items: section.items.map((item) => {
-            const f = (key: string, current: string) => pick(at(`item:${item.id}:${key}`), current)
+            const f = (key: string, current: string) => pick(at('item', item.id, key), current)
             return {
               ...item,
               label: f('label', item.label),
               host: f('host', item.host),
               port: f('port', item.port),
               username: f('username', item.username),
-              database: item.database === undefined ? undefined : f('database', item.database),
+              // database 위젯은 category==='database'일 때만 렌더된다(CredentialSectionView).
+              // 평탄화의 제외 조건과 **같은 기준**으로 막아야 한다 — 한쪽만 걸면 화면에 없는 값이
+              // 바꾸기로 조용히 변경된다(카테고리를 바꾼 뒤 값이 데이터에 남아 있는 경우).
+              database: item.category === 'database' && item.database !== undefined
+                ? f('database', item.database)
+                : item.database,
               extra: f('extra', item.extra),
               // password는 타깃이 아니므로 건드리지 않는다
             }
@@ -161,25 +216,25 @@ export function writeBackSections(sections: AnySection[], targets: SearchTarget[
           ...section,
           pairs: section.pairs.map((pair) => ({
             ...pair,
-            key: pick(at(`pair:${pair.id}:key`), pair.key),
-            value: pair.secret ? pair.value : pick(at(`pair:${pair.id}:value`), pair.value),
+            key: pick(at('pair', pair.id, 'key'), pair.key),
+            value: pair.secret ? pair.value : pick(at('pair', pair.id, 'value'), pair.value),
           })),
         }
       case 'urls':
         return {
           ...section,
           items: section.items.map((item) => {
-            const f = (key: string, current: string) => pick(at(`item:${item.id}:${key}`), current)
+            const f = (current: string, ...key: string[]) => pick(at('item', item.id, ...key), current)
             return {
               ...item,
-              label: f('label', item.label),
-              url: f('url', item.url),
-              method: item.method === undefined ? undefined : f('method', item.method),
-              note: f('note', item.note),
+              label: f(item.label, 'label'),
+              url: f(item.url, 'url'),
+              method: item.method === undefined ? undefined : f(item.method, 'method'),
+              note: f(item.note, 'note'),
               noteCards: item.noteCards?.map((card) => ({
                 ...card,
-                title: f(`note:${card.id}:title`, card.title),
-                text: f(`note:${card.id}:text`, card.text),
+                title: f(card.title, 'note', card.id, 'title'),
+                text: f(card.text, 'note', card.id, 'text'),
               })),
             }
           }),
@@ -203,8 +258,7 @@ export function flattenCard(input: FlattenInput): SearchTarget[] {
   }
 
   for (const section of input.sections ?? []) {
-    const base = `sec:${section.id}`
-    const at = (suffix: string) => `${base}:${suffix}`
+    const at = (...parts: string[]) => sectionPath(section.id, ...parts)
     const inSection = (path: string, text: string, widget: SearchWidget) =>
       push(path, text, widget, section.id, section.collapsed)
 
@@ -217,33 +271,37 @@ export function flattenCard(input: FlattenInput): SearchTarget[] {
         break
       case 'credentials':
         for (const item of section.items) {
-          const f = (key: string, value: string) => inSection(at(`item:${item.id}:${key}`), value, 'input')
+          const f = (key: string, value: string) => inSection(at('item', item.id, key), value, 'input')
           f('label', item.label)
           f('host', item.host)
           f('port', item.port)
           f('username', item.username)
-          f('database', item.database ?? '')
+          // category가 database가 아니면 화면에 위젯이 없다 — 도달 불가 타깃을 만들지 않는다
+          // (method Badge·마스킹 필드와 같은 원칙). 카테고리를 바꿔도 값은 데이터에 남는다.
+          if (item.category === 'database') f('database', item.database ?? '')
           f('extra', item.extra)
           // password 제외
         }
         break
       case 'env':
         for (const pair of section.pairs) {
-          inSection(at(`pair:${pair.id}:key`), pair.key, 'input')
-          if (!pair.secret) inSection(at(`pair:${pair.id}:value`), pair.value, 'input')
+          inSection(at('pair', pair.id, 'key'), pair.key, 'input')
+          if (!pair.secret) inSection(at('pair', pair.id, 'value'), pair.value, 'input')
         }
         break
       case 'urls':
         for (const item of section.items) {
-          const f = (key: string, value: string, widget: SearchWidget = 'input') =>
-            inSection(at(`item:${item.id}:${key}`), value, widget)
-          f('label', item.label)
-          f('url', item.url)
-          f('method', item.method ?? '')
-          f('note', item.note, 'textarea')
+          const f = (value: string, widget: SearchWidget, ...key: string[]) =>
+            inSection(at('item', item.id, ...key), value, widget)
+          f(item.label, 'input', 'label')
+          f(item.url, 'input', 'url')
+          // method는 편집 위젯이 없다(Badge 표시 전용, Smart Paste만 값을 넣는다).
+          // 타깃으로 넣으면 카운터에는 잡히는데 이동도 포커스도 불가능한 매치가 생기므로 뺀다 —
+          // 마스킹 필드를 평탄화에서 배제한 것과 같은 원칙이다.
+          f(item.note, 'textarea', 'note')
           for (const card of item.noteCards ?? []) {
-            f(`note:${card.id}:title`, card.title)
-            f(`note:${card.id}:text`, card.text, 'textarea')
+            f(card.title, 'input', 'note', card.id, 'title')
+            f(card.text, 'textarea', 'note', card.id, 'text')
           }
         }
         break
@@ -253,7 +311,7 @@ export function flattenCard(input: FlattenInput): SearchTarget[] {
   for (const [key, value] of Object.entries(input.fields ?? {})) {
     const type = input.fieldTypes?.[key]
     if (isMaskedFieldType(type)) continue
-    push(`field:${key}`, value, type === 'multiline' ? 'cm' : 'input')
+    push(fieldPath(key), value, type === 'multiline' ? 'cm' : 'input')
   }
 
   return targets

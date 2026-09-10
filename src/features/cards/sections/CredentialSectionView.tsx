@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import type { CredentialEntry } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
 import { usePasswordReveal } from '../../../shared/hooks/usePasswordReveal'
+import { sectionPath } from '../../../core/cardSearch'
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   server: Server,
@@ -13,14 +14,17 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number; classN
 interface CredentialSectionViewProps {
   items: CredentialEntry[]
   onChange: (items: CredentialEntry[]) => void
+  /** 카드 전역 검색이 이 입력들을 찾아가기 위한 소속 섹션 id */
+  sectionId: string
 }
 
-export const CredentialSectionView = ({ items, onChange }: CredentialSectionViewProps) => {
+export const CredentialSectionView = ({ items, onChange, sectionId }: CredentialSectionViewProps) => {
   return (
     <div className="space-y-3">
       {items.map((entry, idx) => (
         <CredentialRow
           key={entry.id}
+          sectionId={sectionId}
           entry={entry}
           onChange={(updated) => {
             const next = [...items]
@@ -41,15 +45,17 @@ export const CredentialSectionView = ({ items, onChange }: CredentialSectionView
   )
 }
 
-const CredentialRow = ({ entry, onChange, onDelete }: {
+const CredentialRow = ({ entry, onChange, onDelete, sectionId }: {
   entry: CredentialEntry
   onChange: (e: CredentialEntry) => void
   onDelete: () => void
+  sectionId: string
 }) => {
   const { inputType, toggle, Icon } = usePasswordReveal()
   const CatIcon = CATEGORY_ICONS[entry.category] ?? HardDrive
 
   const update = (patch: Partial<CredentialEntry>) => onChange({ ...entry, ...patch })
+  const at = (key: string) => sectionPath(sectionId, 'item', entry.id, key)
 
   return (
     <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-3 space-y-2">
@@ -58,6 +64,7 @@ const CredentialRow = ({ entry, onChange, onDelete }: {
         <CatIcon size={14} className="text-[var(--text-tertiary)] shrink-0" />
         <input
           type="text"
+          data-search-path={at('label')}
           value={entry.label}
           onChange={(e) => update({ label: e.target.value })}
           placeholder="라벨 (운영서버, 개발 DB 등)"
@@ -83,9 +90,9 @@ const CredentialRow = ({ entry, onChange, onDelete }: {
 
       {/* 필드 그리드 */}
       <div className="grid grid-cols-2 gap-2">
-        <FieldInput label="Host" value={entry.host} onChange={(v) => update({ host: v })} placeholder="10.0.0.1" />
-        <FieldInput label="Port" value={entry.port} onChange={(v) => update({ port: v })} placeholder="22" />
-        <FieldInput label="Username" value={entry.username} onChange={(v) => update({ username: v })} placeholder="admin" />
+        <FieldInput label="Host" searchPath={at('host')} value={entry.host} onChange={(v) => update({ host: v })} placeholder="10.0.0.1" />
+        <FieldInput label="Port" searchPath={at('port')} value={entry.port} onChange={(v) => update({ port: v })} placeholder="22" />
+        <FieldInput label="Username" searchPath={at('username')} value={entry.username} onChange={(v) => update({ username: v })} placeholder="admin" />
         <div>
           <label className="block text-[length:var(--font-3xs)] text-[var(--text-tertiary)] mb-0.5">Password</label>
           <div className="relative flex items-center gap-1">
@@ -118,23 +125,24 @@ const CredentialRow = ({ entry, onChange, onDelete }: {
 
       {/* DB 이름 (category=database일 때만) */}
       {entry.category === 'database' && (
-        <FieldInput label="Database" value={entry.database ?? ''} onChange={(v) => update({ database: v })} placeholder="prod_main" />
+        <FieldInput label="Database" searchPath={at('database')} value={entry.database ?? ''} onChange={(v) => update({ database: v })} placeholder="prod_main" />
       )}
 
       {/* 비고 */}
-      <FieldInput label="비고" value={entry.extra} onChange={(v) => update({ extra: v })} placeholder="접속 메모" />
+      <FieldInput label="비고" searchPath={at('extra')} value={entry.extra} onChange={(v) => update({ extra: v })} placeholder="접속 메모" />
     </div>
   )
 }
 
-const FieldInput = ({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string
+const FieldInput = ({ label, value, onChange, placeholder, searchPath }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; searchPath?: string
 }) => {
   return (
     <div>
       <label className="block text-[length:var(--font-3xs)] text-[var(--text-tertiary)] mb-0.5">{label}</label>
       <input
         type="text"
+        data-search-path={searchPath}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
