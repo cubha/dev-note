@@ -2,6 +2,12 @@
 //
 // 카드(탭) 전역 검색 패널. 섹션과 무관하게 카드당 하나만 존재하며 전 카드 타입에서 같은 자리에 뜬다.
 // 본문을 밀지 않도록 absolute 오버레이로 띄우고, 옵션 토글은 입력창 안에 넣는다(v2.2.0 계승).
+//
+// 폰트 크기는 --font-2xs/--font-3xs 토큰 대신 리터럴 px를 쓴다 — `text-[var(--font-2xs)]`는
+// Tailwind가 "text-" 접두사를 색상/크기 중 무엇으로 해석할지 정하지 못해 CSS를 아예 생성하지
+// 않는다(실측: 앱 전체에서 이 패턴이 0건 컴파일됨 — 다른 곳은 부모 요소의 크기를 우연히
+// 상속해 티가 안 났을 뿐이다). input은 물려받을 크기가 없어 브라우저 기본값(16px)이 그대로
+// 드러나 이 패널에서 발견됐다.
 
 import { useEffect, useRef } from 'react'
 import type { SearchOptions } from '../../core/cardSearch'
@@ -87,7 +93,7 @@ export const CardSearchPanel = ({
             onKeyDown={onSearchKeyDown}
             placeholder="카드에서 찾기"
             aria-label="찾기"
-            className="min-w-0 flex-1 border-none bg-transparent py-0.5 text-[var(--font-2xs)] text-[var(--text-primary)] outline-none"
+            className="min-w-0 flex-1 border-none bg-transparent py-0.5 text-[11px] text-[var(--text-primary)] outline-none"
           />
           {OPTION_DEFS.map(({ key, glyph, label }) => (
             <button
@@ -126,7 +132,7 @@ export const CardSearchPanel = ({
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onReplaceOne() } }}
             placeholder="바꿀 내용"
             aria-label="바꿀 내용"
-            className="min-w-0 flex-1 rounded border border-[var(--border-default)] bg-[var(--bg-input)] px-1.5 py-0.5 text-[var(--font-2xs)] text-[var(--text-primary)] outline-none focus:border-[var(--border-accent)]"
+            className="min-w-0 flex-1 rounded border border-[var(--border-default)] bg-[var(--bg-input)] px-1.5 py-0.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-accent)]"
             style={{ minWidth: '120px' }}
           />
           <button type="button" onClick={onReplaceOne} disabled={!matchCount} className="subtle-btn shrink-0 px-2 py-0.5 text-[11px] disabled:opacity-40">바꾸기</button>
