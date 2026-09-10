@@ -82,7 +82,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 추가{' '}
-                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Append</span>
+                <span className="ml-1 text-[length:var(--font-3xs)] font-normal text-[var(--text-secondary)]">Append</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 기존 데이터를 유지하고 가져온 항목을 추가합니다. 중복이 발생할 수 있습니다.
@@ -109,7 +109,7 @@ export const ImportModeModal = ({ importPreview, currentStats, onConfirm, onCanc
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 대체{' '}
-                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Replace</span>
+                <span className="ml-1 text-[length:var(--font-3xs)] font-normal text-[var(--text-secondary)]">Replace</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 기존 데이터를 모두 삭제하고 가져온 데이터로 대체합니다.

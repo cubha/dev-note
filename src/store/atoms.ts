@@ -288,3 +288,11 @@ export const effectiveKeybindingsAtom = atom<Record<CommandId, string>>(
 // 카운터를 올려 "열어라" 신호를 보내고, 카드 쪽이 그 변화를 구독한다
 // (boolean이면 이미 열린 상태에서 다시 눌렀을 때 신호가 죽는다).
 export const cardSearchOpenSignalAtom = atom<{ n: number; withReplace: boolean }>({ n: 0, withReplace: false })
+
+// 현재 매치가 가리키는 검색 경로(data-search-path와 같은 문자열). 없으면 null.
+//
+// 조건부로만 렌더되는 위젯이 이걸 구독해 **스스로 펼친다**. 미리보기 모드·MD변환 모드·접힌
+// 메모는 검색 호스트를 언마운트시키는데, 그 토글 상태는 각 컴포넌트의 로컬 useState라
+// 검색기가 밖에서 열 수 없다(접힌 섹션은 sections 데이터에 있어 expandSection으로 열 수 있는
+// 것과 다르다). 신호를 내려보내고 여는 쪽이 스스로 반응하는 편이 상태를 끌어올리는 것보다 싸다.
+export const cardSearchActivePathAtom = atom<string | null>(null)

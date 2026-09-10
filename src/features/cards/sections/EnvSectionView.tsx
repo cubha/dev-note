@@ -3,18 +3,22 @@ import { Eye, EyeOff, Copy, Plus, X } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { EnvEntry } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
+import { sectionPath } from '../../../core/cardSearch'
 
 interface EnvSectionViewProps {
   pairs: EnvEntry[]
   onChange: (pairs: EnvEntry[]) => void
+  /** 카드 전역 검색이 이 입력을 찾아가기 위한 소속 섹션 id */
+  sectionId: string
 }
 
-export const EnvSectionView = ({ pairs, onChange }: EnvSectionViewProps) => {
+export const EnvSectionView = ({ pairs, onChange, sectionId }: EnvSectionViewProps) => {
   return (
     <div className="space-y-1.5">
       {pairs.map((entry, idx) => (
         <EnvRow
           key={entry.id}
+          sectionId={sectionId}
           entry={entry}
           onChange={(updated) => {
             const next = [...pairs]
@@ -35,10 +39,11 @@ export const EnvSectionView = ({ pairs, onChange }: EnvSectionViewProps) => {
   )
 }
 
-const EnvRow = ({ entry, onChange, onDelete }: {
+const EnvRow = ({ entry, onChange, onDelete, sectionId }: {
   entry: EnvEntry
   onChange: (e: EnvEntry) => void
   onDelete: () => void
+  sectionId: string
 }) => {
   const [showVal, setShowVal] = useState(!entry.secret)
 
@@ -50,6 +55,7 @@ const EnvRow = ({ entry, onChange, onDelete }: {
     <div className="flex items-center gap-1.5">
       <input
         type="text"
+        data-search-path={sectionPath(sectionId, 'pair', entry.id, 'key')}
         value={entry.key}
         onChange={(e) => onChange({ ...entry, key: e.target.value })}
         placeholder="KEY"
@@ -59,6 +65,8 @@ const EnvRow = ({ entry, onChange, onDelete }: {
       <div className="relative flex-1 min-w-0">
         <input
           type={entry.secret && !showVal ? 'password' : 'text'}
+          // secret 값은 flattenCard가 아예 타깃에서 빼므로 경로도 달지 않는다(커버리지 테스트와 일치)
+          data-search-path={entry.secret ? undefined : sectionPath(sectionId, 'pair', entry.id, 'value')}
           value={entry.value}
           onChange={(e) => onChange({ ...entry, value: e.target.value })}
           placeholder="value"

@@ -5,18 +5,23 @@ import type { UrlEntry, UrlNoteCard } from '../../../core/types'
 import { copyToClipboard } from '../../../shared/utils/clipboard'
 import { isSafeUrl } from '../../../shared/utils/url'
 import { Badge } from '../../../shared/components/Badge'
+import { useRevealOnSearch } from '../../../shared/hooks/useRevealOnSearch'
+import { sectionPath } from '../../../core/cardSearch'
 
 interface UrlSectionViewProps {
   items: UrlEntry[]
   onChange: (items: UrlEntry[]) => void
+  /** 카드 전역 검색이 이 입력들을 찾아가기 위한 소속 섹션 id */
+  sectionId: string
 }
 
-export const UrlSectionView = ({ items, onChange }: UrlSectionViewProps) => {
+export const UrlSectionView = ({ items, onChange, sectionId }: UrlSectionViewProps) => {
   return (
     <div className="space-y-4">
       {items.map((entry, idx) => (
         <UrlEntryRow
           key={entry.id}
+          sectionId={sectionId}
           entry={entry}
           onChange={(updated) => {
             const next = [...items]
@@ -44,14 +49,20 @@ interface UrlEntryRowProps {
   entry: UrlEntry
   onChange: (updated: UrlEntry) => void
   onDelete: () => void
+  sectionId: string
 }
 
-const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
+const UrlEntryRow = ({ entry, onChange, onDelete, sectionId }: UrlEntryRowProps) => {
+  const at = (...key: string[]) => sectionPath(sectionId, 'item', entry.id, ...key)
   const noteCards = entry.noteCards ?? []
   // 초기 상태: 메모 내용이 있거나 메모카드가 있으면 펼침
   const [noteOpen, setNoteOpen] = useState(
     () => entry.note.trim().length > 0 || noteCards.length > 0,
   )
+
+  // 메모를 접으면 메모·메모카드의 검색 호스트가 통째로 언마운트된다 — 사용자가 접은 뒤에도
+  // 그 안의 매치로 이동할 수 있어야 하므로, 검색이 이 항목의 메모를 가리키면 스스로 펼친다.
+  useRevealOnSearch(at('note'), !noteOpen, () => setNoteOpen(true))
 
   const setField = <K extends keyof UrlEntry>(key: K, value: UrlEntry[K]) => {
     onChange({ ...entry, [key]: value })
@@ -81,6 +92,7 @@ const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
       <div className="flex items-center gap-2">
         <input
           type="text"
+          data-search-path={at('label')}
           value={entry.label}
           onChange={(e) => setField('label', e.target.value)}
           placeholder="라벨"
@@ -143,6 +155,7 @@ const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
       {/* ── URL 입력 ── */}
       <input
         type="url"
+        data-search-path={at('url')}
         value={entry.url}
         onChange={(e) => setField('url', e.target.value)}
         placeholder="https://example.com"
@@ -154,6 +167,7 @@ const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
         <div className="flex flex-col gap-2 pl-2 border-l-2 border-[var(--border-subtle)]">
           {/* 빠른 메모 (textarea) */}
           <AutoResizeTextarea
+            searchPath={at('note')}
             value={entry.note}
             placeholder="빠른 메모..."
             onChange={(val) => setField('note', val)}
@@ -163,6 +177,7 @@ const UrlEntryRow = ({ entry, onChange, onDelete }: UrlEntryRowProps) => {
           {noteCards.map((card, cardIdx) => (
             <NoteCardRow
               key={card.id}
+              pathFor={(key) => at('note', card.id, key)}
               card={card}
               onChange={(updated) => handleNoteCardChange(cardIdx, updated)}
               onDelete={() => handleNoteCardDelete(cardIdx)}
@@ -190,9 +205,11 @@ interface NoteCardRowProps {
   card: UrlNoteCard
   onChange: (updated: UrlNoteCard) => void
   onDelete: () => void
+  /** 카드 전역 검색 경로 빌더 — 부모가 소속 섹션·URL 항목까지 알고 있으므로 주입받는다 */
+  pathFor: (key: string) => string
 }
 
-const NoteCardRow = ({ card, onChange, onDelete }: NoteCardRowProps) => {
+const NoteCardRow = ({ card, onChange, onDelete, pathFor }: NoteCardRowProps) => {
   return (
     <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 space-y-1.5 relative group/card">
       {/* 삭제 버튼 */}
@@ -208,19 +225,21 @@ const NoteCardRow = ({ card, onChange, onDelete }: NoteCardRowProps) => {
       {/* 타이틀 */}
       <input
         type="text"
+        data-search-path={pathFor('title')}
         value={card.title}
         onChange={(e) => onChange({ ...card, title: e.target.value })}
         placeholder="제목 (선택)"
-        className="w-full bg-transparent text-[var(--font-3xs)] font-semibold text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border-none outline-none pr-5"
+        className="w-full bg-transparent text-[length:var(--font-3xs)] font-semibold text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border-none outline-none pr-5"
       />
 
       {/* 내용 */}
       <AutoResizeTextarea
+        searchPath={pathFor('text')}
         value={card.text}
         placeholder="내용을 입력하세요..."
         onChange={(val) => onChange({ ...card, text: val })}
         minHeight={44}
-        className="bg-transparent border-none px-0 py-0 rounded-none focus:border-none text-[var(--font-3xs)] font-mono"
+        className="bg-transparent border-none px-0 py-0 rounded-none focus:border-none text-[length:var(--font-3xs)] font-mono"
       />
     </div>
   )
@@ -234,6 +253,7 @@ interface AutoResizeTextareaProps {
   onChange: (val: string) => void
   minHeight?: number
   className?: string
+  searchPath?: string
 }
 
 const AutoResizeTextarea = ({
@@ -242,6 +262,7 @@ const AutoResizeTextarea = ({
   onChange,
   minHeight = 56,
   className = '',
+  searchPath,
 }: AutoResizeTextareaProps) => {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -255,6 +276,7 @@ const AutoResizeTextarea = ({
   return (
     <textarea
       ref={ref}
+      data-search-path={searchPath}
       value={value}
       onChange={(e) => {
         onChange(e.target.value)

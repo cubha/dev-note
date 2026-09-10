@@ -8,6 +8,7 @@ import { copyToClipboard } from '../../shared/utils/clipboard'
 import { openUrl } from '../../shared/utils/url'
 import { EDITOR_FIELD_KEYS } from './fieldHelpers'
 import { usePasswordReveal } from '../../shared/hooks/usePasswordReveal'
+import { fieldPath } from '../../core/cardSearch'
 
 // ── 구조화 필드 폼 ──────────────────────────────────────
 
@@ -72,6 +73,7 @@ const FieldInput = ({ schema, value, onChange }: {
         ) : isMultiline ? (
           <TextArea
             autoResize
+            data-search-path={fieldPath(schema.key)}
             value={value}
             placeholder={schema.placeholder}
             onChange={(e) => onChange(e.target.value)}
@@ -81,6 +83,8 @@ const FieldInput = ({ schema, value, onChange }: {
         ) : (
           <Input
             type={isPassword ? inputType : schema.type === 'number' ? 'number' : 'text'}
+            // password 필드는 flattenCard가 타깃에서 빼므로 경로도 달지 않는다
+            data-search-path={isPassword ? undefined : fieldPath(schema.key)}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={schema.placeholder}

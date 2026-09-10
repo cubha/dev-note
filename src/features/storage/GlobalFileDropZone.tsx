@@ -85,7 +85,7 @@ export function GlobalFileDropZone() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] pointer-events-none" aria-hidden>
       <div className="rounded-lg border-2 border-dashed border-[var(--border-accent)] bg-[var(--bg-surface-raised)] px-8 py-6 text-center">
         <p className="text-sm font-medium text-[var(--text-primary)]">파일을 놓아 카드로 추가</p>
-        <p className="mt-1 text-[var(--font-2xs)] text-[var(--text-tertiary)]">.txt · .md 파일 · 여러 개 동시 가능</p>
+        <p className="mt-1 text-[length:var(--font-2xs)] text-[var(--text-tertiary)]">.txt · .md 파일 · 여러 개 동시 가능</p>
       </div>
     </div>
   )

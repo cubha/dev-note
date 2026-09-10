@@ -3,6 +3,8 @@ import { Eye, EyeOff } from 'lucide-react'
 import type { MarkdownSection } from '../../../core/types'
 import { useResizableHeight } from '../../../shared/hooks/useResizableHeight'
 import { useMarkdownHtml } from '../../../shared/hooks/useMarkdownHtml'
+import { useRevealOnSearch } from '../../../shared/hooks/useRevealOnSearch'
+import { sectionPath } from '../../../core/cardSearch'
 
 interface MarkdownSectionViewProps {
   section: MarkdownSection
@@ -14,6 +16,10 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
   const [showPreview, setShowPreview] = useState(false)
   const html = useMarkdownHtml(showPreview ? section.text : '')
 
+  // 미리보기 중에는 검색 호스트(textarea)가 언마운트된다 — 검색이 이 섹션을 가리키면 소스로 돌아간다.
+  const textPath = sectionPath(section.id, 'text')
+  useRevealOnSearch(textPath, showPreview, () => setShowPreview(false))
+
   return (
     <div className="flex flex-col">
       {/* 툴바 */}
@@ -21,7 +27,7 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
         <button
           type="button"
           onClick={() => setShowPreview((prev) => !prev)}
-          className="flex items-center gap-1 rounded px-2 py-0.5 text-[var(--font-2xs)] font-medium transition-colors cursor-pointer border-none text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
+          className="flex items-center gap-1 rounded px-2 py-0.5 text-[length:var(--font-2xs)] font-medium transition-colors cursor-pointer border-none text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
           title={showPreview ? '소스 보기' : '미리보기'}
         >
           {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -43,6 +49,7 @@ export const MarkdownSectionView = ({ section, onChange }: MarkdownSectionViewPr
         </div>
       ) : (
         <textarea
+          data-search-path={textPath}
           value={section.text}
           onChange={(e) => onChange({ ...section, text: e.target.value })}
           placeholder="메모를 입력하세요..."

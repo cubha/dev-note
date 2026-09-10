@@ -20,9 +20,11 @@ interface NoteEditorProps {
   placeholderText: string
   onChange: (val: string) => void
   onScroll?: (ratio: number) => void
+  /** 카드 전역 검색이 이 에디터를 정확히 찾아가기 위한 경로(flattenCard의 path와 동일 문자열) */
+  searchPath?: string
 }
 
-export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteEditorProps) => {
+export const NoteEditor = ({ value, placeholderText, onChange, onScroll, searchPath }: NoteEditorProps) => {
   const effectiveKeys = useAtomValue(effectiveKeybindingsAtom)
   const customKeymap = useMemo(() => buildEditorKeymap(effectiveKeys), [effectiveKeys])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -143,5 +145,5 @@ export const NoteEditor = ({ value, placeholderText, onChange, onScroll }: NoteE
     }
   }, [value])
 
-  return <div ref={containerRef} className="flex-1 overflow-hidden" />
+  return <div ref={containerRef} data-search-path={searchPath} className="flex-1 overflow-hidden" />
 }

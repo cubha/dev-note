@@ -305,7 +305,7 @@ export const AdminMetrics = () => {
 // day 기간(7d/30d/90d)은 일별, week 기간(1y/all)은 주별로 버킷팅해 라벨 과밀을 방지한다.
 const CHART_HEIGHT = 96
 const Y_AXIS_WIDTH = 36
-const Y_LABEL_LINE = 10 // text-[var(--font-3xs)] + leading-none
+const Y_LABEL_LINE = 10 // text-[length:var(--font-3xs)] + leading-none
 
 /** 눈금 라벨을 격자선 "중앙"에 맞추기 위한 보정 — justify-between은 라벨의 위/아래 끝을
  *  플롯 영역 끝에 붙이므로, 한 줄 높이만큼 컬럼을 늘리고 절반을 위로 당겨 중심을 일치시킨다. */
@@ -338,7 +338,7 @@ const VisitTrendChart = ({ daily, period }: { daily: Visits['daily']; period: Ch
           {/* y축 눈금값 (위→아래: 최대값·중간값·0) */}
           <div
             aria-hidden="true"
-            className="flex shrink-0 flex-col justify-between text-right text-[var(--font-3xs)] leading-none tabular-nums text-[var(--text-tertiary)]"
+            className="flex shrink-0 flex-col justify-between text-right text-[length:var(--font-3xs)] leading-none tabular-nums text-[var(--text-tertiary)]"
             style={Y_LABEL_COLUMN_STYLE}
           >
             {ticks.map((t) => (
@@ -369,7 +369,7 @@ const VisitTrendChart = ({ daily, period }: { daily: Visits['daily']; period: Ch
           </div>
         </div>
         <div
-          className="mt-2.5 flex justify-between text-[var(--font-3xs)] text-[var(--text-tertiary)]"
+          className="mt-2.5 flex justify-between text-[length:var(--font-3xs)] text-[var(--text-tertiary)]"
           style={{ paddingLeft: Y_AXIS_WIDTH + 8 }}
         >
           <span>{buckets[0].label}</span>

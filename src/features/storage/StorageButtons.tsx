@@ -319,7 +319,7 @@ export const StorageButtons = () => {
 
         {/* 인라인 피드백 */}
         {feedback.type !== 'idle' && (
-          <p className={`mt-1 px-1 text-[var(--font-3xs)] leading-tight ${feedbackColor}`}>
+          <p className={`mt-1 px-1 text-[length:var(--font-3xs)] leading-tight ${feedbackColor}`}>
             {feedback.message}
           </p>
         )}
