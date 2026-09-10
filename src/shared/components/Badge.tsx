@@ -12,8 +12,8 @@ interface BadgeProps {
 }
 
 const sizeStyles: Record<NonNullable<BadgeProps['size']>, string> = {
-  xs: 'text-[var(--font-3xs)]',
-  sm: 'text-[var(--font-2xs)] px-2',
+  xs: 'text-[length:var(--font-3xs)]',
+  sm: 'text-[length:var(--font-2xs)] px-2',
 }
 
 const variantStyles: Record<NonNullable<BadgeProps['variant']>, string> = {

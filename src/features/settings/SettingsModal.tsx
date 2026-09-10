@@ -53,7 +53,7 @@ export const SettingsModal = () => {
             >
               {tab === 'general' ? '일반' : tab === 'ai' ? 'AI' : tab === 'keybindings' ? '단축키' : tab === 'security' ? '보안' : '동기화'}
               {tab === 'sync' && (
-                <span className="rounded bg-[var(--badge-note-bg)] px-1 py-0.5 text-[var(--font-3xs)] text-[var(--text-warning)]">
+                <span className="rounded bg-[var(--badge-note-bg)] px-1 py-0.5 text-[length:var(--font-3xs)] text-[var(--text-warning)]">
                   실험
                 </span>
               )}

@@ -114,7 +114,7 @@ export const SearchResultsOverlay = () => {
                   <span className="min-w-0 flex-1 truncate">
                     {titleMatch ? highlightByQuery(item.title, searchQuery) : (item.title || '제목없음')}
                   </span>
-                  <span className="shrink-0 truncate text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+                  <span className="shrink-0 truncate text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
                     {item.folderId !== null ? (folderNameById.get(item.folderId) ?? '') : '루트'}
                   </span>
                 </li>
@@ -124,15 +124,15 @@ export const SearchResultsOverlay = () => {
         </ul>
 
         <div className="flex items-center gap-3 border-t border-[var(--border-default)] px-4 py-2">
-          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">↑↓</kbd>
             탐색
           </span>
-          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">↵</kbd>
             열기
           </span>
-          <span className="flex items-center gap-1 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1 text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
             <kbd className="rounded border border-[var(--border-default)] px-1 py-0.5">ESC</kbd>
             닫기
           </span>

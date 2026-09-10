@@ -124,7 +124,7 @@ export const GuideModal = () => {
                 key={tip}
                 className="flex items-start gap-2 rounded-md bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-secondary)]"
               >
-                <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)] shrink-0 mt-px">TIP</span>
+                <span className="text-[length:var(--font-3xs)] text-[var(--text-tertiary)] shrink-0 mt-px">TIP</span>
                 <span>{tip}</span>
               </div>
             ))}
@@ -148,7 +148,7 @@ export const GuideModal = () => {
                 aria-label={`${idx + 1}번 슬라이드`}
               />
             ))}
-            <span className="ml-2 text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+            <span className="ml-2 text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
               {step + 1}/{total}
             </span>
           </div>

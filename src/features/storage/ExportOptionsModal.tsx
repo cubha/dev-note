@@ -89,7 +89,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 일반 백업{' '}
-                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Plain</span>
+                <span className="ml-1 text-[length:var(--font-3xs)] font-normal text-[var(--text-secondary)]">Plain</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 {atRestEncrypted
@@ -121,7 +121,7 @@ export const ExportOptionsModal = ({ onConfirm, onCancel }: Props) => {
             <div className="min-w-0">
               <div className="text-sm font-medium text-[var(--text-primary)]">
                 암호화 백업{' '}
-                <span className="ml-1 text-[var(--font-3xs)] font-normal text-[var(--text-secondary)]">Encrypted</span>
+                <span className="ml-1 text-[length:var(--font-3xs)] font-normal text-[var(--text-secondary)]">Encrypted</span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 패스프레이즈로 파일 전체를 암호화합니다. 가져올 때 같은 패스프레이즈가 필요합니다.

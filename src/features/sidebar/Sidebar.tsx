@@ -326,7 +326,7 @@ export const Sidebar = () => {
           }`}
         >
           <span>전체 카드</span>
-          {items && <span className="ml-auto text-[var(--font-3xs)] opacity-60">{items.length}</span>}
+          {items && <span className="ml-auto text-[length:var(--font-3xs)] opacity-60">{items.length}</span>}
         </div>
 
         {folders === undefined || items === undefined ? (
@@ -363,7 +363,7 @@ export const Sidebar = () => {
           라벨은 별도 줄로 올려 좁은 사이드바 폭(기본 260px)에서 버튼 라벨이 접히지 않게 한다. */}
       {selectedItems.size > 0 && (
         <div className="border-t-2 border-[var(--border-accent)] bg-[var(--bg-item-active)] px-3 py-2">
-          <div className="mb-1.5 text-[var(--font-2xs)] font-medium text-[var(--text-secondary)]">
+          <div className="mb-1.5 text-[length:var(--font-2xs)] font-medium text-[var(--text-secondary)]">
             {selectedItems.size}개 선택됨
           </div>
           {/* 사이드바는 180px까지 좁아진다(SidebarResizeHandle MIN_WIDTH) — 그 폭에선 버튼 3개가

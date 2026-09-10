@@ -87,10 +87,10 @@ export const AnnouncementModal = () => {
                   >
                     {note.version}
                   </span>
-                  <span className="text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+                  <span className="text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
                     {TYPE_LABEL[note.type]}
                   </span>
-                  <span className="ml-auto text-[var(--font-3xs)] text-[var(--text-tertiary)]">
+                  <span className="ml-auto text-[length:var(--font-3xs)] text-[var(--text-tertiary)]">
                     {note.date}
                   </span>
                 </div>
