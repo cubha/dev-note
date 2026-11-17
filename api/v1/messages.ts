@@ -1,9 +1,9 @@
 /**
  * POST /v1/messages — LLM 멀티 프로바이더 프록시
  *
- * Vercel Edge Function
- * - 공유 키 모드: IP rate limit (Upstash Redis) + X-RateLimit 헤더 노출
- * - BYOK 모드: X-User-Api-Key + X-Provider 헤더 감지 → rate limit 우회
+ * Vercel Edge Function — BYOK 전용 (서버 보관 키 없음)
+ * - X-User-Api-Key 헤더 필수. 없으면 401 api_key_required (서버 키로 폴백하지 않는다)
+ * - X-Provider 헤더로 라우팅
  *   · anthropic: 직접 전달
  *   · google: Anthropic ↔ Gemini 형식 변환
  *   · openai: Anthropic ↔ ChatCompletions 형식 변환
@@ -25,35 +25,13 @@ const ALLOWED_MODELS = [
 ]
 const MAX_TOKENS_LIMIT = 4096
 
-const RETRYABLE_STATUSES = [403, 429, 529]
-const MAX_RETRIES = 3
-const BASE_DELAY_MS = 500
-const MAX_DELAY_MS = 4000
-const JITTER_MS = 500
-
 // ── 유틸 ─────────────────────────────────────────────────────
-
-function getRetryDelay(attempt: number): number {
-  const exponential = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), MAX_DELAY_MS)
-  return exponential + Math.random() * JITTER_MS
-}
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  return forwarded?.split(',')[0]?.trim() ?? 'unknown'
-}
-
-function nextMidnightUTC(): string {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString()
-}
 
 function corsHeaders(origin: string): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-User-Api-Key, X-Provider',
-    'Access-Control-Expose-Headers': 'X-RateLimit-Remaining, X-RateLimit-Reset, X-RateLimit-Limit',
     'Access-Control-Max-Age': '86400',
   }
 }
@@ -72,40 +50,6 @@ function jsonResponse(
 
 function jsonError(message: string, status: number, origin: string, code?: string): Response {
   return jsonResponse({ error: message, ...(code ? { code } : {}) }, status, origin)
-}
-
-// ── Rate Limit (Upstash Redis) ──────────────────────────────
-
-async function checkAndIncrementRateLimit(
-  ip: string,
-  dailyLimit: number,
-): Promise<{ allowed: boolean; remaining: number }> {
-  const url = process.env.KV_REST_API_URL
-  const token = process.env.KV_REST_API_TOKEN
-  if (!url || !token) return { allowed: true, remaining: dailyLimit }
-
-  const today = new Date().toISOString().slice(0, 10)
-  const key = `rl:${ip}:${today}`
-
-  try {
-    const getRes = await fetch(`${url}/get/${key}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const getData = await getRes.json() as { result: string | null }
-    const count = getData.result ? parseInt(getData.result, 10) : 0
-
-    if (count >= dailyLimit) return { allowed: false, remaining: 0 }
-
-    await fetch(`${url}/pipeline`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify([['INCR', key], ['EXPIRE', key, 90000]]),
-    })
-
-    return { allowed: true, remaining: dailyLimit - count - 1 }
-  } catch {
-    return { allowed: true, remaining: dailyLimit }
-  }
 }
 
 // ── 사용량 집계 계측 (대시보드용 메타데이터) ────────────────
@@ -309,43 +253,6 @@ interface AnthropicError {
   error?: { type?: string; message?: string }
 }
 
-async function classifyAnthropicError(
-  status: number, body: string, origin: string, requestId: string, retries: number,
-): Promise<Response> {
-  if (body.includes('<!DOCTYPE') || body.includes('<html')) {
-    await recordFail('cloudflare_challenge')
-    return jsonError(
-      `Cloudflare WAF 차단이 감지되었습니다. (${retries}회 재시도 후 실패, request-id: ${requestId})`,
-      403, origin, 'cloudflare_challenge',
-    )
-  }
-
-  let parsed: AnthropicError = {}
-  try { parsed = JSON.parse(body) as AnthropicError } catch { /* ignore */ }
-
-  const type = parsed.error?.type ?? ''
-  const msg = parsed.error?.message ?? ''
-  const debug = ` (retries: ${retries}, request-id: ${requestId})`
-
-  if (status === 401) { await recordFail('auth_error'); return jsonError(`API 키가 유효하지 않습니다.${msg ? ` (${msg})` : ''}${debug}`, 401, origin, 'auth_error') }
-  if (status === 403) { await recordFail('permission_error'); return jsonError(`API 키 권한이 부족합니다.${msg ? ` (${msg})` : ''}${debug}`, 403, origin, 'permission_error') }
-  if (status === 429) { await recordFail('anthropic_rate_limit'); return jsonError(`Anthropic API 호출 한도를 초과했습니다.${debug}`, 429, origin, 'anthropic_rate_limit') }
-  if (status === 529) { await recordFail('overloaded'); return jsonError(`Claude 서버가 과부하 상태입니다.${debug}`, 503, origin, 'overloaded') }
-
-  if (status === 400) {
-    if (msg.toLowerCase().includes('credit')) { await recordFail('credit_exhausted'); return jsonError('API 크레딧이 소진되었습니다.', 402, origin, 'credit_exhausted') }
-    if (type === 'invalid_request_error' && msg.toLowerCase().includes('token')) {
-      await recordFail('input_too_long')
-      return jsonError('입력 텍스트가 너무 깁니다. 텍스트를 줄여주세요.', 400, origin, 'input_too_long')
-    }
-    await recordFail('invalid_request')
-    return jsonError(`요청 오류: ${msg.slice(0, 200)}`, 400, origin, 'invalid_request')
-  }
-
-  await recordFail('unknown')
-  return jsonError(`Claude API 오류 (${status}): ${msg.slice(0, 200)}${debug}`, status, origin, 'unknown')
-}
-
 // ── 핸들러 ──────────────────────────────────────────────────
 
 export default async function handler(request: Request): Promise<Response> {
@@ -363,26 +270,13 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) })
   }
 
-  // ── BYOK 감지 ──────────────────────────────────────────────
-  const userApiKey = request.headers.get('X-User-Api-Key')
+  // ── BYOK 필수 ──────────────────────────────────────────────
+  // 서버 보관 키 경로는 제거됐다. 키가 없으면 rate limit·집계보다 먼저 거부한다
+  // (거부 요청이 m:calls 집계를 부풀리지 않도록).
+  const userApiKey = request.headers.get('X-User-Api-Key')?.trim() ?? ''
   const provider = (request.headers.get('X-Provider') ?? 'anthropic') as 'anthropic' | 'google' | 'openai'
-  const isByok = Boolean(userApiKey)
-
-  // ── Rate Limit (공유 키 모드만) ─────────────────────────────
-  const dailyLimit = parseInt(process.env.DAILY_LIMIT ?? '20', 10)
-  let rateLimitRemaining = dailyLimit
-
-  if (!isByok) {
-    const ip = getClientIp(request)
-    const { allowed, remaining } = await checkAndIncrementRateLimit(ip, dailyLimit)
-    rateLimitRemaining = remaining
-
-    if (!allowed) {
-      return jsonError(
-        `일일 한도(${dailyLimit}회)를 초과했습니다. 내일 다시 시도해주세요.`,
-        429, origin, 'daily_limit_exceeded',
-      )
-    }
+  if (!userApiKey) {
+    return jsonError('API 키가 필요합니다. 설정 → AI에서 본인 API 키를 입력해주세요.', 401, origin, 'api_key_required')
   }
 
   // ── 요청 본문 파싱 ──────────────────────────────────────────
@@ -391,11 +285,6 @@ export default async function handler(request: Request): Promise<Response> {
     parsed = await request.json() as AnthropicBody
   } catch {
     return jsonError('요청 본문 파싱 실패', 400, origin, 'parse_error')
-  }
-
-  // 모델 화이트리스트는 공유 키 모드에서만 적용
-  if (!isByok && !ALLOWED_MODELS.includes(parsed.model)) {
-    return jsonError(`허용되지 않은 모델: ${parsed.model}`, 400, origin, 'invalid_model')
   }
 
   if (typeof parsed.max_tokens !== 'number' || parsed.max_tokens > MAX_TOKENS_LIMIT) {
@@ -411,130 +300,79 @@ export default async function handler(request: Request): Promise<Response> {
     [`m:calls:${todayStr()}`],
   )
 
-  const rateLimitHeaders: Record<string, string> = isByok ? {} : {
-    'X-RateLimit-Remaining': String(rateLimitRemaining),
-    'X-RateLimit-Reset': nextMidnightUTC(),
-    'X-RateLimit-Limit': String(dailyLimit),
-  }
+  // ── 프로바이더 라우팅 ──────────────────────────────────────
+  if (provider === 'google') {
+    const { url, googleBody } = transformToGoogle(parsed, userApiKey)
 
-  // ── BYOK 라우팅 ────────────────────────────────────────────
-  if (isByok) {
-    if (provider === 'google') {
-      const { url, googleBody } = transformToGoogle(parsed, userApiKey!)
-
-      let googleRes: Response
-      try {
-        googleRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(googleBody),
-        })
-      } catch {
-        return jsonError('Google API에 연결할 수 없습니다.', 503, origin, 'network_error')
-      }
-
-      const responseText = await googleRes.text()
-      if (!googleRes.ok) return classifyByokError(googleRes.status, origin, 'Google')
-
-      let googleData: Record<string, unknown>
-      try { googleData = JSON.parse(responseText) as Record<string, unknown> } catch {
-        return jsonError('Google API 응답 파싱 실패', 502, origin, 'unknown')
-      }
-
-      return jsonResponse(normalizeGoogleResponse(googleData, parsed.model), 200, origin)
-    }
-
-    if (provider === 'openai') {
-      let openaiRes: Response
-      try {
-        openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userApiKey}`,
-          },
-          body: JSON.stringify(transformToOpenAI(parsed)),
-        })
-      } catch {
-        return jsonError('OpenAI API에 연결할 수 없습니다.', 503, origin, 'network_error')
-      }
-
-      const responseText = await openaiRes.text()
-      if (!openaiRes.ok) return classifyByokError(openaiRes.status, origin, 'OpenAI')
-
-      let openaiData: Record<string, unknown>
-      try { openaiData = JSON.parse(responseText) as Record<string, unknown> } catch {
-        return jsonError('OpenAI API 응답 파싱 실패', 502, origin, 'unknown')
-      }
-
-      return jsonResponse(normalizeOpenAIResponse(openaiData, parsed.model), 200, origin)
-    }
-
-    // BYOK Anthropic — 직접 전달
-    let anthropicRes: Response
+    let googleRes: Response
     try {
-      anthropicRes = await fetch(ANTHROPIC_API_URL, {
+      googleRes = await fetch(url, {
         method: 'POST',
-        headers: {
-          'x-api-key': userApiKey!,
-          'anthropic-version': ANTHROPIC_VERSION,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(parsed),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(googleBody),
       })
     } catch {
-      return jsonError('Anthropic API에 연결할 수 없습니다.', 503, origin, 'network_error')
+      return jsonError('Google API에 연결할 수 없습니다.', 503, origin, 'network_error')
     }
 
-    const responseText = await anthropicRes.text()
-    if (!anthropicRes.ok) return classifyByokError(anthropicRes.status, origin, 'Anthropic')
+    const responseText = await googleRes.text()
+    if (!googleRes.ok) return classifyByokError(googleRes.status, origin, 'Google')
 
-    return new Response(responseText, {
-      status: anthropicRes.status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-    })
+    let googleData: Record<string, unknown>
+    try { googleData = JSON.parse(responseText) as Record<string, unknown> } catch {
+      return jsonError('Google API 응답 파싱 실패', 502, origin, 'unknown')
+    }
+
+    return jsonResponse(normalizeGoogleResponse(googleData, parsed.model), 200, origin)
   }
 
-  // ── 공유 키 모드: Anthropic 프록시 (지수 백오프 재시도) ─────
-  const apiKey = process.env.CLAUDE_API_KEY
-  if (!apiKey) {
-    return jsonError('서버 설정 오류: API 키가 구성되지 않았습니다.', 500, origin, 'config_error')
+  if (provider === 'openai') {
+    let openaiRes: Response
+    try {
+      openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userApiKey}`,
+        },
+        body: JSON.stringify(transformToOpenAI(parsed)),
+      })
+    } catch {
+      return jsonError('OpenAI API에 연결할 수 없습니다.', 503, origin, 'network_error')
+    }
+
+    const responseText = await openaiRes.text()
+    if (!openaiRes.ok) return classifyByokError(openaiRes.status, origin, 'OpenAI')
+
+    let openaiData: Record<string, unknown>
+    try { openaiData = JSON.parse(responseText) as Record<string, unknown> } catch {
+      return jsonError('OpenAI API 응답 파싱 실패', 502, origin, 'unknown')
+    }
+
+    return jsonResponse(normalizeOpenAIResponse(openaiData, parsed.model), 200, origin)
   }
 
-  const requestBody = JSON.stringify(parsed)
-  let claudeResponse: Response = undefined!
-  let responseBody = ''
-  let lastRequestId = ''
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    claudeResponse = await fetch(ANTHROPIC_API_URL, {
+  // BYOK Anthropic — 직접 전달
+  let anthropicRes: Response
+  try {
+    anthropicRes = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'x-api-key': userApiKey,
         'anthropic-version': ANTHROPIC_VERSION,
         'content-type': 'application/json',
-        'user-agent': 'dev-note-api/1.0',
-        'accept': 'application/json',
       },
-      body: requestBody,
+      body: JSON.stringify(parsed),
     })
-
-    responseBody = await claudeResponse.text()
-    lastRequestId = claudeResponse.headers.get('request-id') ?? ''
-
-    if (claudeResponse.ok || !RETRYABLE_STATUSES.includes(claudeResponse.status)) break
-
-    if (attempt < MAX_RETRIES) {
-      await new Promise(r => setTimeout(r, getRetryDelay(attempt)))
-    }
+  } catch {
+    return jsonError('Anthropic API에 연결할 수 없습니다.', 503, origin, 'network_error')
   }
 
-  if (!claudeResponse.ok) {
-    return classifyAnthropicError(claudeResponse.status, responseBody, origin, lastRequestId, MAX_RETRIES)
-  }
+  const responseText = await anthropicRes.text()
+  if (!anthropicRes.ok) return classifyByokError(anthropicRes.status, origin, 'Anthropic')
 
-  return new Response(responseBody, {
-    status: claudeResponse.status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin), ...rateLimitHeaders },
+  return new Response(responseText, {
+    status: anthropicRes.status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   })
 }

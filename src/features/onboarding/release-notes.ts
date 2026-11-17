@@ -13,6 +13,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: 'v2.3.0',
+    date: '2026-11-17',
+    title: 'AI 기능은 본인 API 키로 사용합니다',
+    highlights: [
+      'Smart Paste·요약은 설정 → AI에서 본인 API 키(Anthropic·Google·OpenAI)를 입력해야 동작합니다',
+      '공용 키(하루 20회 무료) 제공이 종료되었습니다',
+      '키를 입력하지 않으면 AI 패널에 키 입력 바로가기가 표시됩니다',
+      '키는 이번 세션에만 보관되므로 새로고침 후에는 다시 입력해야 합니다',
+      'AI 없이도 카드·폴더·검색·내보내기는 그대로 사용할 수 있습니다',
+    ],
+    type: 'minor',
+  },
+  {
     version: 'v2.2.2',
     date: '2026-09-10',
     title: '바꾸기가 다음 결과로 넘어갑니다',

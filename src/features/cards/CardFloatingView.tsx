@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import {
   Database, X, Sparkles, Loader2, ChevronDown, ChevronUp,
   ChevronRight, Eye, EyeOff, ExternalLink, Server, HardDrive, Copy,
@@ -7,7 +7,7 @@ import {
 import { useMarkdownHtml } from '../../shared/hooks/useMarkdownHtml'
 import { useEscapeKey } from '../../shared/hooks/useEscapeKey'
 import { toast } from 'sonner'
-import { cardViewAtom, SHARED_API_URL, userApiKeyAtom, selectedProviderAtom, aiUsageAtom } from '../../store/atoms'
+import { cardViewAtom, SHARED_API_URL, userApiKeyAtom, selectedProviderAtom } from '../../store/atoms'
 import { TYPE_META } from '../../core/types'
 import type {
   CardContent as CardContentType,
@@ -71,14 +71,12 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
 
   const userApiKey = useAtomValue(userApiKeyAtom)
   const selectedProvider = useAtomValue(selectedProviderAtom)
-  const setAiUsage = useSetAtom(aiUsageAtom)
 
   const handleSummarize = useCallback(async () => {
     setLoading(true)
     setErrorDetail(null)
     try {
       const service = new AIService(SHARED_API_URL!, userApiKey, selectedProvider)
-      service.onUsageUpdate = setAiUsage
       const text = extractSearchText(content)
       if (!text.trim()) {
         toast.error('요약할 콘텐츠가 없습니다.')
@@ -93,7 +91,7 @@ const AISummarySection = ({ content, cardType }: { content: CardContentType; car
     } finally {
       setLoading(false)
     }
-  }, [content, cardType, userApiKey, selectedProvider, setAiUsage])
+  }, [content, cardType, userApiKey, selectedProvider])
 
   return (
     <div className="shrink-0">

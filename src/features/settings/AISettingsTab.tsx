@@ -1,16 +1,14 @@
 // src/features/settings/AISettingsTab.tsx
 //
 // 환경설정 AI 탭
-// - 공유 키 모드: 잔여 횟수 + 진행 바 표시
-// - BYOK: Provider 드롭다운 + API Key 입력/저장/지우기
+// - BYOK 전용 (서버 보관 키 없음): Provider 드롭다운 + API Key 입력/저장/지우기
 
 import { useState } from 'react'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import { ExternalLink } from 'lucide-react'
 import { db } from '../../core/db'
 import type { AIProvider } from '../../core/db'
 import {
-  aiUsageAtom,
   selectedProviderAtom,
   userApiKeyAtom,
   appConfigAtom,
@@ -22,28 +20,13 @@ const PROVIDER_LABELS: Record<AIProvider, string> = {
   openai: 'OpenAI (GPT-4o)',
 }
 
-function formatResetAt(resetAt: string | null): string {
-  if (!resetAt) return '매일 00:00 UTC'
-  try {
-    const d = new Date(resetAt)
-    const now = new Date()
-    const isToday = d.getUTCDate() === now.getUTCDate() + 1 || d.getTime() - now.getTime() < 86400_000
-    return isToday ? '내일 00:00 UTC 초기화' : '00:00 UTC 초기화'
-  } catch {
-    return '00:00 UTC 초기화'
-  }
-}
-
 export function AISettingsTab() {
-  const usage = useAtomValue(aiUsageAtom)
   const [selectedProvider, setSelectedProvider] = useAtom(selectedProviderAtom)
   const [userApiKey, setUserApiKey] = useAtom(userApiKeyAtom)
   const setConfig = useSetAtom(appConfigAtom)
 
   const [keyInput, setKeyInput] = useState(userApiKey)
   const [saved, setSaved] = useState(false)
-
-  const isSharedMode = !userApiKey
 
   const handleProviderChange = async (p: AIProvider) => {
     setSelectedProvider(p)
@@ -64,50 +47,12 @@ export function AISettingsTab() {
     setUserApiKey('')
   }
 
-  const remaining = usage.remaining
-  const limit = usage.limit
-  const progressPct = remaining !== null ? Math.round((remaining / limit) * 100) : 0
-
   return (
     <div className="space-y-6">
 
-      {/* ── 공유 키 모드 현황 ── */}
-      {isSharedMode && (
-        <section>
-          <h3 className="section-label">기본 모드 (공유 키)</h3>
-          <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-4 space-y-3">
-            <p className="text-sm text-[var(--text-primary)]">공유 키 사용 중</p>
-
-            {remaining !== null ? (
-              <>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  오늘 <span className="font-semibold text-[var(--text-primary)]">{remaining}회</span> 남음
-                  {' · '}{formatResetAt(usage.resetAt)}
-                </p>
-                <div className="space-y-1">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--bg-input)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)] transition-all duration-500"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                  <p className="text-right text-xs tabular-nums text-[var(--text-tertiary)]">
-                    {remaining} / {limit}
-                  </p>
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-[var(--text-secondary)]">
-                AI 기능을 한 번 사용하면 잔여 횟수가 표시됩니다.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
       {/* ── 내 API 키 사용 ── */}
       <section>
-        <h3 className="section-label">내 API 키 사용 (선택)</h3>
+        <h3 className="section-label">내 API 키</h3>
         <div className="space-y-4">
 
           {/* Provider 드롭다운 */}
@@ -190,18 +135,18 @@ export function AISettingsTab() {
               onClick={handleClear}
               className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
             >
-              지우기 — 공유 키로 복귀
+              지우기
             </button>
           )}
 
           <p className="text-xs text-[var(--text-tertiary)]">
-            키 입력 시 일일 제한 없이 본인 quota를 사용합니다.
+            AI 기능(Smart Paste·요약)은 본인 API 키로만 동작합니다. 사용량은 입력한 키의 quota에서 차감됩니다.
           </p>
 
           <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-3 py-2">
             <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
               🔑 API 키는 <span className="font-medium text-[var(--text-primary)]">이 세션에만</span> 보관됩니다.
-              브라우저를 닫거나 새로고침하면 지워지고 공유 키 모드로 돌아가므로, 사용할 때마다 다시 입력해야 합니다.
+              브라우저를 닫거나 새로고침하면 지워지므로, 사용할 때마다 다시 입력해야 합니다.
               키를 저장해 두지 않는 이유는 브라우저 저장소(IndexedDB)에 남으면 기기에 접근할 수 있는 사람이 그대로 읽을 수 있기 때문입니다.
             </p>
           </div>

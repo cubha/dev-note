@@ -1,8 +1,8 @@
 // src/core/ai.ts
 //
 // Claude API fetch 래퍼 (멀티 프로바이더 BYOK 지원)
-// - 공유 키 모드: Vercel Edge Function 프록시 경유
-// - BYOK 모드: X-User-Api-Key + X-Provider 헤더로 사용자 키 전달
+// - BYOK 전용: X-User-Api-Key + X-Provider 헤더로 사용자 키 전달 (Vercel Edge Function 프록시 경유)
+// - 서버 보관 키(공유 키) 경로 없음 — 키가 비어 있으면 네트워크 호출 없이 api_key_required로 거부
 // - SDK 불필요 — fetch 직접 호출로 번들 크기 0 추가
 
 import type { ItemType } from './db'
@@ -58,6 +58,7 @@ interface ClaudeResponse {
 // ─── 에러 코드 ──────────────────────────────────────────────
 
 export type AIErrorCode =
+  | 'api_key_required'
   | 'auth_error'
   | 'permission_error'
   | 'credit_exhausted'
@@ -144,14 +145,6 @@ const DEFAULT_MODELS: Record<AIProvider, { fast: string; quality: string }> = {
   openai:    { fast: 'gpt-4o-mini',         quality: 'gpt-4o' },
 }
 
-// ─── AI 사용량 타입 ──────────────────────────────────────────
-
-export interface AIUsage {
-  remaining: number | null  // null = BYOK 모드
-  resetAt: string | null    // ISO8601 UTC 다음 자정
-  limit: number
-}
-
 // ─── AI Service ──────────────────────────────────────────────
 
 const MIN_INTERVAL_MS = 500
@@ -161,9 +154,6 @@ export class AIService {
   private userApiKey: string
   private provider: AIProvider
   private lastCallTime = 0
-
-  /** 공유 키 모드에서 API 응답 헤더 수신 시 호출 */
-  onUsageUpdate?: (usage: AIUsage) => void
 
   constructor(workerUrl: string, userApiKey = '', provider: AIProvider = 'anthropic') {
     this.workerUrl = workerUrl
@@ -254,11 +244,18 @@ export class AIService {
   private async callClaude(body: Record<string, unknown>): Promise<ClaudeResponse> {
     const url = `${this.workerUrl}/v1/messages`
 
-    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (!this.userApiKey) {
+      throw new AIError(
+        'API 키가 필요합니다. 설정 → AI에서 본인 API 키를 입력해주세요.',
+        'api_key_required',
+        401,
+      )
+    }
 
-    if (this.userApiKey) {
-      headers['X-User-Api-Key'] = this.userApiKey
-      headers['X-Provider'] = this.provider
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'X-User-Api-Key': this.userApiKey,
+      'X-Provider': this.provider,
     }
 
     let res: Response
@@ -273,20 +270,6 @@ export class AIService {
         '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
         'network_error',
       )
-    }
-
-    // 공유 키 모드에서 잔여 횟수 헤더 파싱
-    if (!this.userApiKey) {
-      const remaining = res.headers.get('X-RateLimit-Remaining')
-      const resetAt = res.headers.get('X-RateLimit-Reset')
-      const limit = res.headers.get('X-RateLimit-Limit')
-      if (remaining !== null && this.onUsageUpdate) {
-        this.onUsageUpdate({
-          remaining: parseInt(remaining, 10),
-          resetAt: resetAt,
-          limit: limit ? parseInt(limit, 10) : 20,
-        })
-      }
     }
 
     if (!res.ok) {
