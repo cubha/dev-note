@@ -11,6 +11,7 @@ import type { AIErrorCode } from '../../core/ai'
 export const AI_ERROR_LABELS: Record<AIErrorCode, string> = {
   auth_error: 'API 키 오류',
   permission_error: 'API 권한 부족',
+  api_key_required: 'API 키 필요',
   credit_exhausted: '크레딧 소진',
   daily_limit_exceeded: '일일 사용 한도 초과',
   anthropic_rate_limit: 'API 호출 한도 초과',

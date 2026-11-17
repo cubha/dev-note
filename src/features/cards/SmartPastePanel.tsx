@@ -3,11 +3,11 @@
 // Smart Paste 패널 — 모든 카드 타입 통합 지원
 // - server/db/api/markdown: 텍스트 → Claude AI → 필드 미리보기 → 적용
 // - document: 텍스트 → Claude AI → 섹션 구조화 → 미리보기 → 적용
-// - Vercel Edge Function 공유 키 모드
+// - Vercel Edge Function 프록시 경유, BYOK 전용 (본인 API 키 필수)
 // - AI 에러 발생 시 에러 모달 + Discord 관리자 문의
 
 import { useState, useCallback } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue } from 'jotai'
 import { nanoid } from 'nanoid'
 import { Clipboard, Sparkles, ChevronDown, ChevronUp, Check, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,7 +17,7 @@ import { FIELD_SCHEMAS } from '../../core/types'
 import { SECTION_META } from '../../shared/constants'
 import { AIService } from '../../core/ai'
 import type { SmartPasteResult, DocumentPasteResult, MarkdownPasteResult } from '../../core/ai'
-import { SHARED_API_URL, userApiKeyAtom, selectedProviderAtom, aiUsageAtom } from '../../store/atoms'
+import { SHARED_API_URL, userApiKeyAtom, selectedProviderAtom } from '../../store/atoms'
 import { AIErrorModal } from '../../shared/components/AIErrorModal'
 import { AIUsageBanner } from '../../shared/components/AIUsageBanner'
 import { TextArea } from '../../shared/components/TextArea'
@@ -156,13 +156,10 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
 
   const userApiKey = useAtomValue(userApiKeyAtom)
   const selectedProvider = useAtomValue(selectedProviderAtom)
-  const setAiUsage = useSetAtom(aiUsageAtom)
 
   const createService = useCallback(() => {
-    const svc = new AIService(SHARED_API_URL!, userApiKey, selectedProvider)
-    svc.onUsageUpdate = setAiUsage
-    return svc
-  }, [userApiKey, selectedProvider, setAiUsage])
+    return new AIService(SHARED_API_URL!, userApiKey, selectedProvider)
+  }, [userApiKey, selectedProvider])
 
   // ── 에러 처리 공통 ─────────────────────────────────────────
 
@@ -341,7 +338,7 @@ export const SmartPastePanel = ({ currentType, onApply, onApplyDocument }: Smart
       {/* 펼침 영역 */}
       {expanded && (
         <div className="border-t border-[var(--border-default)] px-3 py-3 space-y-3">
-          {/* 잔여 횟수 배너 */}
+          {/* 키 미입력 안내 배너 */}
           <AIUsageBanner />
           {/* 텍스트 입력 */}
           <TextArea

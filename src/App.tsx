@@ -125,7 +125,7 @@ export default function App() {
 
   useEffect(() => {
     // BYOK 키는 복원하지 않는다 — 세션 메모리 전용이라 애초에 저장된 값이 없다.
-    // 부팅 시 항상 공유 키 모드로 시작하고, 사용자가 이번 세션에 입력해야 BYOK가 켜진다.
+    // 부팅 시 항상 키 없음 상태로 시작하고, 사용자가 이번 세션에 입력해야 AI 기능이 켜진다.
     ensureConfig().then((cfg) => {
       setConfig(cfg)
       setSelectedProvider(cfg.selectedProvider)

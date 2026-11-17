@@ -16,6 +16,7 @@ export interface ErrorBucket {
  * 새 code가 추가돼도 여기 등록 전까지는 unknown 버킷으로 안전하게 떨어진다.
  */
 const BUCKET_OF: Record<string, string> = {
+  api_key_required: 'auth',
   auth_error: 'auth',
   permission_error: 'auth',
   byok_auth_error: 'auth',

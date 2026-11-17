@@ -11,7 +11,7 @@
 **카드 기반 대시보드 + 탭 편집** 방식으로 접속 정보·노트·API 정보를 타입별로 구조화 관리합니다.
 
 - **완전 로컬**: 모든 데이터는 브라우저 IndexedDB에만 저장
-- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — 공유 키(IP당 20회/일) 또는 본인 API 키(Anthropic · Google · OpenAI) 직접 입력 선택
+- **AI 활용**: Smart Paste(텍스트→구조화), 콘텐츠 요약 — 본인 API 키(Anthropic · Google · OpenAI) 입력 시 사용 (BYOK 전용)
 - **무설치**: 빌드 결과물을 브라우저에서 바로 실행 (GitHub Pages 배포)
 - **5종 카드 타입**: Server, DB, API, Note (마크다운+코드), Document (다중 섹션 문서)
 
@@ -30,7 +30,7 @@
 | Keybindings | @tanstack/react-hotkeys (단축키 시스템) | - |
 | File I/O | File System Access API + `<input>` 폴백 | - |
 | Search | Fuse.js (키워드 퍼지 검색) | 7.1 |
-| AI | Claude / Gemini / GPT-4o (Vercel Edge Function 프록시, 공유 키 IP당 20회/일 또는 BYOK) | - |
+| AI | Claude / Gemini / GPT-4o (Vercel Edge Function 프록시, BYOK 전용) | - |
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite` 플러그인) | 4.2 |
 | DnD | @dnd-kit/core + @dnd-kit/sortable | 6.3 / 10.0 |
 | Markdown | marked + DOMPurify | 17.0 / 3.3 |
@@ -108,7 +108,7 @@ src/
 │   └── tabHelpers.ts      # openTab(), closeTab() 헬퍼 함수
 └── shared/
     ├── components/
-    │   ├── AIUsageBanner.tsx  # 공유 키 잔여 횟수 배너 (SmartPaste·요약 패널 상단)
+    │   ├── AIUsageBanner.tsx  # API 키 미입력 안내 배너 (SmartPaste·요약 패널 상단)
     │   ├── Modal.tsx          # 공통 모달 (백드롭+ESC+중앙정렬, elevated/width/maxHeight)
     │   ├── ModalHeader.tsx    # 공통 모달 헤더 (제목+아이콘+X 닫기)
     │   ├── Button.tsx         # 공통 버튼 (primary/secondary/ghost/danger, sm/md)
@@ -146,7 +146,6 @@ items:      ++id, &uuid, folderId, title, type, order, pinned, updatedAt
 syncState:  uuid                      (BYO-storage 동기화 상태)
 config:     id (단일 레코드, id=1 고정)
             → selectedProvider: 'anthropic' | 'google' | 'openai'
-            → userApiKey: string  (빈 문자열 = 공유 키 모드)
 drafts:     itemId                    (미저장 편집 내용)
 ```
 
@@ -213,15 +212,15 @@ interface HybridContent {
 
 ## 🤖 AI 기능
 
-**공유 키 모드** (기본) — 별도 설정 없이 사용 가능, IP당 20회/일
-**BYOK 모드** — 설정 > AI 탭에서 본인 API 키 입력 시 무제한 사용 (Anthropic · Google Gemini · OpenAI)
+**BYOK 전용** — 설정 > AI 탭에서 본인 API 키를 입력해야 AI 기능이 동작합니다 (Anthropic · Google Gemini · OpenAI). 서버에 보관된 공용 키는 없습니다.
+키는 세션 메모리에만 보관되어 새로고침·재접속 시 다시 입력해야 합니다. AI 없이도 카드 CRUD·폴더·검색·내보내기는 모두 정상 동작합니다.
 
 ### AI 아키텍처
 
 ```
 Vercel Edge Function 프록시 (api/v1/messages.ts)
-  ├── 공유 키 모드:  Anthropic Claude (Sonnet) — IP당 20회/일, X-RateLimit 헤더 응답
-  └── BYOK 모드:    X-User-Api-Key + X-Provider 헤더 → provider별 분기
+  ├── 키 없음:      401 api_key_required (서버 키로 폴백하지 않음)
+  └── BYOK:         X-User-Api-Key + X-Provider 헤더 → provider별 분기
         ├── anthropic → Claude API 직접 전달
         ├── google    → Gemini generateContent API (요청/응답 형식 정규화)
         └── openai    → ChatCompletions API (요청/응답 형식 정규화)
@@ -239,7 +238,7 @@ Vercel Edge Function 프록시 (api/v1/messages.ts)
 | Document Smart Paste | 자유 텍스트 → Section[] 구조화 (document 타입) |
 | 섹션별 Smart Paste | 각 섹션 타입에 맞는 텍스트 파싱 (env=KEY=VALUE, urls=URL추출 등) |
 | 콘텐츠 요약 | 카드 내용 → 핵심 요약 + 키포인트 |
-| 잔여 횟수 표시 | SmartPaste/요약 패널 상단 배너 — 공유 키 모드에서 오늘 남은 횟수 + 진행 바 |
+| API 키 안내 | SmartPaste/요약 패널 상단 배너 — 키 미입력 시 설정 > AI 탭 바로가기 |
 
 ---
 
@@ -279,6 +278,15 @@ Vercel Edge Function 프록시 (api/v1/messages.ts)
 
 > 원본 단일 소스는 `src/features/onboarding/release-notes.ts` 이며, 앱 안 공지사항 모달이 같은 데이터를 사용한다.
 > 이 절은 그 사본이므로 새 버전을 낼 때 함께 갱신한다(`verify.sh` Spec 13이 최신 버전 누락을 검사한다).
+
+### v2.3.0 (2026-11-17)
+
+**AI 기능은 본인 API 키로 사용합니다**
+- Smart Paste·요약은 설정 → AI에서 본인 API 키(Anthropic·Google·OpenAI)를 입력해야 동작
+- 공용 키(하루 20회 무료) 제공 종료
+- 키를 입력하지 않으면 AI 패널에 키 입력 바로가기 표시
+- 키는 이번 세션에만 보관 — 새로고침 후 다시 입력
+- AI 없이도 카드·폴더·검색·내보내기는 그대로 사용 가능
 
 ### v2.2.2 (2026-09-10)
 
